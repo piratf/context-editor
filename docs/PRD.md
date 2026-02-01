@@ -22,54 +22,199 @@ Context Editor 是一款专为 Claude Code 打造的集成配置管理插件。�
 ## 3. 技术栈 (Technical Stack)
 
 - **核心框架**: VS Code Extension API
-- **开发语言**: TypeScript
-- **配置解析**: jsonc-parser (处理带注释的 JSON), fs-extra (增强型文件系统操作)
-- **开源协议**: MPL 2.0 (保护核心源码，允许生态集成)
+- **开发语言**: TypeScript (严格模式)
+- **配置解析**: 原生 fs/promises, JSON 解析
+- **开源协议**: MPL 2.0
 
-## 4. 静态检查方案 (Static Analysis)
+## 4. 项目架构 (Architecture)
 
-为了保证插件在处理用户敏感路径和复杂 JSON 时的稳定性，必须配置以下检查方案：
+### A. 目录结构
+
+```
+context-editor/
+├── src/
+│   ├── extension.ts              # 扩展入口点，注册视图和命令
+│   ├── views/
+│   │   ├── globalProvider.ts     # Global Persona 视图提供者
+│   │   └── projectProvider.ts    # Project Registry 视图提供者
+│   ├── services/
+│   │   └── claudeConfigReader.ts # Claude 配置文件读取器
+│   ├── types/
+│   │   └── claudeConfig.ts       # TypeScript 类型定义
+│   └── test/                     # 测试文件
+├── package.json                  # 扩展清单
+├── tsconfig.json                 # TypeScript 配置
+├── eslint.config.mjs             # ESLint 配置
+└── .vscode/
+    ├── launch.json               # 调试配置
+    └── settings.json             # VS Code 设置
+```
+
+### B. 双视图架构
+
+#### Global Persona (contextEditorGlobal)
+- **功能**：显示全局 Claude 配置
+- **内容**：
+  - `~/.claude.json` - 全局配置文件
+  - `~/.claude/` - 目录树结构
+- **TreeDataProvider**: `GlobalProvider`
+
+#### Project Registry (contextEditorProjects)
+- **功能**：显示已注册的项目
+- **内容**：
+  - 所有从 `~/.claude.json` 解析的项目
+  - 每个项目的 CLAUDE.md 和配置文件
+- **TreeDataProvider**: `ProjectProvider`
+
+### C. 核心模块说明
+
+#### GlobalProvider
+```typescript
+class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode>
+```
+- 读取 `~/.claude.json` 文件
+- 递归扫描 `~/.claude/` 目录
+- 支持点击打开文件
+
+#### ProjectProvider
+```typescript
+class ProjectProvider implements vscode.TreeDataProvider<TreeNode>
+```
+- 解析 `~/.claude.json` 中的项目
+- 检查每个项目的 CLAUDE.md 和配置文件
+- 支持多种配置格式
+
+#### ClaudeConfigReader
+```typescript
+class ClaudeConfigReader
+```
+- 读取 `~/.claude.json` 配置
+- 支持多种项目格式
+- 缓存配置以提高性能
+
+## 5. 静态检查方案 (Static Analysis)
 
 ### A. ESLint 配置
-重点拦截潜在的路径拼接风险与异步文件操作错误：
-- 使用 `eslint-plugin-node` 确保路径操作遵循跨平台规范。
-- 强制要求对所有的 fs 异步操作进行 try-catch 包装，防止因权限不足导致插件崩溃。
+- 使用 `typescript-eslint` 严格规则
+- 启用 `no-unsafe-*` 规则
+- 强制类型检查
 
 ### B. TypeScript 严格模式
-- 开启 `strict: true`，确保在解析 `.claude.json` 这种动态数据源时，对 `undefined` 和 `null` 进行充分检查。
-- 定义严格的 `ClaudeConfig` 接口模型，对不同版本的 Claude CLI 配置文件进行模式匹配。
+- `strict: true` - 启用所有严格类型检查
+- `noUncheckedIndexedAccess: true` - 索引访问严格检查
+- 自定义类型定义确保类型安全
 
-### C. JSON Schema 校验
-集成官方的 `.claude/settings.json` Schema，在用户通过插件编辑配置时，实时检测格式是否合法。
+### C. Git Hooks
+- **pre-commit**: lint-staged (ESLint + Prettier)
+- **pre-push**: 运行测试 (可跳过: `SKIP_TESTS=1 git push`)
 
-## 5. 调试指南 (Debugging Guide)
+## 6. 调试指南 (Debugging Guide)
 
 ### A. 开发环境启动
-1. 在 VS Code 中打开项目，按 **F5** 启动 Extension Development Host。
-2. 插件会自动加载。此时可以在新窗口中观察侧边栏图标是否出现。
 
-### B. 核心逻辑调试点
-**全局索引解析**：
-- 观察 Output 控制台输出的日志，确认 `os.homedir()` 路径获取是否正确。
-- 断点检查 `projects` 数组是否能正确解析 `.claude.json` 中的键值对。
+1. **F5 启动**
+   - 在 VS Code 中按 F5 启动 Extension Development Host
+   - 新窗口会自动加载扩展
 
-**虚拟文件树渲染**：
-- 检查 `TreeDataProvider` 的 `getChildren` 方法，验证在非 Workspace 路径下的文件是否能被正确读取。
+2. **命令行启动**
+   ```bash
+   # 启用扩展调试
+   code --inspect-extensions=9222 --new-window .
 
-**文件打开逻辑**：
-- 测试点击侧边栏节点时，`vscode.workspace.openTextDocument` 是否能跨磁盘路径呼起编辑器。
+   # 启动扩展开发主机
+   code --new-window --extensionDevelopmentPath=$(pwd) .
+   ```
 
-### C. 模拟环境测试
-建议在测试机上手动创建一个 `.claude.json` 样板文件，包含 2-3 个不存在的路径和 1 个真实路径，测试插件的错误处理与容错能力。
+### B. 验证扩展状态
 
-## 6. SEO 推广与仓库配置
+```bash
+# 1. 检查扩展安装
+code --list-extensions | grep context-editor
+
+# 2. 查看扩展日志
+find ~/.vscode-server/data/logs -name "*Context Editor.log"
+
+# 3. 检查进程状态
+ps aux | grep extensionHost
+
+# 4. 验证视图配置
+cat ~/.vscode-server/extensions/piratf.context-editor*/package.json | grep -A 20 views
+```
+
+### C. 常见问题排查
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 扩展未激活 | activationEvents 配置错误 | 检查 package.json |
+| 视图不显示 | 视图 ID 不匹配 | 确保 package.json 和 extension.ts 一致 |
+| "no data provider" | TreeDataProvider 未注册 | 检查 registerTreeDataProvider 调用 |
+| WSL2 测试失败 | 缺少 GUI 库 | 使用 SKIP_TESTS=1 git push |
+
+### D. 使用调试 Skill
+
+项目包含 `vscode-extension-debug` skill，包含完整的调试命令和问题排查指南。
+
+## 7. 开发进展 (Development Progress)
+
+### 已完成 (Completed)
+
+- [x] 项目初始化 (TypeScript + ESLint + 测试)
+- [x] 基础类型定义 (ClaudeConfig 接口)
+- [x] ClaudeConfigReader (支持多种配置格式)
+- [x] ProjectProvider (项目注册视图)
+- [x] GlobalProvider (全局配置视图)
+- [x] 双视图 UI 实现
+- [x] 文件打开功能
+- [x] 刷新命令
+- [x] Debug Output 面板
+- [x] 测试基础设施
+- [x] Git Hooks 配置
+- [x] GitHub Actions CI
+
+### 最新提交 (Latest Commits)
+
+```
+e7ac997 feat: implement dual-panel UI for Context Editor
+9b9927d fix: revert package.json to single view for critical bug fix
+a92266b fix: improve project discovery and add debug output
+8b4b643 feat: configure pre-commit and pre-push hooks
+365c9eb feat: add VS Code extension test infrastructure
+```
+
+### 待实现 (Pending)
+
+- [ ] MCP 服务器配置可视化
+- [ ] 权限管理 UI
+- [ ] 指令继承链可视化
+- [ ] 配置文件编辑器
+- [ ] JSON Schema 校验集成
+
+## 8. SEO 推广与仓库配置
 
 - **GitHub Description**: Dedicated visual editor for Claude Code. Orchestrate nested CLAUDE.md trees, MCP servers, and global project settings in a unified VS Code sidebar.
-- **License**: MPL-2.0 (在 GitHub 创建时选定)
+- **License**: MPL-2.0
 - **Topics**: claude-code, mcp-protocol, instruction-hierarchy, vscode-extension, anthropic
+- **Repository**: https://github.com/piratf/context-editor
 
-## 7. MVP 开发第一步 (Code Skeleton)
+## 9. 更新日志 (Changelog)
 
-您的核心任务是实现 `ProjectProvider.ts`：
-- 该类需要继承 `vscode.TreeDataProvider`
-- 核心逻辑是读取 `~/.claude.json` 并将其 `projects` 字段转化为树形节点。
+### Version 0.0.1 (当前)
+
+**新增功能**:
+- 双视图 UI (Global Persona + Project Registry)
+- 自动发现 Claude 项目
+- 配置文件树形展示
+- 点击打开文件功能
+- Debug Output 面板
+
+**技术实现**:
+- TypeScript 严格模式
+- ESLint 静态检查
+- Git Hooks 自动化
+- GitHub Actions CI
+
+---
+
+**文档版本**: v2.0
+**最后更新**: 2025-02-01
+**维护者**: piratf
