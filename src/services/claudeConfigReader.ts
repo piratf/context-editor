@@ -6,13 +6,32 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
-import type {
-  ClaudeConfig,
-  ClaudeProjectEntry,
-} from "../types/claudeConfig.js";
+import * as vscode from "vscode";
+import type { ClaudeConfig, ClaudeProjectEntry } from "../types/claudeConfig.js";
 
 // Re-export ClaudeProjectEntry for use in other modules
 export type { ClaudeProjectEntry };
+
+/**
+ * Debug output channel for logging.
+ */
+let debugOutput: vscode.OutputChannel | null = null;
+
+/**
+ * Set the debug output channel for logging.
+ */
+export function setDebugOutput(channel: vscode.OutputChannel): void {
+  debugOutput = channel;
+}
+
+/**
+ * Log a debug message if debug output is available.
+ */
+function debugLog(message: string): void {
+  if (debugOutput !== null) {
+    debugOutput.appendLine(`[ClaudeConfigReader] ${message}`);
+  }
+}
 
 /**
  * Error types for configuration reading operations.
@@ -31,7 +50,7 @@ export class ConfigError extends Error {
   constructor(
     public readonly type: ConfigErrorType,
     message: string,
-    public readonly cause?: unknown,
+    public readonly cause?: unknown
   ) {
     super(message);
     this.name = "ConfigError";
@@ -83,11 +102,11 @@ export class ClaudeConfigReader {
   async readConfig(): Promise<ClaudeConfigWithProjects> {
     const now = Date.now();
 
+    debugLog(`Reading config from: ${this.configPath}`);
+
     // Return cached config if still valid
-    if (
-      this.cachedConfig !== null &&
-      now - this.cacheTimestamp < this.CACHE_TTL_MS
-    ) {
+    if (this.cachedConfig !== null && now - this.cacheTimestamp < this.CACHE_TTL_MS) {
+      debugLog("Using cached config");
       return this.normalizeProjects(this.cachedConfig);
     }
 
@@ -99,11 +118,15 @@ export class ClaudeConfigReader {
       this.cachedConfig = config;
       this.cacheTimestamp = now;
 
-      return this.normalizeProjects(config);
+      const result = this.normalizeProjects(config);
+      debugLog(`Found ${String(result.projects.length)} project(s)`);
+
+      return result;
     } catch (error) {
       // Clear cache on error
       this.cachedConfig = null;
       this.cacheTimestamp = 0;
+      debugLog(`Error reading config: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -133,21 +156,21 @@ export class ClaudeConfigReader {
           throw new ConfigError(
             ConfigErrorType.FILE_NOT_FOUND,
             `Configuration file not found: ${this.configPath}`,
-            error,
+            error
           );
         }
         if (error.code === "EACCES" || error.code === "EPERM") {
           throw new ConfigError(
             ConfigErrorType.ACCESS_DENIED,
             `Permission denied reading configuration file: ${this.configPath}`,
-            error,
+            error
           );
         }
       }
       throw new ConfigError(
         ConfigErrorType.ACCESS_DENIED,
         `Failed to read configuration file: ${this.configPath}`,
-        error,
+        error
       );
     }
   }
@@ -173,13 +196,13 @@ export class ClaudeConfigReader {
         throw new ConfigError(
           ConfigErrorType.PARSE_ERROR,
           `Invalid JSON in configuration file: ${this.configPath}`,
-          error,
+          error
         );
       }
       throw new ConfigError(
         ConfigErrorType.PARSE_ERROR,
         `Failed to parse configuration file: ${this.configPath}`,
-        error,
+        error
       );
     }
   }
@@ -216,7 +239,7 @@ export class ClaudeConfigReader {
       throw new ConfigError(
         ConfigErrorType.INVALID_PATH,
         `Invalid configuration path: ${this.configPath}`,
-        error,
+        error
       );
     }
   }
@@ -242,26 +265,48 @@ export class ClaudeConfigReader {
           entry !== null &&
           typeof entry === "object" &&
           "path" in entry &&
-          typeof (entry as { path: unknown }).path === "string",
+          typeof (entry as { path: unknown }).path === "string"
       );
       return { config, projects: validProjects };
     }
 
     // Handle record format: { "project-name": { path: "...", state: {...} } }
+    // OR: { "/absolute/path": { mcpServers: {...} } } where key IS the path
     if (typeof projects === "object") {
+      debugLog(
+        `Processing projects as object format with ${String(Object.keys(projects).length)} entries`
+      );
       const projectEntries: ClaudeProjectEntry[] = [];
-      for (const [_key, entry] of Object.entries(projects)) {
-        const entryObj = entry as null | { path?: string };
-        if (
-          entryObj !== null &&
-          typeof entryObj.path === "string"
-        ) {
-          projectEntries.push({ path: entryObj.path });
+      for (const [key, entry] of Object.entries(projects)) {
+        const entryObj = entry as unknown;
+
+        // Skip null entries
+        if (entryObj === null) {
+          debugLog(`Skipping null entry for key: ${key}`);
+          continue;
+        }
+
+        const entryRecord = entryObj as Record<string, unknown>;
+
+        // Try to get path from entry object first
+        if ("path" in entryRecord && typeof entryRecord.path === "string") {
+          debugLog(`Found project from entry.path: ${entryRecord.path}`);
+          projectEntries.push({ path: entryRecord.path });
+          continue;
+        }
+
+        // If no path in entry, check if the key itself is a path (starts with / or ~)
+        // This handles the format: { "/Users/xxx/project": { mcpServers: {...} } }
+        if (typeof key === "string" && (key.startsWith("/") || key.startsWith("~"))) {
+          debugLog(`Found project from key (path-like): ${key}`);
+          projectEntries.push({ path: key, state: entryRecord });
         }
       }
+      debugLog(`Normalized ${String(projectEntries.length)} project(s) from object format`);
       return { config, projects: projectEntries };
     }
 
+    debugLog("Projects format not recognized (not array or object)");
     return { config, projects: [] };
   }
 
