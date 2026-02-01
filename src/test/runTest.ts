@@ -16,10 +16,18 @@ async function main(): Promise<void> {
     // Passed to --extensionTestsPath
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
+    // The path to the test workspace
+    // You can point this to a folder that contains some test files
+    const testWorkspace = path.resolve(__dirname, "../../");
+
     // Download VS Code, unzip it and run the integration test
-    await runTests({ extensionDevelopmentPath, extensionTestsPath });
-  } catch (_err) {
-    console.error("Failed to run tests");
+    await runTests({
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      launchArgs: [testWorkspace],
+    });
+  } catch (err) {
+    console.error("Failed to run tests:", err);
     process.exit(1);
   }
 }

@@ -80,9 +80,18 @@ export class ClaudeConfigReader {
   private cachedConfig: ClaudeConfig | null = null;
   private cacheTimestamp: number = 0;
   private readonly CACHE_TTL_MS = 5000; // Cache for 5 seconds
+  private readFileFn: (path: string, encoding: "utf-8") => Promise<string>;
 
   constructor(configPath?: string) {
     this.configPath = configPath ?? path.join(os.homedir(), ".claude.json");
+    this.readFileFn = fs.readFile;
+  }
+
+  /**
+   * For testing purposes: inject a custom file reader.
+   */
+  setFileReader(fn: (path: string, encoding: "utf-8") => Promise<string>): void {
+    this.readFileFn = fn;
   }
 
   /**
@@ -149,7 +158,7 @@ export class ClaudeConfigReader {
   private async readConfigFile(): Promise<string> {
     try {
       const absolutePath = this.resolveConfigPath();
-      return await fs.readFile(absolutePath, "utf-8");
+      return await this.readFileFn(absolutePath, "utf-8");
     } catch (error) {
       if (this.isNodeError(error)) {
         if (error.code === "ENOENT") {

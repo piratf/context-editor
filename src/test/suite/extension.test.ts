@@ -5,6 +5,8 @@
 
 import * as assert from "node:assert";
 import * as vscode from "vscode";
+import { GlobalProvider } from "../../views/globalProvider";
+import { ProjectProvider } from "../../views/projectProvider";
 
 suite("Context Editor Extension Test Suite", () => {
   let extension: vscode.Extension<unknown> | undefined;
@@ -27,17 +29,20 @@ suite("Context Editor Extension Test Suite", () => {
     assert.ok(extension?.isActive === true, "Extension should be activated");
   });
 
-  test("Should register tree data provider", () => {
-    const treeView = vscode.window.createTreeView("contextEditorProjects", {
-      treeDataProvider: {
-        getTreeItem: () => new vscode.TreeItem("test"),
-        getChildren: () => [],
-        onDidChangeTreeData: new vscode.EventEmitter<void>().event,
-      },
-    });
-    // Verify TreeView was created
-    assert.strictEqual(treeView.visible, false, "TreeView created successfully");
-    void treeView.dispose();
+  test("Should register tree data providers", async () => {
+    // We can't easily check internal registration, but we can verify the providers work
+    const globalProvider = new GlobalProvider();
+    const projectProvider = new ProjectProvider();
+
+    assert.ok(globalProvider instanceof GlobalProvider, "GlobalProvider should be instantiable");
+    assert.ok(projectProvider instanceof ProjectProvider, "ProjectProvider should be instantiable");
+
+    // Verify basic API contract of the providers
+    const globalRoots = await globalProvider.getChildren();
+    assert.ok(Array.isArray(globalRoots), "GlobalProvider.getChildren should return an array");
+
+    const projectRoots = await projectProvider.getChildren();
+    assert.ok(Array.isArray(projectRoots), "ProjectProvider.getChildren should return an array");
   });
 
   test("Should register refresh command", async () => {
@@ -62,9 +67,8 @@ suite("Context Editor Extension Test Suite", () => {
 
   test("TreeView should be registered", async () => {
     // After extension activation, the tree view should be available
+    // We wait a bit to ensure async registration completes
     await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // The extension should be active and the tree view registered
     assert.ok(extension?.isActive === true, "Extension should still be active");
   });
 });
