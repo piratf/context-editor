@@ -48,8 +48,12 @@
     "views": {
       "contextEditorContainer": [
         {
+          "id": "contextEditorGlobal",
+          "name": "Global Persona"
+        },
+        {
           "id": "contextEditorProjects",
-          "name": "Projects"
+          "name": "Project Registry"
         }
       ]
     },
@@ -57,7 +61,7 @@
       "view/title": [
         {
           "command": "contextEditor.refresh",
-          "when": "view == contextEditorProjects",
+          "when": "view == contextEditorGlobal || view == contextEditorProjects",
           "group": "navigation"
         }
       ]

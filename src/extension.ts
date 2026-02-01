@@ -6,6 +6,7 @@
 import * as vscode from "vscode";
 import * as os from "node:os";
 import { ProjectProvider } from "./views/projectProvider.js";
+import { GlobalProvider } from "./views/globalProvider.js";
 import { setDebugOutput } from "./services/claudeConfigReader.js";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -22,12 +23,19 @@ export function activate(context: vscode.ExtensionContext): void {
   debugOutput.appendLine("Context Editor extension activated");
   debugOutput.appendLine(`Config path: ${os.homedir()}/.claude.json`);
 
-  // Create and register the tree data provider
+  // Create and register the tree data providers
+  const globalProvider = new GlobalProvider();
   const projectProvider = new ProjectProvider();
+
+  // Register Global Persona view
+  vscode.window.registerTreeDataProvider("contextEditorGlobal", globalProvider);
+
+  // Register Project Registry view
   vscode.window.registerTreeDataProvider("contextEditorProjects", projectProvider);
 
-  // Register the refresh command
+  // Register the refresh command (refreshes both views)
   const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", () => {
+    globalProvider.refresh();
     projectProvider.refresh();
   });
 
