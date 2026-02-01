@@ -1,0 +1,40 @@
+# Node modules
+node_modules/
+
+# Build output
+out/
+dist/
+
+# VS Code
+.vscode-test/
+*.vsix
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude
+.claude/
+.beads/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Test coverage
+coverage/
+.nyc_output/
