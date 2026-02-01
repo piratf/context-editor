@@ -29,6 +29,11 @@
         "command": "contextEditor.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "contextEditor.showDebugOutput",
+        "title": "Show Debug Output",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
