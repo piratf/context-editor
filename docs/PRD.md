@@ -150,9 +150,93 @@ cat ~/.vscode-server/extensions/piratf.context-editor*/package.json | grep -A 20
 | "no data provider" | TreeDataProvider 未注册 | 检查 registerTreeDataProvider 调用 |
 | WSL2 测试失败 | 缺少 GUI 库 | 使用 SKIP_TESTS=1 git push |
 
-### D. 使用调试 Skill
+### D. 调试端口 Inspector 能力
 
-项目包含 `vscode-extension-debug` skill，包含完整的调试命令和问题排查指南。
+Extension Host 通过 Chrome DevTools Protocol 暴露强大的调试接口。
+
+#### HTTP 端点
+
+| 端点 | 返回信息 |
+|------|----------|
+| `/json` | 进程信息、WebSocket URL、DevTools URL |
+| `/json/version` | Node.js 版本、协议版本 |
+| `/json/protocol` | 完整协议 (90KB+) |
+
+#### 12 个调试域
+
+| 域 | 功能 | 主要命令 |
+|---|------|----------|
+| **Runtime** | 运行时操作 | `evaluate`, `getProperties`, `globalLexicalScopeNames` |
+| **Debugger** | 断点调试 | `setBreakpoint`, `stepInto/Over/Out`, `getScriptSource` |
+| **HeapProfiler** | 内存分析 | `takeHeapSnapshot`, `collectGarbage`, `getHeapSnapshot` |
+| **Profiler** | CPU 性能 | `start`, `stop`, `getProfilerReport` |
+| **Console** | 控制台 | `enable`, `disable`, `clearMessages` |
+| **Network** | 网络监控 | `getResponseBody` |
+| **NodeRuntime** | Node.js 特定 | `awaitPromise`, `notifyWhenWaitingForDebugger` |
+| **NodeWorker** | Worker 管理 | `sendMessageToWorker`, `enable`, `detach` |
+| **NodeTracing** | 追踪 | `getCategories`, `start`, `stop` |
+| **Target** | 目标管理 | `getTargets`, `createTarget`, `closeTarget` |
+| **IO** | 文件系统 | `read`, `resolveBlob` |
+| **Schema** | 类型定义 | `getDomains` |
+
+#### 可获取的信息
+
+1. **进程信息**: PID、Node.js 版本、启动参数、环境变量
+2. **代码信息**: 所有脚本列表、源代码、函数列表、作用域链
+3. **运行时状态**: 变量值、对象属性、内存使用、调用栈
+4. **调试功能**: 设置断点、单步执行、表达式求值
+5. **性能数据**: CPU profile、堆快照、内存统计
+6. **扩展信息**: 已注册扩展、命令、视图配置
+7. **网络监控**: 请求/响应数据
+8. **控制台**: 所有日志输出
+
+#### WebSocket 调用示例
+
+```javascript
+// 获取所有已加载脚本
+{"id":1,"method":"Debugger.getScriptSources"}
+
+// 执行表达式获取环境变量
+{"id":2,"method":"Runtime.evaluate","params":{"expression":"process.env"}}
+
+// 获取内存使用
+{"id":3,"method":"Runtime.evaluate","params":{"expression":"process.memoryUsage()"}}
+
+// 获取堆快照
+{"id":4,"method":"HeapProfiler.takeHeapSnapshot"}
+
+// 设置断点
+{"id":5,"method":"Debugger.setBreakpointByUrl","params":{"lineNumber":10}}
+
+// 获取调用栈
+{"id":6,"method":"Debugger.getStackTrace"}
+```
+
+#### 使用 Chrome DevTools
+
+1. 访问 `chrome://inspect`
+2. 添加 `127.0.0.1:9223` 作为目标
+3. 在 "Remote Target" 中找到 "node.js instance"
+4. 点击 "inspect" 打开 DevTools
+
+#### 快速检查命令
+
+```bash
+# 检查 inspector 状态
+curl http://127.0.0.1:9223/json/version
+curl http://127.0.0.1:9223/json
+
+# 获取进程信息
+curl http://127.0.0.1:9223/json | jq '.[0] | {title, type}'
+```
+
+### E. 使用调试 Skill
+
+项目包含 `vscode-extension-debug` skill，包含：
+- 完整的调试命令和问题排查指南
+- 调试端口 Inspector 能力详细说明
+- Chrome DevTools 连接步骤
+- WebSocket 调用示例
 
 ## 7. 开发进展 (Development Progress)
 
