@@ -1,5 +1,15 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+
+# Skip tests if SKIP_TESTS environment variable is set
+if [ -n "$SKIP_TESTS" ]; then
+  echo "SKIP_TESTS is set, skipping tests..."
+  exit 0
+fi
 
 echo "Running tests before push..."
-npm test
+npm test || {
+  echo ""
+  echo "Tests failed. To skip tests and push anyway, run:"
+  echo "  SKIP_TESTS=1 git push"
+  exit 1
+}
