@@ -13,6 +13,7 @@ import * as vscode from "vscode";
 import { ProjectProvider } from "./views/projectProvider.js";
 import { GlobalProvider } from "./views/globalProvider.js";
 import { setDebugOutput } from "./services/claudeConfigReader.js";
+import { setFileAccessDebugOutput } from "./services/fileAccessService.js";
 import { EnvironmentDetector, type Environment } from "./services/environmentDetector.js";
 import { EnvironmentStateManager } from "./services/environmentStateManager.js";
 
@@ -28,8 +29,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const debugOutput = vscode.window.createOutputChannel("Context Editor");
   context.subscriptions.push(debugOutput);
 
-  // Set debug output for config reader
+  // Set debug output for config reader and file access service
   setDebugOutput(debugOutput);
+  setFileAccessDebugOutput(debugOutput);
 
   // Detect available environments
   const detector = new EnvironmentDetector();
