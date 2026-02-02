@@ -1,0 +1,114 @@
+{
+  "name": "context-editor",
+  "displayName": "Context Editor",
+  "description": "Dedicated visual editor for Claude Code. Orchestrate nested CLAUDE.md trees, MCP servers, and global project settings in a unified VS Code sidebar.",
+  "version": "0.0.2",
+  "publisher": "piratf",
+  "license": "MPL-2.0",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude-code",
+    "mcp-protocol",
+    "instruction-hierarchy",
+    "anthropic",
+    "context",
+    "ai"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextEditor.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "contextEditor.showDebugOutput",
+        "title": "Show Debug Output",
+        "category": "Context Editor"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "contextEditorContainer",
+          "title": "Context Editor",
+          "icon": "$(home)"
+        }
+      ]
+    },
+    "views": {
+      "contextEditorContainer": [
+        {
+          "id": "contextEditorGlobal",
+          "name": "Global Persona"
+        },
+        {
+          "id": "contextEditorProjects",
+          "name": "Project Registry"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "contextEditor.refresh",
+          "when": "view == contextEditorGlobal || view == contextEditorProjects",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "test": "node ./out/test/runTest.js",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.5",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.17.0",
+    "eslint-plugin-node": "^5.2.1",
+    "glob": "^13.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "mocha": "^11.7.5",
+    "prettier": "^3.8.1",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/piratf/context-editor"
+  },
+  "bugs": {
+    "url": "https://github.com/piratf/context-editor/issues"
+  },
+  "homepage": "https://github.com/piratf/context-editor#readme",
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
