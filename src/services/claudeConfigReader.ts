@@ -409,17 +409,24 @@ export class ClaudeConfigReader {
    * @returns WSL internal path (/path)
    */
   private convertWslNetworkPathToInternal(wslNetworkPath: string): string {
-    // Replace backslashes with forward slashes
-    let path = wslNetworkPath.replace(/\\/g, "/");
+    // Examples:
+    // \\wsl.localhost\Ubuntu-24.04\home\user\.claude.json -> /home/user/.claude.json
+    // \\wsl$\Ubuntu-24.04\home\user\.claude.json -> /home/user/.claude.json
 
-    // Remove the \\wsl.localhost\ or \\wsl$\ prefix
-    path = path.replace(/^\\\\wsl\.localhost\\[^\\]+/, "");
-    path = path.replace(/^\\\\wsl\$\\[^\\]+/, "");
+    // Split by backslash and filter out empty parts
+    const parts = wslNetworkPath.split("\\").filter((p) => p.length > 0);
 
-    // Convert Windows drive letters if present (e.g., /mnt/c/...)
-    // But typically WSL home paths don't have drive letters
+    // Expected format: ["wsl$", "Ubuntu-24.04", "home", "user", ".claude.json"]
+    // or: ["wsl.localhost", "Ubuntu-24.04", "home", "user", ".claude.json"]
 
-    return path;
+    // Remove the first two parts (wsl$ or wsl.localhost, and distro name)
+    if (parts.length >= 3 && (parts[0] === "wsl$" || parts[0] === "wsl.localhost")) {
+      // Join the remaining parts with forward slash
+      return "/" + parts.slice(2).join("/");
+    }
+
+    // Fallback: just replace backslashes with forward slashes
+    return wslNetworkPath.replace(/\\/g, "/");
   }
 }
 
