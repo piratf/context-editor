@@ -97,8 +97,9 @@ export class FileAccessService {
    * Set the WSL distro name (for when accessing WSL from Windows).
    */
   setWslDistro(distro: string | null): void {
+    const oldValue = this.wslDistro;
     this.wslDistro = distro;
-    debugLog(`WSL distro set to: ${distro !== null && distro.length > 0 ? distro : "none"}`);
+    debugLog(`WSL distro set: ${oldValue !== null && oldValue.length > 0 ? oldValue : "null"} -> ${distro !== null && distro.length > 0 ? distro : "null"}`);
   }
 
   /**
@@ -211,14 +212,17 @@ export class FileAccessService {
     }
 
     // If we're on Windows and have a WSL internal path
-    if (this.currentPlatform === "windows" && pathType === PathType.WSL_UNC) {
+    if (this.currentPlatform === "windows" && (pathType === PathType.UNIX_ABSOLUTE || pathType === PathType.WSL_INTERNAL)) {
       // Check if this looks like a WSL path (starts with /home/, /mnt/, /root/)
       if (filePath.startsWith("/home/") || filePath.startsWith("/mnt/") || filePath.startsWith("/root/")) {
+        debugLog(`  -> potential WSL path detected, this.wslDistro=${this.wslDistro !== null ? this.wslDistro : "null"}`);
         if (this.wslDistro !== null) {
           // Convert to Windows UNC path
           const windowsPath = "\\\\wsl$\\" + this.wslDistro + filePath.replace(/\//g, "\\");
           debugLog(`  -> converted to Windows UNC: ${windowsPath}`);
           return windowsPath;
+        } else {
+          debugLog(`  -> skipping conversion (no distro set)`);
         }
       }
     }
@@ -237,6 +241,7 @@ export class FileAccessService {
     const accessPath = pathInfo.normalizedPath;
 
     debugLog(`statFile: ${filePath}`);
+    debugLog(`  this.wslDistro=${this.wslDistro !== null ? this.wslDistro : "null"}`);
     debugLog(`  detected type: ${pathInfo.type}`);
     debugLog(`  isWslPath: ${pathInfo.isWslPath ? "true" : "false"}`);
     debugLog(`  access path: ${accessPath}`);

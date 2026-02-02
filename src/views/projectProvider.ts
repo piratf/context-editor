@@ -81,6 +81,18 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     // Use FileAccessService to detect the path type and extract distro
     const pathInfo = this.fileAccessService.detectPathType(configPath);
 
+    // Debug logging
+    const fs = require("node:fs/promises");
+    void fs.appendFile(
+      "/tmp/context-editor-debug.txt",
+      `\n[${new Date().toISOString()}] detectEnvironmentFromConfigPath:\n` +
+      `  configPath: ${configPath}\n` +
+      `  pathInfo.type: ${String(pathInfo.type)}\n` +
+      `  pathInfo.isWslPath: ${String(pathInfo.isWslPath)}\n` +
+      `  pathInfo.wslDistro: ${pathInfo.wslDistro}\n` +
+      `  this.wslDistro: ${this.fileAccessService.getWslDistro()}\n`
+    ).catch(() => {});
+
     if (pathInfo.isWslPath && pathInfo.wslDistro !== null) {
       // We're accessing WSL from Windows - set the distro for path conversion
       this.fileAccessService.setWslDistro(pathInfo.wslDistro);
