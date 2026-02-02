@@ -10,6 +10,9 @@ import { GlobalProvider } from "./views/globalProvider.js";
 import { setDebugOutput } from "./services/claudeConfigReader.js";
 import { EnvironmentDetector, type Environment } from "./services/environmentDetector.js";
 
+// Global refresh event emitter
+const refreshEventEmitter = new vscode.EventEmitter<void>();
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log("Context Editor extension is now active!");
 
@@ -37,14 +40,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerMultiEnvironments(context, environments, debugOutput);
   }
 
-  // Register shared commands (including refresh command)
+  // Register shared commands (including global refresh command)
   registerSharedCommands(context, debugOutput);
-
-  // Register refresh command that works for all views
-  const refreshAllCommand = vscode.commands.registerCommand("contextEditor.refresh", () => {
-    vscode.commands.executeCommand("workbench.action.reloadWindow");
-  });
-  context.subscriptions.push(refreshAllCommand);
 }
 
 /**
@@ -68,12 +65,12 @@ function registerSingleEnvironment(
   vscode.window.registerTreeDataProvider("contextEditorPrimaryGlobal", globalProvider);
   vscode.window.registerTreeDataProvider("contextEditorPrimaryProjects", projectProvider);
 
-  // Register refresh command for this environment
-  const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", () => {
+  // Subscribe providers to refresh event
+  const refreshSubscription = refreshEventEmitter.event(() => {
     globalProvider.refresh();
     projectProvider.refresh();
   });
-  context.subscriptions.push(refreshCommand);
+  context.subscriptions.push(refreshSubscription);
 }
 
 /**
@@ -106,12 +103,12 @@ function registerMultiEnvironments(
     vscode.window.registerTreeDataProvider(`${viewPrefix}Global`, globalProvider);
     vscode.window.registerTreeDataProvider(`${viewPrefix}Projects`, projectProvider);
 
-    // Register refresh command for this environment
-    const refreshCommand = vscode.commands.registerCommand(`${viewPrefix}.refresh`, () => {
+    // Subscribe providers to refresh event
+    const refreshSubscription = refreshEventEmitter.event(() => {
       globalProvider.refresh();
       projectProvider.refresh();
     });
-    context.subscriptions.push(refreshCommand);
+    context.subscriptions.push(refreshSubscription);
   }
 }
 
@@ -127,6 +124,12 @@ function registerSharedCommands(
     debugOutput.show();
   });
   context.subscriptions.push(showDebugCommand);
+
+  // Global refresh command - triggers all subscribed providers to refresh
+  const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", () => {
+    refreshEventEmitter.fire();
+  });
+  context.subscriptions.push(refreshCommand);
 
   // Open file command
   const openFileCommand = vscode.commands.registerCommand(

@@ -1,43 +1,14 @@
 {
-  // TypeScript
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
-
-  // ESLint
-  "eslint.enable": true,
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
-  "editor.formatOnSave": false,
-
-  // Files
-  "files.exclude": {
-    "**/.git": true,
-    "**/.DS_Store": true,
-    "**/node_modules": true,
-    "**/out": true,
-    "**/.vscode-test": true
-  },
   "files.watcherExclude": {
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
     "**/node_modules/**": true,
     "**/out/**": true,
-    "**/.vscode-test/**": true
-  },
-
-  // Beads
-  "files.exclude": {
-    "**/.beads": true
-  },
-
-  // Search
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/out": true,
-    "**/.vscode-test": true
+    "**/dist/**": true,
+    "**/.vscode-test/**": true,
+    "**/.vscode-test-workspace/**": true,
+    "**/.vscode-user-data-dir/**": true,
+    "**/.yarn/**": true
   }
 }
