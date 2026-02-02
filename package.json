@@ -2,7 +2,7 @@
   "name": "context-editor",
   "displayName": "Context Editor",
   "description": "Dedicated visual editor for Claude Code. Orchestrate nested CLAUDE.md trees, MCP servers, and global project settings in a unified VS Code sidebar.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "piratf",
   "license": "MPL-2.0",
   "icon": "resources/icon.png",
