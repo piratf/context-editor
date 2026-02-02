@@ -214,8 +214,20 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   private async getProjectChildren(projectPath: string): Promise<TreeNode[]> {
     const children: TreeNode[] = [];
 
+    // Helper function to join paths - handles WSL paths correctly
+    const joinPath = (base: string, segment: string): string => {
+      // For WSL paths (start with /), use forward slash joining
+      if (base.startsWith("/")) {
+        // Remove trailing slash from base if present, then join with /
+        const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+        return cleanBase + "/" + segment;
+      }
+      // For Windows paths, use path.join
+      return path.join(base, segment);
+    };
+
     // Check for CLAUDE.md in project root
-    const claudeMdPath = path.join(projectPath, "CLAUDE.md");
+    const claudeMdPath = joinPath(projectPath, "CLAUDE.md");
     const hasClaudeMd = await this.fileExists(claudeMdPath);
     if (hasClaudeMd) {
       children.push({
@@ -230,12 +242,12 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     // Check for .claude directory
-    const claudeDirPath = path.join(projectPath, ".claude");
+    const claudeDirPath = joinPath(projectPath, ".claude");
     const hasClaudeDir = await this.directoryExists(claudeDirPath);
 
     if (hasClaudeDir) {
       // Check for .claude/CLAUDE.md
-      const nestedClaudeMdPath = path.join(claudeDirPath, "CLAUDE.md");
+      const nestedClaudeMdPath = joinPath(claudeDirPath, "CLAUDE.md");
       const hasNestedClaudeMd = await this.fileExists(nestedClaudeMdPath);
       if (hasNestedClaudeMd) {
         children.push({
@@ -250,7 +262,7 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       }
 
       // Check for .claude/settings.json
-      const settingsPath = path.join(claudeDirPath, "settings.json");
+      const settingsPath = joinPath(claudeDirPath, "settings.json");
       const hasSettings = await this.fileExists(settingsPath);
       if (hasSettings) {
         children.push({

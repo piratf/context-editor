@@ -211,7 +211,7 @@ export class FileAccessService {
     }
 
     // If we're on Windows and have a WSL internal path
-    if (this.currentPlatform === "windows" && pathType === PathType.UNIX_ABSOLUTE) {
+    if (this.currentPlatform === "windows" && pathType === PathType.WSL_UNC) {
       // Check if this looks like a WSL path (starts with /home/, /mnt/, /root/)
       if (filePath.startsWith("/home/") || filePath.startsWith("/mnt/") || filePath.startsWith("/root/")) {
         if (this.wslDistro !== null) {
