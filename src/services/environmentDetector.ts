@@ -134,59 +134,52 @@ export class EnvironmentDetector {
 
       // Use the first distribution to detect config
       const distro = distros[0].trim();
-
-      // Try to detect WSL config by using wsl command to check file existence
-      // This is more reliable than using Windows network paths
-      try {
-        const username = os.userInfo().username;
-        const wslHomePath = `/home/${username}`;
-        const wslConfigPath = `${wslHomePath}/.claude.json`;
-
-        // Use wsl to check if the config file exists
-        const { stdout: testOutput } = await execAsync(
-          `wsl -d ${distro} -- test -f ${wslConfigPath} && echo "exists" || echo "not_found"`,
-          { timeout: 5000 }
-        );
-
-        if (testOutput.includes("exists")) {
-          // Return with WSL network path format for Windows access
-          // Prefer Windows 11+ format
-          const networkPath = `\\\\wsl.localhost\\${distro}\\${wslConfigPath.replace(/\//g, "\\")}`;
-
-          return {
-            id: "wsl",
-            name: "WSL",
-            configPath: networkPath,
-            type: "wsl",
-            accessible: true,
-          };
-        }
-      } catch {
-        // Fall through to try alternative detection methods
-      }
-
-      // Fallback: try Windows network paths directly
       const username = os.userInfo().username;
-      const paths = [
+      const wslConfigPath = `/home/${username}/.claude.json`;
+
+      // Try both network path formats, starting with legacy format (more compatible)
+      const networkPaths = [
+        // Legacy format (more widely supported)
+        `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json`,
         // Windows 11+ format
         `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json`,
-        // Legacy format
-        `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json`,
       ];
 
-      for (const wslPath of paths) {
-        if (await this.testAccess(wslPath)) {
-          return {
-            id: "wsl",
-            name: "WSL",
-            configPath: wslPath,
-            type: "wsl",
-            accessible: true,
-          };
+      // First, verify the file exists in WSL using wsl command
+      let fileExists = false;
+      try {
+        const { stdout: testOutput } = await execAsync(
+          `wsl -d ${distro} -- test -f ${wslConfigPath}`,
+          { timeout: 5000 }
+        );
+        fileExists = testOutput.trim() === ""; // test -f returns empty on success
+      } catch {
+        // If wsl test fails, try direct network path access
+      }
+
+      if (!fileExists) {
+        // Fallback: check if network paths are directly accessible
+        for (const wslPath of networkPaths) {
+          if (await this.testAccess(wslPath)) {
+            fileExists = true;
+            break;
+          }
         }
       }
 
-      return null;
+      if (!fileExists) {
+        return null;
+      }
+
+      // Return with the first working network path format
+      // Prefer legacy format for better compatibility
+      return {
+        id: "wsl",
+        name: "WSL",
+        configPath: networkPaths[0],
+        type: "wsl",
+        accessible: true,
+      };
     } catch (error) {
       // Log error for debugging but don't throw
       console.error("Failed to detect WSL from Windows:", error);
