@@ -2,6 +2,11 @@
  * Context Editor Extension for VS Code.
  * Provides tree views for managing Claude Code projects and configurations
  * across multiple environments (Windows, WSL, macOS, Linux).
+ *
+ * Features:
+ * - Unified environment switcher with Activity Badge
+ * - Dynamic content switching based on selected environment
+ * - Support for cross-platform environments (Windows + WSL)
  */
 
 import * as vscode from "vscode";
@@ -9,9 +14,12 @@ import { ProjectProvider } from "./views/projectProvider.js";
 import { GlobalProvider } from "./views/globalProvider.js";
 import { setDebugOutput } from "./services/claudeConfigReader.js";
 import { EnvironmentDetector, type Environment } from "./services/environmentDetector.js";
+import { EnvironmentStateManager } from "./services/environmentStateManager.js";
 
-// Global refresh event emitter
-const refreshEventEmitter = new vscode.EventEmitter<void>();
+// Global state
+let environmentState: EnvironmentStateManager;
+let globalProvider: GlobalProvider;
+let projectProvider: ProjectProvider;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log("Context Editor extension is now active!");
@@ -33,90 +41,67 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     debugOutput.appendLine(`  - ${env.name} (${env.configPath})`);
   }
 
-  // Register views based on detected environments
-  if (environments.length === 1) {
-    registerSingleEnvironment(context, environments[0], debugOutput);
-  } else {
-    registerMultiEnvironments(context, environments, debugOutput);
-  }
+  // Initialize environment state manager with the first environment
+  environmentState = new EnvironmentStateManager(environments[0]);
+  context.subscriptions.push(environmentState);
 
-  // Register shared commands (including global refresh command)
-  registerSharedCommands(context, debugOutput);
-}
+  // Set initial context
+  await vscode.commands.executeCommand(
+    "setContext",
+    "contextEditor.currentEnv",
+    environments[0].id
+  );
 
-/**
- * Register views for single environment mode.
- */
-function registerSingleEnvironment(
-  context: vscode.ExtensionContext,
-  env: Environment,
-  debugOutput: vscode.OutputChannel
-): void {
-  debugOutput.appendLine(`Registering single environment mode: ${env.name}`);
+  // Register views (always use the same 2 views, content changes dynamically)
+  registerViews(context, environments[0], debugOutput);
 
-  // Set context for single mode
-  vscode.commands.executeCommand("setContext", "contextEditor.mode", "single");
+  // Register commands
+  registerCommands(context, environments, debugOutput);
 
-  // Create providers
-  const globalProvider = new GlobalProvider(env.configPath, env.name);
-  const projectProvider = new ProjectProvider(env.configPath);
+  // Subscribe to environment changes to update providers
+  context.subscriptions.push(
+    environmentState.onDidChangeEnvironment((newEnv) => {
+      debugOutput.appendLine(`Switching to environment: ${newEnv.name}`);
 
-  // Register views
-  vscode.window.registerTreeDataProvider("contextEditorPrimaryGlobal", globalProvider);
-  vscode.window.registerTreeDataProvider("contextEditorPrimaryProjects", projectProvider);
+      // Update providers with new environment's config path
+      globalProvider.updateConfigPath(newEnv.configPath, newEnv.name);
+      projectProvider.updateConfigPath(newEnv.configPath);
 
-  // Subscribe providers to refresh event
-  const refreshSubscription = refreshEventEmitter.event(() => {
-    globalProvider.refresh();
-    projectProvider.refresh();
-  });
-  context.subscriptions.push(refreshSubscription);
-}
-
-/**
- * Register views for multi-environment mode (Windows + WSL).
- */
-function registerMultiEnvironments(
-  context: vscode.ExtensionContext,
-  environments: Environment[],
-  debugOutput: vscode.OutputChannel
-): void {
-  debugOutput.appendLine("Registering multi-environment mode");
-
-  // Set context for multi mode
-  vscode.commands.executeCommand("setContext", "contextEditor.mode", "multi");
-
-  for (const env of environments) {
-    debugOutput.appendLine(`  Registering ${env.name} view`);
-
-    // Set availability context
-    vscode.commands.executeCommand("setContext", `contextEditor.${env.id}Available`, true);
-
-    // Determine view ID prefix
-    const viewPrefix = env.id === "windows" ? "contextEditorWindows" : "contextEditorWsl";
-
-    // Create providers
-    const globalProvider = new GlobalProvider(env.configPath, env.name);
-    const projectProvider = new ProjectProvider(env.configPath);
-
-    // Register views
-    vscode.window.registerTreeDataProvider(`${viewPrefix}Global`, globalProvider);
-    vscode.window.registerTreeDataProvider(`${viewPrefix}Projects`, projectProvider);
-
-    // Subscribe providers to refresh event
-    const refreshSubscription = refreshEventEmitter.event(() => {
+      // Refresh both views
       globalProvider.refresh();
       projectProvider.refresh();
-    });
-    context.subscriptions.push(refreshSubscription);
-  }
+
+      // Show notification
+      vscode.window.showInformationMessage(`Switched to ${newEnv.name}`);
+    })
+  );
 }
 
 /**
- * Register commands that are shared across all modes.
+ * Register the tree view data providers.
  */
-function registerSharedCommands(
+function registerViews(
+  _context: vscode.ExtensionContext,
+  initialEnv: Environment,
+  debugOutput: vscode.OutputChannel
+): void {
+  debugOutput.appendLine(`Registering views with initial environment: ${initialEnv.name}`);
+
+  // Create providers with initial environment
+  globalProvider = new GlobalProvider(initialEnv.configPath, initialEnv.name);
+  projectProvider = new ProjectProvider(initialEnv.configPath);
+
+  // Register the tree data providers
+  vscode.window.registerTreeDataProvider("contextEditorPrimaryGlobal", globalProvider);
+  vscode.window.registerTreeDataProvider("contextEditorPrimaryProjects", projectProvider);
+}
+
+/**
+ * Register extension commands.
+ */
+function registerCommands(
   context: vscode.ExtensionContext,
+  environments: Environment[],
   debugOutput: vscode.OutputChannel
 ): void {
   // Show debug output command
@@ -125,11 +110,36 @@ function registerSharedCommands(
   });
   context.subscriptions.push(showDebugCommand);
 
-  // Global refresh command - triggers all subscribed providers to refresh
+  // Refresh command - refreshes both views
   const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", () => {
-    refreshEventEmitter.fire();
+    globalProvider.refresh();
+    projectProvider.refresh();
   });
   context.subscriptions.push(refreshCommand);
+
+  // Environment switcher command - shows QuickPick to select environment
+  const switchEnvironmentCommand = vscode.commands.registerCommand(
+    "contextEditor.switchEnvironment",
+    async () => {
+      const currentEnv = environmentState.currentEnvironment;
+
+      const items = environments.map((env) => ({
+        label: env.name,
+        description: env.configPath,
+        env,
+        picked: env.id === currentEnv.id,
+      }));
+
+      const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: `Current: ${currentEnv.name}`,
+      });
+
+      if (selected && selected.env.id !== currentEnv.id) {
+        await environmentState.switchEnvironment(selected.env);
+      }
+    }
+  );
+  context.subscriptions.push(switchEnvironmentCommand);
 
   // Open file command
   const openFileCommand = vscode.commands.registerCommand(
@@ -154,4 +164,5 @@ function registerSharedCommands(
 
 export function deactivate(): void {
   console.log("Context Editor extension is now deactivated!");
+  environmentState.dispose();
 }

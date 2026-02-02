@@ -46,13 +46,23 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private readonly configReader: ClaudeConfigReader;
+  private configReader: ClaudeConfigReader;
   private cachedConfig: ClaudeConfigWithProjects | null = null;
   private cacheError: Error | null = null;
 
   constructor(configPath: string) {
     this.configReader = new ClaudeConfigReader(configPath);
     void this.loadConfig();
+  }
+
+  /**
+   * Update the configuration path.
+   * Called when switching environments.
+   */
+  updateConfigPath(configPath: string): void {
+    this.configReader = new ClaudeConfigReader(configPath);
+    this.cachedConfig = null;
+    this.cacheError = null;
   }
 
   /**

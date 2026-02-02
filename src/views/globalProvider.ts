@@ -41,9 +41,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<GlobalTreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private readonly claudeDir: string;
-  private readonly claudeJsonPath: string;
-  private readonly environmentName: string;
+  private claudeJsonPath: string;
+  private claudeDir: string;
+  private environmentName: string;
   private rootNodes: GlobalTreeNode[] = [];
   private loadError: Error | null = null;
 
@@ -54,6 +54,16 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
     // Environment name is stored for future use in multi-environment views
     void this.environmentName;
     void this.loadRootNodes();
+  }
+
+  /**
+   * Update the configuration path and environment name.
+   * Called when switching environments.
+   */
+  updateConfigPath(configPath: string, environmentName: string): void {
+    this.claudeJsonPath = configPath;
+    this.environmentName = environmentName;
+    this.claudeDir = this.deriveClaudeDir(configPath);
   }
 
   /**

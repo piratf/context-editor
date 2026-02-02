@@ -37,6 +37,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "contextEditor.switchEnvironment",
+        "title": "Switch Environment",
+        "icon": "$(server-environment)",
+        "category": "Context Editor"
+      },
+      {
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
@@ -56,41 +62,25 @@
         {
           "id": "contextEditorPrimaryGlobal",
           "name": "Global",
-          "when": "contextEditor.mode == single"
+          "title": "$(server-environment) Global [${contextEditor.currentEnv}]"
         },
         {
           "id": "contextEditorPrimaryProjects",
-          "name": "Projects",
-          "when": "contextEditor.mode == single"
-        },
-        {
-          "id": "contextEditorWindowsGlobal",
-          "name": "Global",
-          "when": "contextEditor.mode == multi && contextEditor.windowsAvailable"
-        },
-        {
-          "id": "contextEditorWindowsProjects",
-          "name": "Projects",
-          "when": "contextEditor.mode == multi && contextEditor.windowsAvailable"
-        },
-        {
-          "id": "contextEditorWslGlobal",
-          "name": "Global",
-          "when": "contextEditor.mode == multi && contextEditor.wslAvailable"
-        },
-        {
-          "id": "contextEditorWslProjects",
-          "name": "Projects",
-          "when": "contextEditor.mode == multi && contextEditor.wslAvailable"
+          "name": "Projects"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
+          "command": "contextEditor.switchEnvironment",
+          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
+          "group": "navigation@1"
+        },
+        {
           "command": "contextEditor.refresh",
-          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects || view == contextEditorWindowsGlobal || view == contextEditorWindowsProjects || view == contextEditorWslGlobal || view == contextEditorWslProjects",
-          "group": "navigation"
+          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
+          "group": "navigation@2"
         }
       ]
     }
