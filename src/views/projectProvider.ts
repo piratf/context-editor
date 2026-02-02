@@ -43,8 +43,7 @@ interface TreeNode {
  * Tree data provider for Claude Code projects view.
  */
 export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
-  private readonly _onDidChangeTreeData =
-    new vscode.EventEmitter<TreeNode | undefined>();
+  private readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private configReader = getConfigReader();
@@ -74,7 +73,7 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
         ? vscode.TreeItemCollapsibleState.Expanded
         : element.collapsibleState === 1
           ? vscode.TreeItemCollapsibleState.Collapsed
-          : vscode.TreeItemCollapsibleState.None,
+          : vscode.TreeItemCollapsibleState.None
     );
 
     if (element.iconPath !== undefined) {
@@ -89,14 +88,18 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       treeItem.contextValue = element.contextValue;
     }
 
-    if (element.path !== undefined) {
+    // Only assign openFile command to FILE nodes (CLAUDE_MD, SETTINGS), not PROJECT directories
+    const isClickable = element.type === NodeType.CLAUDE_MD || element.type === NodeType.SETTINGS;
+    if (isClickable && element.path !== undefined) {
       treeItem.resourceUri = vscode.Uri.file(element.path);
-      // Make the item clickable to open the file
       treeItem.command = {
         command: "contextEditor.openFile",
         title: "Open File",
         arguments: [element.path],
       };
+    } else if (element.path !== undefined) {
+      // For directories, set resourceUri but no command (only expandable)
+      treeItem.resourceUri = vscode.Uri.file(element.path);
     }
 
     return treeItem;
@@ -166,7 +169,7 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
         iconPath: new vscode.ThemeIcon("folder"),
         tooltip: project.path,
         contextValue: "project",
-      }),
+      })
     );
   }
 
@@ -251,10 +254,7 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       this.cacheError = null;
     } catch (error) {
       this.cachedConfig = null;
-      this.cacheError =
-        error instanceof Error
-          ? error
-          : new Error(String(error));
+      this.cacheError = error instanceof Error ? error : new Error(String(error));
     }
   }
 

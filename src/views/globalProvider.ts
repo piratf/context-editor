@@ -86,14 +86,19 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       treeItem.contextValue = element.contextValue;
     }
 
-    if (element.path !== undefined) {
+    // Only assign openFile command to FILE and CLAUUDE_JSON nodes, not directories
+    const isClickable =
+      element.type === GlobalNodeType.FILE || element.type === GlobalNodeType.CLAUDE_JSON;
+    if (isClickable && element.path !== undefined) {
       treeItem.resourceUri = vscode.Uri.file(element.path);
-      // Make the item clickable to open the file
       treeItem.command = {
         command: "contextEditor.openFile",
         title: "Open File",
         arguments: [element.path],
       };
+    } else if (element.path !== undefined) {
+      // For directories, set resourceUri but no command (only expandable)
+      treeItem.resourceUri = vscode.Uri.file(element.path);
     }
 
     return treeItem;
