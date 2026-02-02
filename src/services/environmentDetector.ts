@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as fsPromises from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { exec } from "node:child_process";
+import { exec, execSync } from "node:child_process";
 import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
@@ -124,8 +124,31 @@ export class EnvironmentDetector {
   private async detectWslFromWindows(): Promise<Environment | null> {
     try {
       // Get list of WSL distributions
-      const { stdout } = await execAsync("wsl -l -q", { timeout: 5000 });
-      const lines = stdout.trim().split("\n");
+      // Note: wsl -l -q output may be UTF-16LE encoded, so use execSync with buffer detection
+      let distrosOutput: string;
+      try {
+        const buffer = execSync("wsl -l -q", { timeout: 5000 }) as Buffer;
+        // Check for UTF-16LE BOM or pattern
+        if (buffer.length > 1 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+          distrosOutput = buffer.toString("utf16le");
+        } else if (buffer.indexOf(0) >= 0 && buffer.indexOf(0) < buffer.length / 2) {
+          // Likely UTF-16LE without BOM (null bytes present)
+          distrosOutput = buffer.toString("utf16le");
+        } else {
+          distrosOutput = buffer.toString("utf8");
+        }
+      } catch (_e) {
+        // Fallback to async version
+        const { stdout } = await execAsync("wsl -l -q", { timeout: 5000 });
+        distrosOutput = stdout;
+      }
+
+      // Sanitize: remove null bytes, carriage returns, and extra whitespace
+      const cleanStdout = distrosOutput
+        .replace(/\0/g, "")
+        .replace(/\r/g, "")
+        .trim();
+      const lines = cleanStdout.split("\n");
       const distros = lines.filter((line) => line.trim().length > 0);
 
       if (distros.length === 0) {
@@ -137,13 +160,13 @@ export class EnvironmentDetector {
       const username = os.userInfo().username;
       const wslConfigPath = `/home/${username}/.claude.json`;
 
-      // Try both network path formats, starting with legacy format (more compatible)
-      const networkPaths = [
-        // Legacy format (more widely supported)
-        `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json` as const,
-        // Windows 11+ format
-        `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json` as const,
-      ];
+      // Build network paths - use string concatenation to avoid template literal issues
+      // Legacy format (more widely supported)
+      const legacyPath = "\\\\wsl$\\" + distro + "\\home\\" + username + "\\.claude.json";
+      // Windows 11+ format
+      const newPath = "\\\\wsl.localhost\\" + distro + "\\home\\" + username + "\\.claude.json";
+
+      const networkPaths = [legacyPath, newPath] as const;
 
       // First, verify the file exists in WSL using wsl command
       let fileExists = false;
