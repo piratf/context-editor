@@ -304,11 +304,22 @@ export class ClaudeConfigReader {
           continue;
         }
 
-        // If no path in entry, check if the key itself is a path (starts with / or ~)
-        // This handles the format: { "/Users/xxx/project": { mcpServers: {...} } }
-        if (typeof key === "string" && (key.startsWith("/") || key.startsWith("~"))) {
+        // If no path in entry, check if the key itself is a path
+        // This handles formats like:
+        // - Unix: { "/Users/xxx/project": { mcpServers: {...} } }
+        // - Windows: { "C:/Users/xxx/project": { ... } } or { "C:\\Users\\xxx\\project": { ... } }
+        const isValidPath =
+          typeof key === "string" &&
+          (key.startsWith("/") ||
+            key.startsWith("~") ||
+            // Windows paths: C:\... or C:/... or D:\... etc.
+            /^[A-Za-z]:[\\/]/.test(key));
+
+        if (isValidPath) {
           debugLog(`Found project from key (path-like): ${key}`);
           projectEntries.push({ path: key, state: entryRecord });
+        } else {
+          debugLog(`Skipping non-path key: ${key}`);
         }
       }
       debugLog(`Normalized ${String(projectEntries.length)} project(s) from object format`);
