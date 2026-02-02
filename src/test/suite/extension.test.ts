@@ -4,6 +4,8 @@
  */
 
 import * as assert from "node:assert";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as vscode from "vscode";
 import { GlobalProvider } from "../../views/globalProvider";
 import { ProjectProvider } from "../../views/projectProvider";
@@ -31,8 +33,9 @@ suite("Context Editor Extension Test Suite", () => {
 
   test("Should register tree data providers", async () => {
     // We can't easily check internal registration, but we can verify the providers work
-    const globalProvider = new GlobalProvider();
-    const projectProvider = new ProjectProvider();
+    const configPath = path.join(os.homedir(), ".claude.json");
+    const globalProvider = new GlobalProvider(configPath, "Test");
+    const projectProvider = new ProjectProvider(configPath);
 
     assert.ok(globalProvider instanceof GlobalProvider, "GlobalProvider should be instantiable");
     assert.ok(projectProvider instanceof ProjectProvider, "ProjectProvider should be instantiable");

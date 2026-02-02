@@ -6,7 +6,6 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as os from "node:os";
 import type { CollapsibleState } from "../types/claudeConfig.js";
 
 /**
@@ -36,7 +35,7 @@ interface GlobalTreeNode {
 
 /**
  * Tree data provider for Global Persona view.
- * Shows ~/.claude/ directory tree and ~/.claude.json
+ * Shows the .claude/ directory tree and .claude.json for a specific environment.
  */
 export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<GlobalTreeNode | undefined>();
@@ -44,13 +43,26 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
 
   private readonly claudeDir: string;
   private readonly claudeJsonPath: string;
+  private readonly environmentName: string;
   private rootNodes: GlobalTreeNode[] = [];
   private loadError: Error | null = null;
 
-  constructor() {
-    this.claudeDir = path.join(os.homedir(), ".claude");
-    this.claudeJsonPath = path.join(os.homedir(), ".claude.json");
+  constructor(configPath: string, environmentName: string) {
+    this.claudeJsonPath = configPath;
+    this.environmentName = environmentName;
+    this.claudeDir = this.deriveClaudeDir(configPath);
+    // Environment name is stored for future use in multi-environment views
+    void this.environmentName;
     void this.loadRootNodes();
+  }
+
+  /**
+   * Derive the .claude directory path from the config file path.
+   * Handles various path formats (Unix, Windows, WSL).
+   */
+  private deriveClaudeDir(configPath: string): string {
+    const dir = path.dirname(configPath);
+    return path.join(dir, ".claude");
   }
 
   /**

@@ -8,7 +8,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { CollapsibleState } from "../types/claudeConfig.js";
 import {
-  getConfigReader,
+  ClaudeConfigReader,
   type ClaudeConfigWithProjects,
   type ClaudeProjectEntry,
 } from "../services/claudeConfigReader.js";
@@ -46,11 +46,12 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private configReader = getConfigReader();
+  private readonly configReader: ClaudeConfigReader;
   private cachedConfig: ClaudeConfigWithProjects | null = null;
   private cacheError: Error | null = null;
 
-  constructor() {
+  constructor(configPath: string) {
+    this.configReader = new ClaudeConfigReader(configPath);
     void this.loadConfig();
   }
 

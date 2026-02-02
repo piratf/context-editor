@@ -47,19 +47,41 @@
         {
           "id": "contextEditorContainer",
           "title": "Context Editor",
-          "icon": "$(home)"
+          "icon": "resources/icon.png"
         }
       ]
     },
     "views": {
       "contextEditorContainer": [
         {
-          "id": "contextEditorGlobal",
-          "name": "Global Persona"
+          "id": "contextEditorPrimaryGlobal",
+          "name": "Global",
+          "when": "contextEditor.mode == single"
         },
         {
-          "id": "contextEditorProjects",
-          "name": "Project Registry"
+          "id": "contextEditorPrimaryProjects",
+          "name": "Projects",
+          "when": "contextEditor.mode == single"
+        },
+        {
+          "id": "contextEditorWindowsGlobal",
+          "name": "Global",
+          "when": "contextEditor.mode == multi && contextEditor.windowsAvailable"
+        },
+        {
+          "id": "contextEditorWindowsProjects",
+          "name": "Projects",
+          "when": "contextEditor.mode == multi && contextEditor.windowsAvailable"
+        },
+        {
+          "id": "contextEditorWslGlobal",
+          "name": "Global",
+          "when": "contextEditor.mode == multi && contextEditor.wslAvailable"
+        },
+        {
+          "id": "contextEditorWslProjects",
+          "name": "Projects",
+          "when": "contextEditor.mode == multi && contextEditor.wslAvailable"
         }
       ]
     },
@@ -67,7 +89,7 @@
       "view/title": [
         {
           "command": "contextEditor.refresh",
-          "when": "view == contextEditorGlobal || view == contextEditorProjects",
+          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects || view == contextEditorWindowsGlobal || view == contextEditorWindowsProjects || view == contextEditorWslGlobal || view == contextEditorWslProjects",
           "group": "navigation"
         }
       ]
