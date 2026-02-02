@@ -140,9 +140,9 @@ export class EnvironmentDetector {
       // Try both network path formats, starting with legacy format (more compatible)
       const networkPaths = [
         // Legacy format (more widely supported)
-        `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json`,
+        `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json` as const,
         // Windows 11+ format
-        `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json`,
+        `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json` as const,
       ];
 
       // First, verify the file exists in WSL using wsl command

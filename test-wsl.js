@@ -28,10 +28,10 @@ try {
 
   // 2. Test different path formats
   const testPaths = [
-    `\\\\wsl$\\${distro}\\home\\${username}`,
-    `\\\\wsl.localhost\\${distro}\\home\\${username}`,
-    `\\\\wsl$\\${distro}\\home\\${username}\\.claude.json`,
-    `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json`,
+    String.raw`\\wsl$\${distro}\home\${username}`,
+    String.raw`\\wsl.localhost\${distro}\home\${username}`,
+    String.raw`\\wsl$\${distro}\home\${username}\.claude.json`,
+    String.raw`\\wsl.localhost\${distro}\home\${username}\.claude.json`,
   ];
 
   testPaths.forEach((testPath, i) => {
