@@ -10,15 +10,20 @@
     "vscode": "^1.96.0"
   },
   "categories": [
+    "AI",
     "Other"
   ],
   "keywords": [
-    "claude-code",
-    "mcp-protocol",
-    "instruction-hierarchy",
-    "anthropic",
+    "ai",
+    "agent",
     "context",
-    "ai"
+    "configuration",
+    "developer-tools",
+    "llm",
+    "productivity",
+    "project-management",
+    "settings",
+    "skill"
   ],
   "activationEvents": [
     "onStartupFinished"
