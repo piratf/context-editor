@@ -23,37 +23,59 @@ try {
     process.exit(0);
   }
 
-  const distro = distros.trim().split('\n')[0];
+  const distroList = distros.trim().split('\n');
+  const distro = distroList[0];
   console.log(`   Using: ${distro}`);
 
   // 2. Test different path formats
-  const testPaths = [
-    String.raw`\\wsl$\${distro}\home\${username}`,
-    String.raw`\\wsl.localhost\${distro}\home\${username}`,
-    String.raw`\\wsl$\${distro}\home\${username}\.claude.json`,
-    String.raw`\\wsl.localhost\${distro}\home\${username}\.claude.json`,
-  ];
+  const homeBase = `\\\\wsl$\\${distro}\\home\\${username}`;
+  const homeBaseNew = `\\\\wsl.localhost\\${distro}\\home\\${username}`;
+  const configFile = homeBase + '\\.claude.json';
+  const configFileNew = homeBaseNew + '\\.claude.json';
 
-  testPaths.forEach((testPath, i) => {
-    console.log(`\n2.${i + 1}. Testing: ${testPath}`);
+  console.log(`\n2. Testing: ${homeBase}`);
+  try {
+    const stats = fs.statSync(homeBase);
+    console.log(`   ✓ Exists (${stats.isDirectory() ? 'directory' : 'file'})`);
 
-    try {
-      const stats = fs.statSync(testPath);
-      console.log(`   ✓ Exists (${stats.isDirectory() ? 'directory' : 'file'})`);
+    const files = fs.readdirSync(homeBase);
+    console.log(`   ✓ Can read (${files.length} entries)`);
+    console.log(`   Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
+  } catch (err) {
+    console.log(`   ✗ Failed: ${err.message}`);
+  }
 
-      if (stats.isDirectory()) {
-        const files = fs.readdirSync(testPath);
-        console.log(`   ✓ Can read (${files.length} entries)`);
-        console.log(`   Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
-      }
-    } catch (err) {
-      console.log(`   ✗ Failed: ${err.message}`);
-    }
-  });
+  console.log(`\n3. Testing: ${homeBaseNew}`);
+  try {
+    const stats = fs.statSync(homeBaseNew);
+    console.log(`   ✓ Exists (${stats.isDirectory() ? 'directory' : 'file'})`);
+
+    const files = fs.readdirSync(homeBaseNew);
+    console.log(`   ✓ Can read (${files.length} entries)`);
+  } catch (err) {
+    console.log(`   ✗ Failed: ${err.message}`);
+  }
+
+  console.log(`\n4. Testing: ${configFile}`);
+  try {
+    const stats = fs.statSync(configFile);
+    console.log(`   ✓ Config file exists (${stats.size} bytes)`);
+  } catch (err) {
+    console.log(`   ✗ Failed: ${err.message}`);
+  }
+
+  console.log(`\n5. Testing: ${configFileNew}`);
+  try {
+    const stats = fs.statSync(configFileNew);
+    console.log(`   ✓ Config file exists (${stats.size} bytes)`);
+  } catch (err) {
+    console.log(`   ✗ Failed: ${err.message}`);
+  }
 
   // 3. Test wsl command fallback
-  console.log(`\n3. Testing wsl command fallback...`);
+  console.log(`\n6. Testing wsl command fallback...`);
   const wslPath = `/home/${username}/.claude.json`;
+  console.log(`   Using: wsl cat "${wslPath}"`);
   try {
     const output = execSync(`wsl cat "${wslPath}"`, { encoding: 'utf8', timeout: 5000 });
     console.log(`   ✓ wsl cat works (${output.length} bytes)`);
