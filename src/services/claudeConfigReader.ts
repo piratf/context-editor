@@ -1,13 +1,18 @@
 /**
  * Service for reading and parsing Claude Code configuration files.
  * Handles ~/.claude.json with proper error handling and validation.
+ * Supports cross-platform access including WSL network paths.
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as vscode from "vscode";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import type { ClaudeConfig, ClaudeProjectEntry } from "../types/claudeConfig.js";
+
+const execAsync = promisify(exec);
 
 // Re-export ClaudeProjectEntry for use in other modules
 export type { ClaudeProjectEntry };
@@ -151,6 +156,7 @@ export class ClaudeConfigReader {
 
   /**
    * Read the configuration file from disk.
+   * Handles WSL network paths by using wsl command when needed.
    *
    * @returns The file content as a string
    * @throws {ConfigError} If the file cannot be read
@@ -158,6 +164,12 @@ export class ClaudeConfigReader {
   private async readConfigFile(): Promise<string> {
     try {
       const absolutePath = this.resolveConfigPath();
+
+      // Check if this is a WSL network path
+      if (this.isWslNetworkPath(this.configPath)) {
+        return await this.readWslConfigFile(this.configPath);
+      }
+
       return await this.readFileFn(absolutePath, "utf-8");
     } catch (error) {
       if (this.isNodeError(error)) {
@@ -339,6 +351,75 @@ export class ClaudeConfigReader {
       "code" in error &&
       typeof (error as { code: unknown }).code === "string"
     );
+  }
+
+  /**
+   * Check if a path is a WSL network path (\\wsl.localhost\... or \\wsl$\...).
+   */
+  private isWslNetworkPath(filePath: string): boolean {
+    return (
+      filePath.startsWith("\\\\wsl.localhost\\") ||
+      filePath.startsWith("\\\\wsl$\\")
+    );
+  }
+
+  /**
+   * Read a config file from WSL using the wsl command.
+   *
+   * @param wslNetworkPath - The Windows network path to the WSL file
+   * @returns The file content
+   * @throws {ConfigError} If the file cannot be read
+   */
+  private async readWslConfigFile(wslNetworkPath: string): Promise<string> {
+    try {
+      // Convert Windows network path to WSL internal path
+      // \\wsl.localhost\Ubuntu\home\user\.claude.json -> /home/user/.claude.json
+      // \\wsl$\Ubuntu\home\user\.claude.json -> /home/user/.claude.json
+
+      const wslInternalPath = this.convertWslNetworkPathToInternal(wslNetworkPath);
+
+      // Use wsl command to read the file
+      const { stdout } = (await execAsync(
+        `wsl cat "${wslInternalPath}"`,
+        { timeout: 5000 }
+      )) as { stdout: string; stderr: string };
+
+      debugLog(`Read WSL config from: ${wslInternalPath}`);
+      return stdout;
+    } catch (error) {
+      if (this.isNodeError(error)) {
+        throw new ConfigError(
+          ConfigErrorType.FILE_NOT_FOUND,
+          `Failed to read WSL config file: ${wslNetworkPath}`,
+          error
+        );
+      }
+      throw new ConfigError(
+        ConfigErrorType.ACCESS_DENIED,
+        `Failed to read WSL config file: ${wslNetworkPath}`,
+        error
+      );
+    }
+  }
+
+  /**
+   * Convert a WSL Windows network path to WSL internal Linux path.
+   *
+   * @param wslNetworkPath - Windows network path (\\wsl.localhost\Distro\path or \\wsl$\Distro\path)
+   * @returns WSL internal path (/path)
+   */
+  private convertWslNetworkPathToInternal(wslNetworkPath: string): string {
+    // Replace backslashes with forward slashes
+    let path = wslNetworkPath.replace(/\\/g, "/");
+
+    // Remove the \\wsl.localhost\ or \\wsl$\ prefix
+    path = path.replace(/^\\\\wsl\.localhost\\[^\\]+/, "");
+    path = path.replace(/^\\\\wsl\$\\[^\\]+/, "");
+
+    // Convert Windows drive letters if present (e.g., /mnt/c/...)
+    // But typically WSL home paths don't have drive letters
+
+    return path;
   }
 }
 

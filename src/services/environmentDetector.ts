@@ -124,7 +124,7 @@ export class EnvironmentDetector {
   private async detectWslFromWindows(): Promise<Environment | null> {
     try {
       // Get list of WSL distributions
-      const { stdout } = await execAsync("wsl -l -q");
+      const { stdout } = await execAsync("wsl -l -q", { timeout: 5000 });
       const lines = stdout.trim().split("\n");
       const distros = lines.filter((line) => line.trim().length > 0);
 
@@ -134,9 +134,39 @@ export class EnvironmentDetector {
 
       // Use the first distribution to detect config
       const distro = distros[0].trim();
-      const username = os.userInfo().username;
 
-      // Try different WSL path formats
+      // Try to detect WSL config by using wsl command to check file existence
+      // This is more reliable than using Windows network paths
+      try {
+        const username = os.userInfo().username;
+        const wslHomePath = `/home/${username}`;
+        const wslConfigPath = `${wslHomePath}/.claude.json`;
+
+        // Use wsl to check if the config file exists
+        const { stdout: testOutput } = await execAsync(
+          `wsl -d ${distro} -- test -f ${wslConfigPath} && echo "exists" || echo "not_found"`,
+          { timeout: 5000 }
+        );
+
+        if (testOutput.includes("exists")) {
+          // Return with WSL network path format for Windows access
+          // Prefer Windows 11+ format
+          const networkPath = `\\\\wsl.localhost\\${distro}\\${wslConfigPath.replace(/\//g, "\\")}`;
+
+          return {
+            id: "wsl",
+            name: "WSL",
+            configPath: networkPath,
+            type: "wsl",
+            accessible: true,
+          };
+        }
+      } catch {
+        // Fall through to try alternative detection methods
+      }
+
+      // Fallback: try Windows network paths directly
+      const username = os.userInfo().username;
       const paths = [
         // Windows 11+ format
         `\\\\wsl.localhost\\${distro}\\home\\${username}\\.claude.json`,
@@ -157,7 +187,9 @@ export class EnvironmentDetector {
       }
 
       return null;
-    } catch {
+    } catch (error) {
+      // Log error for debugging but don't throw
+      console.error("Failed to detect WSL from Windows:", error);
       return null;
     }
   }
