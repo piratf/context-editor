@@ -40,6 +40,11 @@ interface TreeNode {
 }
 
 /**
+ * Environment type for path conversion.
+ */
+type EnvironmentType = "windows" | "wsl" | "mac" | "linux";
+
+/**
  * Tree data provider for Claude Code projects view.
  */
 export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -49,9 +54,12 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   private configReader: ClaudeConfigReader;
   private cachedConfig: ClaudeConfigWithProjects | null = null;
   private cacheError: Error | null = null;
+  private environmentType: EnvironmentType = "windows";
+  private wslDistro: string | null = null;
 
   constructor(configPath: string) {
     this.configReader = new ClaudeConfigReader(configPath);
+    this.detectEnvironmentFromConfigPath(configPath);
     void this.loadConfig();
   }
 
@@ -61,8 +69,77 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
    */
   updateConfigPath(configPath: string): void {
     this.configReader = new ClaudeConfigReader(configPath);
+    this.detectEnvironmentFromConfigPath(configPath);
     this.cachedConfig = null;
     this.cacheError = null;
+  }
+
+  /**
+   * Detect environment type and WSL distro from config path.
+   * Examples:
+   * - C:\Users\user\.claude.json -> windows
+   * - \\wsl$\Ubuntu-24.04\home\user\.claude.json -> wsl, Ubuntu-24.04
+   * - /home/user/.claude.json -> linux/wsl
+   */
+  private detectEnvironmentFromConfigPath(configPath: string): void {
+    // Check for WSL network path
+    if (configPath.startsWith("\\\\wsl$\\") || configPath.startsWith("\\\\wsl.localhost\\")) {
+      this.environmentType = "windows";
+      // Extract distro name from \\wsl$\distro\... or \\wsl.localhost\distro\...
+      const parts = configPath.split("\\").filter((p) => p.length > 0);
+      // parts[0] is "wsl$" or "wsl.localhost", parts[1] is distro name
+      if (parts.length >= 2) {
+        // Check if first part is wsl$ or wsl.localhost (handling the $ character)
+        const firstPart = parts[0];
+        if (firstPart === "wsl$" || firstPart === "wsl.localhost") {
+          this.wslDistro = parts[1];
+        } else {
+          this.wslDistro = null;
+        }
+      } else {
+        this.wslDistro = null;
+      }
+    } else if (configPath.startsWith("\\\\")) {
+      // Other UNC path (Windows network share)
+      this.environmentType = "windows";
+      this.wslDistro = null;
+    } else if (configPath.includes(":") || configPath.startsWith("/mnt/")) {
+      // Windows path with drive letter or WSL mount point
+      this.environmentType = "linux";
+      this.wslDistro = null;
+    } else if (configPath.startsWith("/home/")) {
+      // Linux/WSL home path
+      this.environmentType = "linux";
+      this.wslDistro = null;
+    } else {
+      // Default to Windows for C:\Users\... style paths
+      this.environmentType = "windows";
+      this.wslDistro = null;
+    }
+  }
+
+  /**
+   * Convert a WSL internal path to Windows UNC path.
+   * Only converts if environmentType is windows and wslDistro is set.
+   *
+   * Examples:
+   * - /home/user/project -> \\wsl$\Ubuntu-24.04\home\user\project
+   * - /mnt/c/project -> \\wsl$\Ubuntu-24.04\mnt\c\project
+   */
+  private wslPathToWindowsUnc(wslPath: string): string {
+    if (this.environmentType !== "windows" || this.wslDistro === null) {
+      return wslPath; // No conversion needed
+    }
+
+    // If already a Windows path, return as-is
+    if (wslPath.startsWith("\\\\")) {
+      return wslPath;
+    }
+
+    // Convert /home/user/... or /mnt/... to \\wsl$\distro\...
+    // Replace forward slashes with backslashes
+    const windowsPath = "\\\\wsl$\\" + this.wslDistro + wslPath.replace(/\//g, "\\");
+    return windowsPath;
   }
 
   /**
@@ -283,10 +360,12 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
 
   /**
    * Check if a file exists.
+   * Converts WSL internal paths to Windows UNC paths when needed.
    */
   private async fileExists(filePath: string): Promise<boolean> {
     try {
-      const stats = await fs.stat(filePath);
+      const convertedPath = this.wslPathToWindowsUnc(filePath);
+      const stats = await fs.stat(convertedPath);
       return stats.isFile();
     } catch {
       return false;
@@ -295,10 +374,12 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
 
   /**
    * Check if a directory exists.
+   * Converts WSL internal paths to Windows UNC paths when needed.
    */
   private async directoryExists(dirPath: string): Promise<boolean> {
     try {
-      const stats = await fs.stat(dirPath);
+      const convertedPath = this.wslPathToWindowsUnc(dirPath);
+      const stats = await fs.stat(convertedPath);
       return stats.isDirectory();
     } catch {
       return false;
