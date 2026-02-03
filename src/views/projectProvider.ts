@@ -5,6 +5,7 @@
 
 import * as vscode from "vscode";
 import * as path from "node:path";
+import * as fs from "node:fs/promises";
 import type { CollapsibleState } from "../types/claudeConfig.js";
 import {
   ClaudeConfigReader,
@@ -82,15 +83,14 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     const pathInfo = this.fileAccessService.detectPathType(configPath);
 
     // Debug logging
-    const fs = require("node:fs/promises");
     void fs.appendFile(
       "/tmp/context-editor-debug.txt",
       `\n[${new Date().toISOString()}] detectEnvironmentFromConfigPath:\n` +
       `  configPath: ${configPath}\n` +
-      `  pathInfo.type: ${String(pathInfo.type)}\n` +
+      `  pathInfo.type: ${pathInfo.type}\n` +
       `  pathInfo.isWslPath: ${String(pathInfo.isWslPath)}\n` +
-      `  pathInfo.wslDistro: ${pathInfo.wslDistro}\n` +
-      `  this.wslDistro: ${this.fileAccessService.getWslDistro()}\n`
+      `  pathInfo.wslDistro: ${pathInfo.wslDistro ?? "null"}\n` +
+      `  this.wslDistro: ${this.fileAccessService.getWslDistro() ?? "null"}\n`
     ).catch(() => {});
 
     if (pathInfo.isWslPath && pathInfo.wslDistro !== null) {
