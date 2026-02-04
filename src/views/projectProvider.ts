@@ -167,14 +167,11 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       for (const project of projects) {
         const projectName = this.getProjectName(project.path);
 
-        // Check if project has relevant files
-        const hasFiles = await this.projectHasRelevantFiles(project.path);
-
         this.rootNodes.push({
           type: NodeType.DIRECTORY,
           label: projectName,
           path: project.path,
-          collapsibleState: hasFiles ? 1 : 0, // Collapsed if has files, None if empty
+          collapsibleState: 1, // Always collapsible to show "(no Claude files)" message
           iconPath: new vscode.ThemeIcon("folder"),
           tooltip: project.path,
           contextValue: "project",
@@ -266,25 +263,6 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     return children;
-  }
-
-  /**
-   * Check if a project path contains relevant files (.claude directory or CLAUDE.md)
-   */
-  private async projectHasRelevantFiles(projectPath: string): Promise<boolean> {
-    try {
-      const entries = await fs.readdir(projectPath, { withFileTypes: true });
-
-      // Check for .claude directory or CLAUDE.md files
-      const hasClaudeDir = entries.some(e => e.isDirectory() && e.name === ".claude");
-      const hasClaudeMd = entries.some(
-        e => e.isFile() && (e.name === "CLAUDE.md" || e.name === ".claude.md")
-      );
-
-      return hasClaudeDir || hasClaudeMd;
-    } catch {
-      return false;
-    }
   }
 
   /**
