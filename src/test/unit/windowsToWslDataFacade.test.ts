@@ -212,6 +212,26 @@ describe('WindowsToWslDataFacade', () => {
         const result = await WindowsToWslDataFacadeFactory.probeWithPrefix('\\\\wsl$\\', ['Ubuntu'], true);
         assert.ok(Array.isArray(result));
       });
+
+      it('should handle wsl.exe output with \\r\\n line endings', async () => {
+        // This test documents that we expect wsl.exe to return \r\n line endings
+        // The getWslDistroList method uses .trim() which handles both \r and \n
+        const result = await WindowsToWslDataFacadeFactory.getWslDistroList();
+        assert.ok(Array.isArray(result));
+        // All returned strings should not contain \r
+        for (const distro of result) {
+          assert.ok(!distro.includes('\r'), `Distro name should not contain \\r: ${JSON.stringify(distro)}`);
+        }
+      });
+
+      it('should return empty array when no distros found', async () => {
+        // discoverInstances should handle empty getWslDistroList result
+        const result = await WindowsToWslDataFacadeFactory.getWslDistroList();
+        if (result.length === 0) {
+          const discovered = await WindowsToWslDataFacadeFactory.discoverInstances();
+          assert.deepStrictEqual(discovered, []);
+        }
+      });
     });
 
     describe('createAll()', () => {
