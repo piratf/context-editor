@@ -12,10 +12,10 @@ import { NativeDataFacade } from '../../services/nativeDataFacade.js';
 describe('NativeDataFacade', () => {
   beforeEach(() => {
     // Reset environment
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+     
     const environmentModule = require('../../services/environment.js');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-    (environmentModule.Environment as any).instance = null;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (environmentModule.Environment).instance = null;
 
     // Set home directory for testing
     process.env.HOME = '/home/testuser';
@@ -106,12 +106,12 @@ describe('NativeDataFacade', () => {
   describe('NativeDataFacadeFactory', () => {
     it('should create NativeDataFacade instance', () => {
       // Reset singleton
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+       
       const environmentModule = require('../../services/environment.js');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-      (environmentModule.Environment as any).instance = null;
-
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (environmentModule.Environment).instance = null;
+
+       
       const { NativeDataFacadeFactory } = require('../../services/nativeDataFacade.js');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const facade = NativeDataFacadeFactory.create();

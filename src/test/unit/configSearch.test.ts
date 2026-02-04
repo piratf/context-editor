@@ -14,10 +14,10 @@ describe('ConfigSearch', () => {
 
   beforeEach(() => {
     // Reset environment singleton
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+     
     const { Environment } = require('../../services/environment.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    (Environment as any).instance = null;
+    (Environment).instance = null;
 
     search = new ConfigSearch();
   });
