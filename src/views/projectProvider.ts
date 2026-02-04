@@ -192,9 +192,18 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
 
   /**
    * Get children for a directory node (filtered file system read)
+   *
+   * Filtering rules:
+   * - Project root directories: Only show .claude directory and CLAUDE.md files
+   * - Inside .claude directory: Show all files and subdirectories
    */
   private async getDirectoryChildren(dirPath: string): Promise<TreeNode[]> {
     const children: TreeNode[] = [];
+
+    // Check if we're inside a .claude directory
+    const isInsideClaudeDir = dirPath.includes(`${path.sep}.claude${path.sep}`) ||
+                               dirPath.endsWith(`${path.sep}.claude`) ||
+                               dirPath.endsWith(`.claude`);
 
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -207,33 +216,44 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       });
 
       for (const entry of entries) {
-        // Skip everything except .claude directory and CLAUDE.md files
+        const fullPath = path.join(dirPath, entry.name);
+
         if (entry.isDirectory()) {
-          // Only include .claude directory
-          if (entry.name === ".claude") {
-            const fullPath = path.join(dirPath, entry.name);
+          // Inside .claude: show all directories
+          // Outside .claude: only show .claude directory
+          if (isInsideClaudeDir || entry.name === ".claude") {
             children.push({
               type: NodeType.DIRECTORY,
-              label: ".claude/",
+              label: `${entry.name}${isInsideClaudeDir ? path.sep : ""}`,
               path: fullPath,
               collapsibleState: 1, // Collapsed
               iconPath: new vscode.ThemeIcon("folder"),
               tooltip: fullPath,
-              contextValue: "directory",
+              contextValue: isInsideClaudeDir ? "claudeDirectory" : "directory",
             });
           }
         } else if (entry.isFile()) {
-          // Only include CLAUDE.md files
-          if (entry.name === "CLAUDE.md" || entry.name === ".claude.md") {
-            const fullPath = path.join(dirPath, entry.name);
+          // Inside .claude: show all files
+          // Outside .claude: only show CLAUDE.md files
+          if (isInsideClaudeDir || entry.name === "CLAUDE.md" || entry.name === ".claude.md") {
+            // Choose icon based on file type
+            let iconId = "file";
+            if (entry.name.endsWith(".md")) {
+              iconId = "file-text";
+            } else if (entry.name.endsWith(".json")) {
+              iconId = "settings";
+            } else if (entry.name.endsWith(".ts") || entry.name.endsWith(".js")) {
+              iconId = "code";
+            }
+
             children.push({
               type: NodeType.FILE,
               label: entry.name,
               path: fullPath,
               collapsibleState: 0,
-              iconPath: new vscode.ThemeIcon("file-text"),
+              iconPath: new vscode.ThemeIcon(iconId),
               tooltip: fullPath,
-              contextValue: "claudeMdFile",
+              contextValue: isInsideClaudeDir ? "claudeFile" : "claudeMdFile",
             });
           }
         }
@@ -243,10 +263,10 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       if (children.length === 0) {
         children.push({
           type: NodeType.ERROR,
-          label: "(no Claude files)",
+          label: isInsideClaudeDir ? "(empty)" : "(no Claude files)",
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("info"),
-          tooltip: "No .claude directory or CLAUDE.md file found",
+          tooltip: isInsideClaudeDir ? "This directory is empty" : "No .claude directory or CLAUDE.md file found",
           contextValue: "empty",
         });
       }
