@@ -12,9 +12,15 @@
  * Path conversion:
  * - WSL config path: /home/user/.claude.json → \\wsl.localhost\Ubuntu\home\user\.claude.json
  * - WSL project path: /home/user/project → \\wsl.localhost\Ubuntu\home\user\project
+ *
+ * WSL instance discovery:
+ * - Uses wsl.exe -l -q to get list of installed WSL distros
+ * - Tests \\wsl.localhost\ first, falls back to \\wsl$\
  */
 
 import * as fs from 'node:fs/promises';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   BaseDataFacade,
   type ClaudeGlobalConfig,
@@ -23,6 +29,8 @@ import {
   EnvironmentType,
 } from './dataFacade.js';
 import { PathConverterFactory, type WslDistroConfig } from './pathConverter.js';
+
+const execAsync = promisify(exec);
 
 /**
  * Result of WSL instance discovery
@@ -40,22 +48,16 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
   private readonly distroConfig: WslDistroConfig;
   private readonly pathConverter: ReturnType<typeof PathConverterFactory.createWslToWindowsConverter>;
 
-  constructor(distroName: string, useLegacyFormat = false) {
+  constructor(distroName: string, configPath: string, useLegacyFormat = false) {
     const distroConfig: WslDistroConfig = { distroName, useLegacyFormat };
     const pathConverter = PathConverterFactory.createWslToWindowsConverter(
       distroName,
       useLegacyFormat
     );
 
-    // Build Windows UNC path to WSL config
-    // WSL config is at /home/<user>/.claude.json
-    // We need to convert this to Windows UNC format
-    const wslConfigPath = pathConverter.convert('/home/$USER/.claude.json');
-    const windowsConfigPath = wslConfigPath.replace('$USER', distroName);
-
     const info: EnvironmentInfo = {
       type: EnvironmentType.WSL,
-      configPath: windowsConfigPath,
+      configPath: configPath,
       instanceName: distroName,
     };
 
@@ -167,98 +169,142 @@ export const WindowsToWslDataFacadeFactory = {
   /**
    * Create a WindowsToWslDataFacade for a specific WSL distro
    * @param distroName - WSL distro name (e.g., "Ubuntu", "Debian")
+   * @param configPath - Full path to the .claude.json file
    * @param useLegacyFormat - Whether to use legacy \\wsl$ format instead of \\wsl.localhost
    * @returns Configured WindowsToWslDataFacade
    */
-  create(distroName: string, useLegacyFormat = false): WindowsToWslDataFacade {
-    return new WindowsToWslDataFacade(distroName, useLegacyFormat);
+  create(distroName: string, configPath: string, useLegacyFormat = false): WindowsToWslDataFacade {
+    return new WindowsToWslDataFacade(distroName, configPath, useLegacyFormat);
   },
 
   /**
-   * Discover WSL instances by path probing
-   * Implements the design spec:
-   * 1. Try \\wsl.localhost\ to list instances
-   * 2. Fall back to \\wsl$\ if first fails
-   * 3. For each instance, check if .claude.json exists
+   * Get list of installed WSL distros using wsl.exe command
+   * @returns Array of distro names, empty array if command fails
    */
-  async discoverInstances(): Promise<DiscoveredWslInstance[]> {
-    const discovered: DiscoveredWslInstance[] = [];
+  async getWslDistroList(): Promise<string[]> {
+    try {
+      // wsl.exe -l -q returns only distro names, one per line
+      // Note: wsl.exe returns UTF-16LE encoded output
+      const { stdout } = await execAsync('wsl.exe -l -q', {
+        windowsHide: true,
+        timeout: 5000, // 5 second timeout
+        encoding: 'utf16le', // wsl.exe outputs UTF-16LE
+      });
 
-    // Step 1: Try new format (\\wsl.localhost\) first
-    const newFormatInstances = await this.probeWslPath('\\\\wsl.localhost\\', false);
-    if (newFormatInstances.length > 0) {
-      discovered.push(...newFormatInstances);
-      return discovered; // Use new format if successful
+      // Parse output: split by lines, trim whitespace (including \r), filter empty
+      const distros = stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      return distros;
+    } catch (error) {
+      // wsl.exe command failed (WSL not installed, not available, etc.)
+      return [];
     }
-
-    // Step 2: Fall back to legacy format (\\wsl$\)
-    const legacyFormatInstances = await this.probeWslPath('\\\\wsl$\\', true);
-    discovered.push(...legacyFormatInstances);
-
-    return discovered;
   },
 
   /**
-   * Probe a WSL UNC path to discover instances
+   * Try to discover instances for a given UNC prefix
    * @param prefix - UNC path prefix (\\wsl.localhost\ or \\wsl$\)
+   * @param distros - List of distro names from wsl.exe
    * @param useLegacyFormat - Whether this is the legacy format
    * @returns List of discovered instances with valid .claude.json
    */
-  async probeWslPath(prefix: string, useLegacyFormat: boolean): Promise<DiscoveredWslInstance[]> {
+  async probeWithPrefix(
+    prefix: string,
+    distros: string[],
+    useLegacyFormat: boolean
+  ): Promise<DiscoveredWslInstance[]> {
     const discovered: DiscoveredWslInstance[] = [];
 
-    try {
-      // Try to list directories in the WSL root
-      const entries = await fs.readdir(prefix, { withFileTypes: true });
+    for (const distro of distros) {
+      const homePath = `${prefix}${distro}\\home`;
 
-      for (const entry of entries) {
-        if (!entry.isDirectory()) {
-          continue;
+      try {
+        // Check if home directory is accessible
+        await fs.access(homePath);
+
+        // List subdirectories in home (each subdirectory is a username)
+        const entries = await fs.readdir(homePath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          if (!entry.isDirectory()) {
+            continue;
+          }
+
+          const username = entry.name;
+
+          // Skip system directories
+          if (username.startsWith('.')) {
+            continue;
+          }
+
+          // Check if .claude.json exists in this user's home directory
+          const configPath = `${homePath}\\${username}\\.claude.json`;
+
+          try {
+            await fs.access(configPath);
+            discovered.push({
+              distroName: distro,
+              configPath,
+              useLegacyFormat,
+            });
+            // Found config for this distro, try next distro
+            break;
+          } catch {
+            // Config doesn't exist for this user, try next user
+          }
         }
-
-        const distroName = entry.name;
-
-        // Skip non-distro directories
-        if (distroName.startsWith('$') || distroName === '.') {
-          continue;
-        }
-
-        // Check if .claude.json exists for this distro
-        const configPath = `${prefix}${distroName}\\home\\${distroName}\\.claude.json`;
-
-        try {
-          await fs.access(configPath);
-          discovered.push({
-            distroName,
-            configPath,
-            useLegacyFormat,
-          });
-        } catch {
-          // Config doesn't exist, skip this distro
-        }
+      } catch {
+        // Home directory not accessible, skip this distro
+        continue;
       }
-    } catch (error) {
-      // Cannot access the WSL path - may not be available or permissions issue
-      // Return empty array to indicate failure
-      return [];
     }
 
     return discovered;
+  },
+
+  /**
+   * Discover WSL instances using wsl.exe command
+   * Implements the design spec:
+   * 1. Use wsl.exe -l -q to get instance list
+   * 2. Try \\wsl.localhost\ first, verify with config check
+   * 3. Fall back to \\wsl$\ if needed
+   */
+  async discoverInstances(): Promise<DiscoveredWslInstance[]> {
+    // Step 1: Get distro list from wsl.exe
+    const distros = await this.getWslDistroList();
+
+    if (distros.length === 0) {
+      return []; // No WSL distros found
+    }
+
+    // Step 2: Try new format (\\wsl.localhost\) first
+    const newFormatInstances = await this.probeWithPrefix('\\\\wsl.localhost\\', distros, false);
+    if (newFormatInstances.length > 0) {
+      return newFormatInstances; // Use new format if successful
+    }
+
+    // Step 3: Fall back to legacy format (\\wsl$\)
+    const legacyFormatInstances = await this.probeWithPrefix('\\\\wsl$\\', distros, true);
+    return legacyFormatInstances;
   },
 
   /**
    * Create WindowsToWslDataFacade instances for all discovered WSL distros
-   * Uses path probing to discover WSL instances dynamically
+   * Uses wsl.exe command to discover WSL instances dynamically
    * @returns Promise resolving to array of accessible facades
    */
   async createAll(): Promise<WindowsToWslDataFacade[]> {
     const facades: WindowsToWslDataFacade[] = [];
 
-    // Discover instances using path probing
+    // Discover instances using wsl.exe command
     const discovered = await this.discoverInstances();
 
     for (const instance of discovered) {
-      const facade = this.create(instance.distroName, instance.useLegacyFormat);
+      // Create facade with the actual discovered config path
+      const facade = this.create(instance.distroName, instance.configPath, instance.useLegacyFormat);
 
       // Verify facade is accessible
       if (await this.isFacadeAccessible(facade)) {
