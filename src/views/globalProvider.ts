@@ -1,18 +1,25 @@
 /**
  * TreeDataProvider for Global Claude configuration.
- * Displays ~/.claude/ directory tree and ~/.claude.json in a tree view.
+ * Displays .claude/ directory tree and .claude.json for all accessible environments.
+ *
+ * New Architecture:
+ * - Uses ConfigSearch to get data facades for all environments
+ * - Shows global config for each environment in separate tree nodes
+ * - Supports both native and cross-environment configurations
  */
 
 import * as vscode from "vscode";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { CollapsibleState } from "../types/claudeConfig.js";
+import { ConfigSearch } from "../services/configSearch.js";
 
 /**
- * Tree node types for global view.
+ * Tree node types for global view with multi-environment support.
  */
 export enum GlobalNodeType {
   ROOT = "root",
+  ENVIRONMENT = "environment",
   DIRECTORY = "directory",
   FILE = "file",
   CLAUDE_JSON = "claudeJson",
@@ -31,48 +38,24 @@ interface GlobalTreeNode {
   readonly tooltip?: string;
   readonly contextValue?: string;
   readonly error?: Error;
+  readonly facadeIndex?: number; // Index into configSearch facades array
 }
 
 /**
  * Tree data provider for Global Persona view.
- * Shows the .claude/ directory tree and .claude.json for a specific environment.
+ * Shows global configuration files for all accessible environments.
  */
 export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<GlobalTreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private claudeJsonPath: string;
-  private claudeDir: string;
-  private environmentName: string;
+  private configSearch: ConfigSearch;
   private rootNodes: GlobalTreeNode[] = [];
-  private loadError: Error | null = null;
 
-  constructor(configPath: string, environmentName: string) {
-    this.claudeJsonPath = configPath;
-    this.environmentName = environmentName;
-    this.claudeDir = this.deriveClaudeDir(configPath);
-    // Environment name is stored for future use in multi-environment views
-    void this.environmentName;
+   
+  constructor(search: ConfigSearch, _debugOutput: vscode.OutputChannel) {
+    this.configSearch = search;
     void this.loadRootNodes();
-  }
-
-  /**
-   * Update the configuration path and environment name.
-   * Called when switching environments.
-   */
-  updateConfigPath(configPath: string, environmentName: string): void {
-    this.claudeJsonPath = configPath;
-    this.environmentName = environmentName;
-    this.claudeDir = this.deriveClaudeDir(configPath);
-  }
-
-  /**
-   * Derive the .claude directory path from the config file path.
-   * Handles various path formats (Unix, Windows, WSL).
-   */
-  private deriveClaudeDir(configPath: string): string {
-    const dir = path.dirname(configPath);
-    return path.join(dir, ".claude");
   }
 
   /**
@@ -108,7 +91,7 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       treeItem.contextValue = element.contextValue;
     }
 
-    // Only assign openFile command to FILE and CLAUUDE_JSON nodes, not directories
+    // Assign openFile command to FILE and CLAUDE_JSON nodes
     const isClickable =
       element.type === GlobalNodeType.FILE || element.type === GlobalNodeType.CLAUDE_JSON;
     if (isClickable && element.path !== undefined) {
@@ -130,23 +113,19 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
    * Get children of a given node, or root nodes if no node is provided.
    */
   async getChildren(element?: GlobalTreeNode): Promise<GlobalTreeNode[]> {
-    if (this.loadError) {
-      return [
-        {
-          type: GlobalNodeType.ERROR,
-          label: "Error loading global configuration",
-          collapsibleState: 0,
-          iconPath: new vscode.ThemeIcon("error"),
-          tooltip: this.loadError.message,
-          contextValue: "error",
-          error: this.loadError,
-        },
-      ];
+    // Return error node if loading failed
+    if (this.rootNodes.length === 1 && this.rootNodes[0]?.type === GlobalNodeType.ERROR) {
+      return this.rootNodes;
     }
 
     // No element = root level
     if (element === undefined) {
       return this.rootNodes;
+    }
+
+    // Environment node children
+    if (element.type === GlobalNodeType.ENVIRONMENT && element.facadeIndex !== undefined) {
+      return this.getEnvironmentChildren(element.facadeIndex);
     }
 
     // Directory node children
@@ -158,59 +137,132 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   }
 
   /**
-   * Load root level nodes.
+   * Load root level nodes - one per accessible environment
    */
   private async loadRootNodes(): Promise<void> {
     this.rootNodes = [];
-    this.loadError = null;
+
+    try {
+      const facades = this.configSearch.getAllFacades();
+
+      if (facades.length === 0) {
+        this.rootNodes.push({
+          type: GlobalNodeType.ERROR,
+          label: "No environments found",
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("info"),
+          tooltip: "No accessible Claude configuration found",
+          contextValue: "empty",
+        });
+        return;
+      }
+
+      // Create a node for each environment
+      for (let i = 0; i < facades.length; i++) {
+        const facade = facades[i];
+        const info = facade.getEnvironmentInfo();
+
+        // Determine display name
+        const displayName = this.getEnvironmentDisplayName(info.type, info.instanceName);
+
+        // Check if config file exists
+        const hasConfig = await this.doesConfigExist(facade);
+
+        this.rootNodes.push({
+          type: GlobalNodeType.ENVIRONMENT,
+          label: displayName,
+          collapsibleState: hasConfig ? 1 : 0,
+          iconPath: new vscode.ThemeIcon("server"),
+          tooltip: info.configPath,
+          contextValue: "environment",
+          facadeIndex: i,
+        });
+      }
+    } catch (error) {
+      this.rootNodes = [{
+        type: GlobalNodeType.ERROR,
+        label: "Error loading environments",
+        collapsibleState: 0,
+        iconPath: new vscode.ThemeIcon("error"),
+        tooltip: error instanceof Error ? error.message : String(error),
+        contextValue: "error",
+        error: error instanceof Error ? error : new Error(String(error)),
+      }];
+    }
+  }
+
+  /**
+   * Get children for an environment node
+   */
+  private async getEnvironmentChildren(facadeIndex: number): Promise<GlobalTreeNode[]> {
+    const children: GlobalTreeNode[] = [];
+    const facades = this.configSearch.getAllFacades();
+
+    if (facadeIndex >= facades.length) {
+      return [];
+    }
+
+    const facade = facades[facadeIndex];
+    const info = facade.getEnvironmentInfo();
 
     try {
       // Add ~/.claude.json file
-      const claudeJsonExists = await this.fileExists(this.claudeJsonPath);
-      if (claudeJsonExists) {
-        this.rootNodes.push({
+      const hasConfig = await this.doesConfigExist(facade);
+      if (hasConfig) {
+        children.push({
           type: GlobalNodeType.CLAUDE_JSON,
           label: "~/.claude.json",
-          path: this.claudeJsonPath,
+          path: info.configPath,
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("settings-gear"),
-          tooltip: this.claudeJsonPath,
+          tooltip: info.configPath,
           contextValue: "claudeJson",
         });
       }
 
       // Add ~/.claude/ directory
-      const claudeDirExists = await this.directoryExists(this.claudeDir);
-      if (claudeDirExists) {
-        this.rootNodes.push({
+      const claudeDir = this.deriveClaudeDir(info.configPath);
+      const hasClaudeDir = await this.directoryExists(claudeDir);
+      if (hasClaudeDir) {
+        children.push({
           type: GlobalNodeType.DIRECTORY,
           label: "~/.claude/",
-          path: this.claudeDir,
+          path: claudeDir,
           collapsibleState: 1, // Collapsed
           iconPath: new vscode.ThemeIcon("folder"),
-          tooltip: this.claudeDir,
+          tooltip: claudeDir,
           contextValue: "directory",
         });
       }
 
       // If nothing found, show empty message
-      if (this.rootNodes.length === 0) {
-        this.rootNodes.push({
+      if (children.length === 0) {
+        children.push({
           type: GlobalNodeType.ERROR,
-          label: "No Claude global configuration found",
+          label: "(no configuration found)",
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("info"),
-          tooltip: "Create ~/.claude.json or ~/.claude/ directory",
+          tooltip: "No ~/.claude.json or ~/.claude/ directory found",
           contextValue: "empty",
         });
       }
     } catch (error) {
-      this.loadError = error instanceof Error ? error : new Error(String(error));
+      children.push({
+        type: GlobalNodeType.ERROR,
+        label: "Error loading configuration",
+        collapsibleState: 0,
+        iconPath: new vscode.ThemeIcon("error"),
+        tooltip: error instanceof Error ? error.message : String(error),
+        contextValue: "error",
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
+
+    return children;
   }
 
   /**
-   * Get children for a directory node.
+   * Get children for a directory node
    */
   private async getDirectoryChildren(dirPath: string): Promise<GlobalTreeNode[]> {
     const children: GlobalTreeNode[] = [];
@@ -291,19 +343,27 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   }
 
   /**
-   * Check if a file exists.
+   * Derive the .claude directory path from the config file path
    */
-  private async fileExists(filePath: string): Promise<boolean> {
+  private deriveClaudeDir(configPath: string): string {
+    const dir = path.dirname(configPath);
+    return path.join(dir, ".claude");
+  }
+
+  /**
+   * Check if the config file exists for a given facade
+   */
+  private async doesConfigExist(facade: import("../services/dataFacade.js").ClaudeDataFacade): Promise<boolean> {
     try {
-      const stats = await fs.stat(filePath);
-      return stats.isFile();
+      await facade.getGlobalConfig('settings');
+      return true;
     } catch {
       return false;
     }
   }
 
   /**
-   * Check if a directory exists.
+   * Check if a directory exists
    */
   private async directoryExists(dirPath: string): Promise<boolean> {
     try {
@@ -311,6 +371,28 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       return stats.isDirectory();
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Get a display name for an environment
+   */
+  private getEnvironmentDisplayName(envType: import("../services/dataFacade.js").EnvironmentType, instanceName?: string): string {
+    switch (envType) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      case "windows":
+        return "Windows";
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      case "wsl":
+        return instanceName !== undefined && instanceName !== "" ? `WSL (${instanceName})` : "WSL";
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      case "macos":
+        return "macOS";
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      case "linux":
+        return "Linux";
+      default:
+        return "Unknown";
     }
   }
 }
