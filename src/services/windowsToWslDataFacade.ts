@@ -25,6 +25,15 @@ import {
 import { PathConverterFactory, type WslDistroConfig } from './pathConverter.js';
 
 /**
+ * Result of WSL instance discovery
+ */
+interface DiscoveredWslInstance {
+  distroName: string;
+  configPath: string;
+  useLegacyFormat: boolean;
+}
+
+/**
  * Data facade for accessing a WSL instance's configuration from Windows
  */
 export class WindowsToWslDataFacade extends BaseDataFacade {
@@ -166,27 +175,94 @@ export const WindowsToWslDataFacadeFactory = {
   },
 
   /**
-   * Create WindowsToWslDataFacade instances for all accessible WSL distros
-   * Tries to discover WSL instances and create facades for each
+   * Discover WSL instances by path probing
+   * Implements the design spec:
+   * 1. Try \\wsl.localhost\ to list instances
+   * 2. Fall back to \\wsl$\ if first fails
+   * 3. For each instance, check if .claude.json exists
+   */
+  async discoverInstances(): Promise<DiscoveredWslInstance[]> {
+    const discovered: DiscoveredWslInstance[] = [];
+
+    // Step 1: Try new format (\\wsl.localhost\) first
+    const newFormatInstances = await this.probeWslPath('\\\\wsl.localhost\\', false);
+    if (newFormatInstances.length > 0) {
+      discovered.push(...newFormatInstances);
+      return discovered; // Use new format if successful
+    }
+
+    // Step 2: Fall back to legacy format (\\wsl$\)
+    const legacyFormatInstances = await this.probeWslPath('\\\\wsl$\\', true);
+    discovered.push(...legacyFormatInstances);
+
+    return discovered;
+  },
+
+  /**
+   * Probe a WSL UNC path to discover instances
+   * @param prefix - UNC path prefix (\\wsl.localhost\ or \\wsl$\)
+   * @param useLegacyFormat - Whether this is the legacy format
+   * @returns List of discovered instances with valid .claude.json
+   */
+  async probeWslPath(prefix: string, useLegacyFormat: boolean): Promise<DiscoveredWslInstance[]> {
+    const discovered: DiscoveredWslInstance[] = [];
+
+    try {
+      // Try to list directories in the WSL root
+      const entries = await fs.readdir(prefix, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+
+        const distroName = entry.name;
+
+        // Skip non-distro directories
+        if (distroName.startsWith('$') || distroName === '.') {
+          continue;
+        }
+
+        // Check if .claude.json exists for this distro
+        const configPath = `${prefix}${distroName}\\home\\${distroName}\\.claude.json`;
+
+        try {
+          await fs.access(configPath);
+          discovered.push({
+            distroName,
+            configPath,
+            useLegacyFormat,
+          });
+        } catch {
+          // Config doesn't exist, skip this distro
+        }
+      }
+    } catch (error) {
+      // Cannot access the WSL path - may not be available or permissions issue
+      // Return empty array to indicate failure
+      return [];
+    }
+
+    return discovered;
+  },
+
+  /**
+   * Create WindowsToWslDataFacade instances for all discovered WSL distros
+   * Uses path probing to discover WSL instances dynamically
    * @returns Promise resolving to array of accessible facades
    */
   async createAll(): Promise<WindowsToWslDataFacade[]> {
     const facades: WindowsToWslDataFacade[] = [];
 
-    // Common WSL distro names to try
-    const commonDistros = ['Ubuntu', 'Debian', 'Fedora', 'opensuse', 'Ubumtu'];
+    // Discover instances using path probing
+    const discovered = await this.discoverInstances();
 
-    for (const distro of commonDistros) {
-      // Try new format first, fallback to legacy
-      const facade = this.create(distro, false);
+    for (const instance of discovered) {
+      const facade = this.create(instance.distroName, instance.useLegacyFormat);
+
+      // Verify facade is accessible
       if (await this.isFacadeAccessible(facade)) {
         facades.push(facade);
-      } else {
-        // Try legacy format
-        const legacyFacade = this.create(distro, true);
-        if (await this.isFacadeAccessible(legacyFacade)) {
-          facades.push(legacyFacade);
-        }
       }
     }
 

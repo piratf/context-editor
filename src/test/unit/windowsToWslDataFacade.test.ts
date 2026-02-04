@@ -186,6 +186,38 @@ describe('WindowsToWslDataFacade', () => {
       const accessible = await WindowsToWslDataFacadeFactory.isFacadeAccessible(facade);
       assert.strictEqual(typeof accessible, 'boolean');
     });
+
+    describe('discoverInstances()', () => {
+      it('should return empty array when WSL paths are not accessible', async () => {
+        // In non-Windows or WSL environment, Windows UNC paths are not accessible
+        const discovered = await WindowsToWslDataFacadeFactory.discoverInstances();
+        assert.deepStrictEqual(discovered, []);
+      });
+
+      it('should not throw when probing WSL paths', async () => {
+        // Verify the probing logic doesn't throw even when paths are inaccessible
+        const result = await WindowsToWslDataFacadeFactory.probeWslPath('\\\\wsl.localhost\\', false);
+        assert.ok(Array.isArray(result));
+      });
+
+      it('should handle legacy format probing', async () => {
+        const result = await WindowsToWslDataFacadeFactory.probeWslPath('\\\\wsl$\\', true);
+        assert.ok(Array.isArray(result));
+      });
+    });
+
+    describe('createAll()', () => {
+      it('should return empty array when no WSL instances found', async () => {
+        // In non-Windows or WSL environment, no instances should be discovered
+        const facades = await WindowsToWslDataFacadeFactory.createAll();
+        assert.deepStrictEqual(facades, []);
+      });
+
+      it('should not throw when no instances are accessible', async () => {
+        const facades = await WindowsToWslDataFacadeFactory.createAll();
+        assert.ok(Array.isArray(facades));
+      });
+    });
   });
 
   describe('不同发行版', () => {
