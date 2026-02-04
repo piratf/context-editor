@@ -76,6 +76,10 @@ export type McpServers = Readonly<Record<string, McpServer>>;
 
 /**
  * Global configuration from .claude.json
+ *
+ * Note: The actual .claude.json contains many fields beyond those explicitly
+ * defined here. The index signature allows access to all fields while providing
+ * type safety for known important fields.
  */
 export interface ClaudeGlobalConfig {
   /** User settings preferences */
@@ -83,7 +87,9 @@ export interface ClaudeGlobalConfig {
   /** User-scoped MCP server configurations */
   mcpServers?: McpServers;
   /** Registered projects and their configurations */
-  projects?: Readonly<Record<string, ProjectEntry>> | readonly ProjectEntry[];
+  projects?: Readonly<Record<string, unknown>> | readonly unknown[];
+  /** Index signature for all other fields */
+  [key: string]: unknown;
 }
 
 /**
