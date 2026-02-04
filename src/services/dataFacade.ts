@@ -274,6 +274,10 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   /**
    * Normalize project entries to a consistent format
    * Handles both array and record formats from .claude.json.
+   *
+   * The actual .claude.json format uses an object where:
+   * - Key: project path (e.g., "/home/cloud", "/mnt/c/Users/...")
+   * - Value: project configuration (allowedTools, mcpServers, state, etc.)
    */
   protected normalizeProjects(projects: unknown): ProjectEntry[] {
     if (projects === null || projects === undefined) {
@@ -291,11 +295,29 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
 
     if (typeof projects === 'object') {
       const result: ProjectEntry[] = [];
-      for (const value of Object.values(projects as Record<string, unknown>)) {
-        if (this.isValidProjectEntry(value)) {
-          const entry: ProjectEntry = { path: value.path };
-          if (value.state !== undefined) entry.state = value.state;
-          if (value.mcpServers !== undefined) entry.mcpServers = value.mcpServers;
+      // Use Object.entries to get both path (key) and config (value)
+      for (const [projectPath, config] of Object.entries(projects as Record<string, unknown>)) {
+        if (typeof config === 'object' && config !== null) {
+          const entry: ProjectEntry = { path: projectPath };
+
+          // Extract state from config if present
+          const configObj = config as Record<string, unknown>;
+          if ('allowedTools' in config || 'hasTrustDialogAccepted' in config) {
+            const state: ProjectState = {};
+            if (Array.isArray(configObj.allowedTools)) {
+              state.allowedTools = configObj.allowedTools as readonly string[];
+            }
+            if (typeof configObj.hasTrustDialogAccepted === 'boolean') {
+              state.trust = configObj.hasTrustDialogAccepted;
+            }
+            entry.state = state;
+          }
+
+          // Extract mcpServers from config if present
+          if ('mcpServers' in config && typeof configObj.mcpServers === 'object' && configObj.mcpServers !== null) {
+            entry.mcpServers = configObj.mcpServers as McpServers;
+          }
+
           result.push(entry);
         }
       }
