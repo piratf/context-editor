@@ -62,25 +62,21 @@
         {
           "id": "contextEditorPrimaryGlobal",
           "name": "Global",
-          "title": "$(server-environment) Global [${contextEditor.currentEnv}]"
+          "title": "$(settings-gear) Global"
         },
         {
           "id": "contextEditorPrimaryProjects",
-          "name": "Projects"
+          "name": "Projects",
+          "title": "$(folder) Projects"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "contextEditor.switchEnvironment",
-          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
-          "group": "navigation@1"
-        },
-        {
           "command": "contextEditor.refresh",
           "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
-          "group": "navigation@2"
+          "group": "navigation@1"
         }
       ]
     }
@@ -104,6 +100,7 @@
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
     "@vscode/test-electron": "^2.4.1",
+    "c8": "^10.1.3",
     "eslint": "^9.17.0",
     "eslint-plugin-node": "^5.2.1",
     "glob": "^13.0.0",

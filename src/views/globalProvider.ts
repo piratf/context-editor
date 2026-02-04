@@ -1,25 +1,24 @@
 /**
  * TreeDataProvider for Global Claude configuration.
- * Displays .claude/ directory tree and .claude.json for all accessible environments.
+ * Displays .claude/ directory tree and .claude.json for the currently selected environment.
  *
  * New Architecture:
- * - Uses ConfigSearch to get data facades for all environments
- * - Shows global config for each environment in separate tree nodes
- * - Supports both native and cross-environment configurations
+ * - Uses EnvironmentManager to get the current environment's data facade
+ * - Shows global config for the current environment only
+ * - Users switch environments via dropdown menu
  */
 
 import * as vscode from "vscode";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { CollapsibleState } from "../types/claudeConfig.js";
-import { ConfigSearch } from "../services/configSearch.js";
+import { EnvironmentManager } from "../services/environmentManager.js";
 
 /**
- * Tree node types for global view with multi-environment support.
+ * Tree node types for global view.
  */
 export enum GlobalNodeType {
   ROOT = "root",
-  ENVIRONMENT = "environment",
   DIRECTORY = "directory",
   FILE = "file",
   CLAUDE_JSON = "claudeJson",
@@ -38,7 +37,6 @@ interface GlobalTreeNode {
   readonly tooltip?: string;
   readonly contextValue?: string;
   readonly error?: Error;
-  readonly facadeIndex?: number; // Index into configSearch facades array
 }
 
 /**
@@ -49,12 +47,13 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<GlobalTreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private configSearch: ConfigSearch;
+  private environmentManager: EnvironmentManager;
   private rootNodes: GlobalTreeNode[] = [];
+  private readonly debugOutput: vscode.OutputChannel;
 
-   
-  constructor(search: ConfigSearch, _debugOutput: vscode.OutputChannel) {
-    this.configSearch = search;
+  constructor(envManager: EnvironmentManager, debugOutput: vscode.OutputChannel) {
+    this.environmentManager = envManager;
+    this.debugOutput = debugOutput;
     void this.loadRootNodes();
   }
 
@@ -113,103 +112,68 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
    * Get children of a given node, or root nodes if no node is provided.
    */
   async getChildren(element?: GlobalTreeNode): Promise<GlobalTreeNode[]> {
+    this.debugOutput.appendLine(`[GlobalProvider] getChildren called, element=${element === undefined ? 'undefined (root level)' : element.label}`);
+
     // Return error node if loading failed
     if (this.rootNodes.length === 1 && this.rootNodes[0]?.type === GlobalNodeType.ERROR) {
+      this.debugOutput.appendLine("[GlobalProvider] getChildren: returning error node");
       return this.rootNodes;
     }
 
     // No element = root level
     if (element === undefined) {
+      this.debugOutput.appendLine(`[GlobalProvider] getChildren: returning ${String(this.rootNodes.length)} root nodes`);
+      for (let i = 0; i < this.rootNodes.length; i++) {
+        const node = this.rootNodes[i];
+        this.debugOutput.appendLine(`[GlobalProvider]   root node ${String(i)}: type=${node.type}, label="${node.label}", collapsibleState=${String(node.collapsibleState)}`);
+      }
       return this.rootNodes;
-    }
-
-    // Environment node children
-    if (element.type === GlobalNodeType.ENVIRONMENT && element.facadeIndex !== undefined) {
-      return this.getEnvironmentChildren(element.facadeIndex);
     }
 
     // Directory node children
     if (element.type === GlobalNodeType.DIRECTORY && element.path !== undefined) {
+      this.debugOutput.appendLine(`[GlobalProvider] getChildren: getting directory children for path="${element.path}"`);
       return this.getDirectoryChildren(element.path);
     }
 
+    this.debugOutput.appendLine("[GlobalProvider] getChildren: no matching case, returning empty array");
     return [];
   }
 
   /**
-   * Load root level nodes - one per accessible environment
+   * Load root level nodes - config file and directory from current environment
    */
   private async loadRootNodes(): Promise<void> {
+    this.debugOutput.appendLine("[GlobalProvider] loadRootNodes() started");
     this.rootNodes = [];
 
     try {
-      const facades = this.configSearch.getAllFacades();
+      const facade = this.environmentManager.getCurrentFacade();
 
-      if (facades.length === 0) {
+      if (facade === null) {
+        this.debugOutput.appendLine("[GlobalProvider] No current facade - creating 'No environment selected' node");
         this.rootNodes.push({
           type: GlobalNodeType.ERROR,
-          label: "No environments found",
+          label: "No environment selected",
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("info"),
-          tooltip: "No accessible Claude configuration found",
+          tooltip: "Select an environment using the dropdown menu",
           contextValue: "empty",
         });
         return;
       }
 
-      // Create a node for each environment
-      for (let i = 0; i < facades.length; i++) {
-        const facade = facades[i];
-        const info = facade.getEnvironmentInfo();
+      const info = facade.getEnvironmentInfo();
+      this.debugOutput.appendLine(`[GlobalProvider] Current environment: type=${info.type}, configPath="${info.configPath}"`);
 
-        // Determine display name
-        const displayName = this.getEnvironmentDisplayName(info.type, info.instanceName);
-
-        // Check if config file exists
-        const hasConfig = await this.doesConfigExist(facade);
-
-        this.rootNodes.push({
-          type: GlobalNodeType.ENVIRONMENT,
-          label: displayName,
-          collapsibleState: hasConfig ? 1 : 0,
-          iconPath: new vscode.ThemeIcon("server"),
-          tooltip: info.configPath,
-          contextValue: "environment",
-          facadeIndex: i,
-        });
-      }
-    } catch (error) {
-      this.rootNodes = [{
-        type: GlobalNodeType.ERROR,
-        label: "Error loading environments",
-        collapsibleState: 0,
-        iconPath: new vscode.ThemeIcon("error"),
-        tooltip: error instanceof Error ? error.message : String(error),
-        contextValue: "error",
-        error: error instanceof Error ? error : new Error(String(error)),
-      }];
-    }
-  }
-
-  /**
-   * Get children for an environment node
-   */
-  private async getEnvironmentChildren(facadeIndex: number): Promise<GlobalTreeNode[]> {
-    const children: GlobalTreeNode[] = [];
-    const facades = this.configSearch.getAllFacades();
-
-    if (facadeIndex >= facades.length) {
-      return [];
-    }
-
-    const facade = facades[facadeIndex];
-    const info = facade.getEnvironmentInfo();
-
-    try {
-      // Add ~/.claude.json file
+      // Check if config file exists
+      this.debugOutput.appendLine("[GlobalProvider] Checking doesConfigExist...");
       const hasConfig = await this.doesConfigExist(facade);
+      this.debugOutput.appendLine(`[GlobalProvider] hasConfig=${String(hasConfig)}`);
+
+      // Add ~/.claude.json file
       if (hasConfig) {
-        children.push({
+        this.rootNodes.push({
           type: GlobalNodeType.CLAUDE_JSON,
           label: "~/.claude.json",
           path: info.configPath,
@@ -224,7 +188,7 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       const claudeDir = this.deriveClaudeDir(info.configPath);
       const hasClaudeDir = await this.directoryExists(claudeDir);
       if (hasClaudeDir) {
-        children.push({
+        this.rootNodes.push({
           type: GlobalNodeType.DIRECTORY,
           label: "~/.claude/",
           path: claudeDir,
@@ -236,8 +200,8 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       }
 
       // If nothing found, show empty message
-      if (children.length === 0) {
-        children.push({
+      if (this.rootNodes.length === 0) {
+        this.rootNodes.push({
           type: GlobalNodeType.ERROR,
           label: "(no configuration found)",
           collapsibleState: 0,
@@ -246,8 +210,12 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
           contextValue: "empty",
         });
       }
+
+      this.debugOutput.appendLine(`[GlobalProvider] loadRootNodes() completed with ${String(this.rootNodes.length)} root nodes`);
     } catch (error) {
-      children.push({
+      this.debugOutput.appendLine(`[GlobalProvider] Error in loadRootNodes: ${error instanceof Error ? error.message : String(error)}`);
+      this.debugOutput.appendLine(`[GlobalProvider] Error stack: ${error instanceof Error ? error.stack ?? "no stack" : "no stack"}`);
+      this.rootNodes = [{
         type: GlobalNodeType.ERROR,
         label: "Error loading configuration",
         collapsibleState: 0,
@@ -255,10 +223,8 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
         tooltip: error instanceof Error ? error.message : String(error),
         contextValue: "error",
         error: error instanceof Error ? error : new Error(String(error)),
-      });
+      }];
     }
-
-    return children;
   }
 
   /**
@@ -355,9 +321,12 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
    */
   private async doesConfigExist(facade: import("../services/dataFacade.js").ClaudeDataFacade): Promise<boolean> {
     try {
+      this.debugOutput.appendLine("[GlobalProvider] doesConfigExist: calling getGlobalConfig('settings')...");
       await facade.getGlobalConfig('settings');
+      this.debugOutput.appendLine("[GlobalProvider] doesConfigExist: getGlobalConfig succeeded, returning true");
       return true;
-    } catch {
+    } catch (error) {
+      this.debugOutput.appendLine(`[GlobalProvider] doesConfigExist: caught error - ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -371,28 +340,6 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       return stats.isDirectory();
     } catch {
       return false;
-    }
-  }
-
-  /**
-   * Get a display name for an environment
-   */
-  private getEnvironmentDisplayName(envType: import("../services/dataFacade.js").EnvironmentType, instanceName?: string): string {
-    switch (envType) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "windows":
-        return "Windows";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "wsl":
-        return instanceName !== undefined && instanceName !== "" ? `WSL (${instanceName})` : "WSL";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "macos":
-        return "macOS";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "linux":
-        return "Linux";
-      default:
-        return "Unknown";
     }
   }
 }

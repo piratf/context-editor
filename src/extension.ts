@@ -5,19 +5,37 @@
  *
  * New Architecture:
  * - Uses ConfigSearch to discover all accessible environments
- * - Displays projects from all environments simultaneously
- * - No environment switching - all environments are shown at once
+ * - Uses EnvironmentManager to manage the currently selected environment
+ * - Displays projects from the currently selected environment only
+ * - User can switch environments via status bar button
  */
 
 import * as vscode from "vscode";
 import { GlobalProvider } from "./views/globalProvider.js";
 import { ProjectProvider } from "./views/projectProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
+import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
 
 // Global state
 let configSearch: ConfigSearch;
+let environmentManager: EnvironmentManager;
 let globalProvider: GlobalProvider;
 let projectProvider: ProjectProvider;
+let environmentStatusBarItem: vscode.StatusBarItem;
+
+// Set context variable for UI conditionals
+function updateCurrentEnvironmentContext(envName: string): void {
+  void vscode.commands.executeCommand("setContext", "contextEditor.currentEnv", envName);
+}
+
+// Update status bar item with current environment
+function updateEnvironmentStatusBar(envName: string): void {
+  if (environmentStatusBarItem) {
+    environmentStatusBarItem.text = `$(server-environment) ${envName}`;
+    environmentStatusBarItem.tooltip = `Current environment: ${envName}. Click to switch.`;
+    environmentStatusBarItem.show();
+  }
+}
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log("Context Editor extension is now active!");
@@ -39,15 +57,49 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     debugOutput.appendLine(`  - ${info.type}: ${info.configPath}`);
   }
 
-  // Register views with config search
-  registerViews(context, configSearch, debugOutput);
+  // Initialize environment manager (defaults to native facade)
+  environmentManager = new EnvironmentManager(configSearch);
+  const currentEnvName = environmentManager.getCurrentEnvironmentName();
+  updateCurrentEnvironmentContext(currentEnvName);
+  debugOutput.appendLine(`Current environment: ${currentEnvName}`);
+
+  // Create status bar item for environment switching
+  environmentStatusBarItem = vscode.window.createStatusBarItem(
+    "contextEditor.environmentStatus",
+    vscode.StatusBarAlignment.Left,
+    100 // Priority
+  );
+  environmentStatusBarItem.command = "contextEditor.switchEnvironment";
+  context.subscriptions.push(environmentStatusBarItem);
+  updateEnvironmentStatusBar(currentEnvName);
+
+  // Register views with environment manager
+  registerViews(context, environmentManager, debugOutput);
 
   // Register commands
-  registerCommands(context, configSearch, debugOutput);
+  registerCommands(context, environmentManager, debugOutput);
+
+  // Subscribe to environment changes
+  environmentManager.on("environmentChanged", (event: EnvironmentChangeEvent) => {
+    debugOutput.appendLine(`Environment changed: ${event.environmentName}`);
+    updateCurrentEnvironmentContext(event.environmentName);
+    updateEnvironmentStatusBar(event.environmentName);
+
+    // Refresh views to show data from new environment
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    globalProvider?.refresh();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    projectProvider?.refresh();
+  });
 
   // Subscribe to data facades changes
   configSearch.on('dataFacadesChanged', (facades) => {
     debugOutput.appendLine(`Data facades changed: ${String(facades.length)} environment(s)`);
+    environmentManager.updateConfigSearch(configSearch);
+
+    // Update status bar with new current environment name
+    const updatedEnvName = environmentManager.getCurrentEnvironmentName();
+    updateEnvironmentStatusBar(updatedEnvName);
 
     // Refresh views to show updated data
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -62,14 +114,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  */
 function registerViews(
   _context: vscode.ExtensionContext,
-  search: ConfigSearch,
+  envManager: EnvironmentManager,
   debugOutput: vscode.OutputChannel
 ): void {
   debugOutput.appendLine("Registering views...");
 
-  // Create providers with config search
-  globalProvider = new GlobalProvider(search, debugOutput);
-  projectProvider = new ProjectProvider(search, debugOutput);
+  // Create providers with environment manager
+  globalProvider = new GlobalProvider(envManager, debugOutput);
+  projectProvider = new ProjectProvider(envManager, debugOutput);
 
   // Register the tree data providers
   vscode.window.registerTreeDataProvider("contextEditorPrimaryGlobal", globalProvider);
@@ -81,7 +133,7 @@ function registerViews(
  */
 function registerCommands(
   context: vscode.ExtensionContext,
-  search: ConfigSearch,
+  envManager: EnvironmentManager,
   debugOutput: vscode.OutputChannel
 ): void {
   // Show debug output command
@@ -90,10 +142,20 @@ function registerCommands(
   });
   context.subscriptions.push(showDebugCommand);
 
+  // Switch environment command - shows quick pick
+  const switchEnvironmentCommand = vscode.commands.registerCommand(
+    "contextEditor.switchEnvironment",
+    async () => {
+      debugOutput.appendLine("Switch environment command triggered");
+      await envManager.showEnvironmentQuickPick();
+    }
+  );
+  context.subscriptions.push(switchEnvironmentCommand);
+
   // Refresh command - refreshes both views and re-discovers environments
   const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", async () => {
     debugOutput.appendLine("Refreshing environments...");
-    await search.refresh();
+    await configSearch.refresh();
   });
   context.subscriptions.push(refreshCommand);
 
@@ -120,4 +182,6 @@ function registerCommands(
 
 export function deactivate(): void {
   console.log("Context Editor extension is now deactivated!");
+  // Dispose status bar item
+  environmentStatusBarItem?.dispose();
 }

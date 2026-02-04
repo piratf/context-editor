@@ -3,16 +3,15 @@
  * Displays registered projects from ~/.claude.json in a tree view.
  *
  * New Architecture:
- * - Uses ConfigSearch to get data facades for all environments
- * - Shows projects from all environments, grouped by environment
- * - Supports cross-environment path resolution
- * - No environment switching - all environments shown at once
+ * - Uses EnvironmentManager to get the current environment's data facade
+ * - Shows projects from the current environment only
+ * - Users switch environments via dropdown menu
  */
 
 import * as vscode from "vscode";
 import * as path from "node:path";
 import type { CollapsibleState } from "../types/claudeConfig.js";
-import { ConfigSearch } from "../services/configSearch.js";
+import { EnvironmentManager } from "../services/environmentManager.js";
 
 /**
  * Tree node types for internal representation.
@@ -24,7 +23,6 @@ export enum NodeType {
   CLAUDE_MD = "claudeMd",
   MCP_SERVERS = "mcpServers",
   ERROR = "error",
-  ENVIRONMENT = "environment",
   FILE = "file",
 }
 
@@ -40,24 +38,26 @@ interface TreeNode {
   readonly tooltip?: string;
   readonly contextValue?: string;
   readonly error?: Error;
-  readonly facadeIndex?: number;
   readonly projectIndex?: number;
 }
 
 /**
  * Tree data provider for Claude Code projects view.
- * Shows projects from all accessible environments.
+ * Shows projects from the currently selected environment.
  */
 export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private configSearch: ConfigSearch;
+  private environmentManager: EnvironmentManager;
   private rootNodes: TreeNode[] = [];
+  private currentProjects: readonly import("../services/dataFacade.js").ProjectEntry[] = [];
+  // @ts-expect-error - Reserved for future debug use
+  private readonly __debugOutput: vscode.OutputChannel;
 
-   
-  constructor(search: ConfigSearch, _debugOutput: vscode.OutputChannel) {
-    this.configSearch = search;
+  constructor(envManager: EnvironmentManager, debugOutput: vscode.OutputChannel) {
+    this.environmentManager = envManager;
+    this.__debugOutput = debugOutput;
     void this.loadRootNodes();
   }
 
@@ -116,75 +116,120 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       return this.rootNodes;
     }
 
-    // No element = root level
+    // No element = root level (show projects)
     if (element === undefined) {
       return this.rootNodes;
     }
 
-    // Environment node children - show projects for that environment
-    if (element.type === NodeType.ENVIRONMENT && element.facadeIndex !== undefined) {
-      return this.getEnvironmentProjects(element.facadeIndex);
-    }
-
     // Settings node children
-    if (element.type === NodeType.SETTINGS && element.facadeIndex !== undefined && element.projectIndex !== undefined) {
-      return this.getProjectSettings(element.facadeIndex, element.projectIndex);
+    if (element.type === NodeType.SETTINGS && element.projectIndex !== undefined) {
+      return this.getProjectSettings(element.projectIndex);
     }
 
     // CLAUDE.md node children
-    if (element.type === NodeType.CLAUDE_MD && element.facadeIndex !== undefined && element.projectIndex !== undefined) {
-      return this.getProjectClaudeMd(element.facadeIndex, element.projectIndex);
+    if (element.type === NodeType.CLAUDE_MD && element.projectIndex !== undefined) {
+      return this.getProjectClaudeMd(element.projectIndex);
     }
 
     // MCP Servers node children
-    if (element.type === NodeType.MCP_SERVERS && element.facadeIndex !== undefined && element.projectIndex !== undefined) {
-      return this.getProjectMcpServers(element.facadeIndex, element.projectIndex);
+    if (element.type === NodeType.MCP_SERVERS && element.projectIndex !== undefined) {
+      return this.getProjectMcpServers(element.projectIndex);
     }
 
     return [];
   }
 
   /**
-   * Load root level nodes - one environment per accessible facade
+   * Load root level nodes - projects from current environment
    */
   private async loadRootNodes(): Promise<void> {
     this.rootNodes = [];
 
     try {
-      const facades = this.configSearch.getAllFacades();
+      const facade = this.environmentManager.getCurrentFacade();
 
-      if (facades.length === 0) {
+      if (facade === null) {
         this.rootNodes.push({
           type: NodeType.ERROR,
-          label: "No environments found",
+          label: "No environment selected",
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("info"),
-          tooltip: "No accessible Claude configuration found",
+          tooltip: "Select an environment using the dropdown menu",
           contextValue: "empty",
         });
         return;
       }
 
-      // Create a node for each environment's projects
-      for (let i = 0; i < facades.length; i++) {
-        const facade = facades[i];
-        const info = facade.getEnvironmentInfo();
+      // Get projects for current environment
+      this.currentProjects = await facade.getProjects();
 
-        // Get project count for this environment
-        const projects = await this.getFacadeProjects(facade);
-
-        const displayName = this.getEnvironmentDisplayName(info.type, info.instanceName);
-
-        // Add node even if no projects
+      if (this.currentProjects.length === 0) {
         this.rootNodes.push({
-          type: NodeType.ENVIRONMENT,
-          label: `${displayName} (${String(projects.length)})`,
-          collapsibleState: projects.length > 0 ? 1 : 0,
-          iconPath: new vscode.ThemeIcon("server"),
-          tooltip: `${String(projects.length)} project(s) in ${info.configPath}`,
-          contextValue: "environment",
-          facadeIndex: i,
+          type: NodeType.ERROR,
+          label: "(no projects found)",
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("info"),
+          tooltip: "No projects found in this environment",
+          contextValue: "empty",
         });
+        return;
+      }
+
+      // Create nodes for each project and its children
+      for (let i = 0; i < this.currentProjects.length; i++) {
+        const project = this.currentProjects[i];
+        const projectName = this.getProjectName(project.path);
+
+        // Project node
+        this.rootNodes.push({
+          type: NodeType.PROJECT,
+          label: projectName,
+          path: project.path,
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("folder"),
+          tooltip: project.path,
+          contextValue: "project",
+        });
+
+        // Add Settings child node if project has settings
+        const hasSettings = project.state !== undefined && Object.keys(project.state).length > 0;
+        if (hasSettings) {
+          this.rootNodes.push({
+            type: NodeType.SETTINGS,
+            label: "Settings",
+            collapsibleState: 1,
+            iconPath: new vscode.ThemeIcon("gear"),
+            tooltip: "Project settings",
+            contextValue: "settings",
+            projectIndex: i,
+          });
+        }
+
+        // Add CLAUDE.md child node
+        this.rootNodes.push({
+          type: NodeType.CLAUDE_MD,
+          label: "CLAUDE.md",
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("file-text"),
+          tooltip: "Project context file",
+          contextValue: "claudeMd",
+          projectIndex: i,
+        });
+
+        // Add MCP Servers child node if project has MCP servers
+        const hasMcpServers = project.mcpServers !== undefined && Object.keys(project.mcpServers).length > 0;
+        if (hasMcpServers) {
+          const serverNames = Object.keys(project.mcpServers!).join(", ");
+          this.rootNodes.push({
+            type: NodeType.MCP_SERVERS,
+            label: "MCP Servers",
+            collapsibleState: 0,
+            iconPath: new vscode.ThemeIcon("server"),
+            tooltip: `MCP servers: ${serverNames}`,
+            contextValue: "mcpServers",
+            projectIndex: i,
+          });
+        }
       }
     } catch (error) {
       this.rootNodes = [{
@@ -200,132 +245,17 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   /**
-   * Get projects for a specific environment by facade index
-   */
-  private async getEnvironmentProjects(facadeIndex: number): Promise<TreeNode[]> {
-    const facades = this.configSearch.getAllFacades();
-    if (facadeIndex >= facades.length) {
-      return [];
-    }
-    return this.getFacadeProjects(facades[facadeIndex]);
-  }
-
-  /**
-   * Get projects for a specific environment
-   */
-  private async getFacadeProjects(facade: import("../services/dataFacade.js").ClaudeDataFacade): Promise<TreeNode[]> {
-    const nodes: TreeNode[] = [];
-
-    try {
-      const projects = await facade.getProjects();
-
-      for (let i = 0; i < projects.length; i++) {
-        const project = projects[i];
-        const projectName = this.getProjectName(project.path);
-
-        // Project node
-        const projectNode: TreeNode = {
-          type: NodeType.PROJECT,
-          label: projectName,
-          path: project.path,
-          collapsibleState: 0,
-          iconPath: new vscode.ThemeIcon("folder"),
-          tooltip: project.path,
-          contextValue: "project",
-        };
-
-        nodes.push(projectNode);
-
-        // Add Settings child node
-        const hasSettings = project.state !== undefined && Object.keys(project.state).length > 0;
-        if (hasSettings) {
-          nodes.push({
-            type: NodeType.SETTINGS,
-            label: "Settings",
-            collapsibleState: 1,
-            iconPath: new vscode.ThemeIcon("gear"),
-            tooltip: "Project settings",
-            contextValue: "settings",
-            facadeIndex: this.getFacadeIndex(facade),
-            projectIndex: i,
-          });
-        }
-
-        // Add CLAUDE.md child node
-        nodes.push({
-          type: NodeType.CLAUDE_MD,
-          label: "CLAUDE.md",
-          collapsibleState: 0,
-          iconPath: new vscode.ThemeIcon("file-text"),
-          tooltip: "Project context file",
-          contextValue: "claudeMd",
-          facadeIndex: this.getFacadeIndex(facade),
-          projectIndex: i,
-        });
-
-        // Add MCP Servers child node
-        const hasMcpServers = project.mcpServers !== undefined && Object.keys(project.mcpServers).length > 0;
-        if (hasMcpServers) {
-          const serverNames = project.mcpServers !== undefined ? Object.keys(project.mcpServers).join(", ") : "";
-          nodes.push({
-            type: NodeType.MCP_SERVERS,
-            label: "MCP Servers",
-            collapsibleState: 0,
-            iconPath: new vscode.ThemeIcon("server"),
-            tooltip: `MCP servers: ${serverNames}`,
-            contextValue: "mcpServers",
-            facadeIndex: this.getFacadeIndex(facade),
-            projectIndex: i,
-          });
-        }
-      }
-
-      // If no projects, show empty message
-      if (nodes.length === 0) {
-        nodes.push({
-          type: NodeType.ERROR,
-          label: "(no projects found)",
-          collapsibleState: 0,
-          iconPath: new vscode.ThemeIcon("info"),
-          tooltip: "No projects found in this environment",
-          contextValue: "empty",
-        });
-      }
-    } catch (error) {
-      nodes.push({
-        type: NodeType.ERROR,
-        label: "Error loading projects",
-        collapsibleState: 0,
-        iconPath: new vscode.ThemeIcon("error"),
-        tooltip: error instanceof Error ? error.message : String(error),
-        contextValue: "error",
-        error: error instanceof Error ? error : new Error(String(error)),
-      });
-    }
-
-    return nodes;
-  }
-
-  /**
    * Get settings for a specific project
    */
-  private async getProjectSettings(facadeIndex: number, projectIndex: number): Promise<TreeNode[]> {
+  private async getProjectSettings(projectIndex: number): Promise<TreeNode[]> {
     const nodes: TreeNode[] = [];
 
     try {
-      const facades = this.configSearch.getAllFacades();
-      if (facadeIndex >= facades.length) {
+      if (projectIndex >= this.currentProjects.length) {
         return [];
       }
 
-      const facade = facades[facadeIndex];
-      const projects = await facade.getProjects();
-
-      if (projectIndex >= projects.length) {
-        return [];
-      }
-
-      const project = projects[projectIndex];
+      const project = this.currentProjects[projectIndex];
       if (!project.state) {
         nodes.push({
           type: NodeType.ERROR,
@@ -368,17 +298,21 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   /**
    * Get CLAUDE.md files for a specific project
    */
-  private async getProjectClaudeMd(facadeIndex: number, projectIndex: number): Promise<TreeNode[]> {
+  private async getProjectClaudeMd(projectIndex: number): Promise<TreeNode[]> {
     const nodes: TreeNode[] = [];
 
     try {
-      const facades = this.configSearch.getAllFacades();
-      if (facadeIndex >= facades.length) {
+      if (projectIndex >= this.currentProjects.length) {
         return [];
       }
 
-      const facade = facades[facadeIndex];
-      const projectName = await this.getProjectNameFromIndex(facadeIndex, projectIndex);
+      const facade = this.environmentManager.getCurrentFacade();
+      if (facade === null) {
+        return [];
+      }
+
+      const project = this.currentProjects[projectIndex];
+      const projectName = this.getProjectName(project.path);
       const contextFiles = await facade.getProjectContextFiles(projectName);
 
       for (const filePath of contextFiles) {
@@ -422,23 +356,15 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   /**
    * Get MCP servers for a specific project
    */
-  private async getProjectMcpServers(facadeIndex: number, projectIndex: number): Promise<TreeNode[]> {
+  private async getProjectMcpServers(projectIndex: number): Promise<TreeNode[]> {
     const nodes: TreeNode[] = [];
 
     try {
-      const facades = this.configSearch.getAllFacades();
-      if (facadeIndex >= facades.length) {
+      if (projectIndex >= this.currentProjects.length) {
         return [];
       }
 
-      const facade = facades[facadeIndex];
-      const projects = await facade.getProjects();
-
-      if (projectIndex >= projects.length) {
-        return [];
-      }
-
-      const project = projects[projectIndex];
+      const project = this.currentProjects[projectIndex];
       if (!project.mcpServers) {
         nodes.push({
           type: NodeType.ERROR,
@@ -479,63 +405,10 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   /**
-   * Get facade index by searching through all facades
-   */
-  private getFacadeIndex(facade: import("../services/dataFacade.js").ClaudeDataFacade): number {
-    const facades = this.configSearch.getAllFacades();
-    return facades.indexOf(facade);
-  }
-
-  /**
    * Get project name from project path
    */
   private getProjectName(projectPath: string): string {
     const parts = projectPath.split(/[/\\]/);
     return parts[parts.length - 1] || projectPath;
-  }
-
-  /**
-   * Get project name from indices
-   */
-  private async getProjectNameFromIndex(facadeIndex: number, projectIndex: number): Promise<string> {
-    try {
-      const facades = this.configSearch.getAllFacades();
-      if (facadeIndex >= facades.length) {
-        return "unknown";
-      }
-
-      const facade = facades[facadeIndex];
-      const projects = await facade.getProjects();
-
-      if (projectIndex >= projects.length) {
-        return "unknown";
-      }
-
-      return this.getProjectName(projects[projectIndex].path);
-    } catch {
-      return "unknown";
-    }
-  }
-
-  /**
-   * Get a display name for an environment
-   */
-  private getEnvironmentDisplayName(envType: import("../services/dataFacade.js").EnvironmentType, instanceName?: string): string {
-    switch (envType) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "windows":
-        return "Windows";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "wsl":
-        return instanceName !== undefined && instanceName !== "" ? `WSL (${instanceName})` : "WSL";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "macos":
-        return "macOS";
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      case "linux":
-        return "Linux";
-      default:
-        return "Unknown";
-    }
   }
 }
