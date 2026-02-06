@@ -61,6 +61,7 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
    * Refresh the tree view.
    */
   refresh(): void {
+    this.debugOutput.appendLine("[GlobalProvider] refresh() called");
     void this.loadRootNodes();
     this._onDidChangeTreeData.fire(undefined);
   }
@@ -91,19 +92,17 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
     }
 
     // Assign openFile command to FILE and CLAUDE_JSON nodes
+    // Skip resourceUri entirely to avoid triggering Git scanning and warnings
     const isClickable =
       element.type === GlobalNodeType.FILE || element.type === GlobalNodeType.CLAUDE_JSON;
     if (isClickable && element.path !== undefined) {
-      treeItem.resourceUri = vscode.Uri.file(element.path);
       treeItem.command = {
         command: "contextEditor.openFile",
         title: "Open File",
         arguments: [element.path],
       };
-    } else if (element.path !== undefined) {
-      // For directories, set resourceUri but no command (only expandable)
-      treeItem.resourceUri = vscode.Uri.file(element.path);
     }
+    // Note: resourceUri removed to avoid Git scanning and warnings
 
     return treeItem;
   }
@@ -112,7 +111,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
    * Get children of a given node, or root nodes if no node is provided.
    */
   async getChildren(element?: GlobalTreeNode): Promise<GlobalTreeNode[]> {
-    this.debugOutput.appendLine(`[GlobalProvider] getChildren called, element=${element === undefined ? 'undefined (root level)' : element.label}`);
+    this.debugOutput.appendLine(
+      `[GlobalProvider] getChildren called, element=${element === undefined ? "undefined (root level)" : element.label}`
+    );
 
     // Return error node if loading failed
     if (this.rootNodes.length === 1 && this.rootNodes[0]?.type === GlobalNodeType.ERROR) {
@@ -122,21 +123,29 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
 
     // No element = root level
     if (element === undefined) {
-      this.debugOutput.appendLine(`[GlobalProvider] getChildren: returning ${String(this.rootNodes.length)} root nodes`);
+      this.debugOutput.appendLine(
+        `[GlobalProvider] getChildren: returning ${String(this.rootNodes.length)} root nodes`
+      );
       for (let i = 0; i < this.rootNodes.length; i++) {
         const node = this.rootNodes[i];
-        this.debugOutput.appendLine(`[GlobalProvider]   root node ${String(i)}: type=${node.type}, label="${node.label}", collapsibleState=${String(node.collapsibleState)}`);
+        this.debugOutput.appendLine(
+          `[GlobalProvider]   root node ${String(i)}: type=${node.type}, label="${node.label}", collapsibleState=${String(node.collapsibleState)}`
+        );
       }
       return this.rootNodes;
     }
 
     // Directory node children
     if (element.type === GlobalNodeType.DIRECTORY && element.path !== undefined) {
-      this.debugOutput.appendLine(`[GlobalProvider] getChildren: getting directory children for path="${element.path}"`);
+      this.debugOutput.appendLine(
+        `[GlobalProvider] getChildren: getting directory children for path="${element.path}"`
+      );
       return this.getDirectoryChildren(element.path);
     }
 
-    this.debugOutput.appendLine("[GlobalProvider] getChildren: no matching case, returning empty array");
+    this.debugOutput.appendLine(
+      "[GlobalProvider] getChildren: no matching case, returning empty array"
+    );
     return [];
   }
 
@@ -151,7 +160,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       const facade = this.environmentManager.getCurrentFacade();
 
       if (facade === null) {
-        this.debugOutput.appendLine("[GlobalProvider] No current facade - creating 'No environment selected' node");
+        this.debugOutput.appendLine(
+          "[GlobalProvider] No current facade - creating 'No environment selected' node"
+        );
         this.rootNodes.push({
           type: GlobalNodeType.ERROR,
           label: "No environment selected",
@@ -164,7 +175,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       }
 
       const info = facade.getEnvironmentInfo();
-      this.debugOutput.appendLine(`[GlobalProvider] Current environment: type=${info.type}, configPath="${info.configPath}"`);
+      this.debugOutput.appendLine(
+        `[GlobalProvider] Current environment: type=${info.type}, configPath="${info.configPath}"`
+      );
 
       // Check if config file exists
       this.debugOutput.appendLine("[GlobalProvider] Checking doesConfigExist...");
@@ -211,19 +224,27 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
         });
       }
 
-      this.debugOutput.appendLine(`[GlobalProvider] loadRootNodes() completed with ${String(this.rootNodes.length)} root nodes`);
+      this.debugOutput.appendLine(
+        `[GlobalProvider] loadRootNodes() completed with ${String(this.rootNodes.length)} root nodes`
+      );
     } catch (error) {
-      this.debugOutput.appendLine(`[GlobalProvider] Error in loadRootNodes: ${error instanceof Error ? error.message : String(error)}`);
-      this.debugOutput.appendLine(`[GlobalProvider] Error stack: ${error instanceof Error ? error.stack ?? "no stack" : "no stack"}`);
-      this.rootNodes = [{
-        type: GlobalNodeType.ERROR,
-        label: "Error loading configuration",
-        collapsibleState: 0,
-        iconPath: new vscode.ThemeIcon("error"),
-        tooltip: error instanceof Error ? error.message : String(error),
-        contextValue: "error",
-        error: error instanceof Error ? error : new Error(String(error)),
-      }];
+      this.debugOutput.appendLine(
+        `[GlobalProvider] Error in loadRootNodes: ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.debugOutput.appendLine(
+        `[GlobalProvider] Error stack: ${error instanceof Error ? (error.stack ?? "no stack") : "no stack"}`
+      );
+      this.rootNodes = [
+        {
+          type: GlobalNodeType.ERROR,
+          label: "Error loading configuration",
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("error"),
+          tooltip: error instanceof Error ? error.message : String(error),
+          contextValue: "error",
+          error: error instanceof Error ? error : new Error(String(error)),
+        },
+      ];
     }
   }
 
@@ -319,14 +340,22 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
   /**
    * Check if the config file exists for a given facade
    */
-  private async doesConfigExist(facade: import("../services/dataFacade.js").ClaudeDataFacade): Promise<boolean> {
+  private async doesConfigExist(
+    facade: import("../services/dataFacade.js").ClaudeDataFacade
+  ): Promise<boolean> {
     try {
-      this.debugOutput.appendLine("[GlobalProvider] doesConfigExist: calling getGlobalConfig('settings')...");
-      await facade.getGlobalConfig('settings');
-      this.debugOutput.appendLine("[GlobalProvider] doesConfigExist: getGlobalConfig succeeded, returning true");
+      this.debugOutput.appendLine(
+        "[GlobalProvider] doesConfigExist: calling getGlobalConfig('settings')..."
+      );
+      await facade.getGlobalConfig("settings");
+      this.debugOutput.appendLine(
+        "[GlobalProvider] doesConfigExist: getGlobalConfig succeeded, returning true"
+      );
       return true;
     } catch (error) {
-      this.debugOutput.appendLine(`[GlobalProvider] doesConfigExist: caught error - ${error instanceof Error ? error.message : String(error)}`);
+      this.debugOutput.appendLine(
+        `[GlobalProvider] doesConfigExist: caught error - ${error instanceof Error ? error.message : String(error)}`
+      );
       return false;
     }
   }

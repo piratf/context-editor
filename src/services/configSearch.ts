@@ -18,12 +18,12 @@
  * - Silent skip for inaccessible instances (debug logging)
  */
 
-import { EventEmitter } from 'node:events';
-import { getEnvironment } from './environment.js';
-import { NativeDataFacade } from './nativeDataFacade.js';
-import { WindowsToWslDataFacadeFactory } from './windowsToWslDataFacade.js';
-import { WslToWindowsDataFacadeFactory } from './wslToWindowsDataFacade.js';
-import type { ClaudeDataFacade } from './dataFacade.js';
+import { EventEmitter } from "node:events";
+import { getEnvironment } from "./environment.js";
+import { NativeDataFacade } from "./nativeDataFacade.js";
+import { WindowsToWslDataFacadeFactory } from "./windowsToWslDataFacade.js";
+import { WslToWindowsDataFacadeFactory } from "./wslToWindowsDataFacade.js";
+import type { ClaudeDataFacade } from "./dataFacade.js";
 
 /**
  * Data facade with metadata
@@ -66,7 +66,7 @@ export class ConfigSearch extends EventEmitter {
     const facades = await this.discoverPromise;
 
     // Emit change event
-    this.emit('dataFacadesChanged', facades);
+    this.emit("dataFacadesChanged", facades);
 
     return facades;
   }
@@ -91,7 +91,7 @@ export class ConfigSearch extends EventEmitter {
    * @returns Array of facade instances
    */
   getAllFacades(): ClaudeDataFacade[] {
-    return Array.from(this.facades.values()).map(f => f.facade);
+    return Array.from(this.facades.values()).map((f) => f.facade);
   }
 
   /**
@@ -100,8 +100,8 @@ export class ConfigSearch extends EventEmitter {
    */
   getAccessibleFacades(): ClaudeDataFacade[] {
     return Array.from(this.facades.values())
-      .filter(f => f.accessible)
-      .map(f => f.facade);
+      .filter((f) => f.accessible)
+      .map((f) => f.facade);
   }
 
   /**
@@ -124,7 +124,7 @@ export class ConfigSearch extends EventEmitter {
     const nativeFacade = this.createNativeFacade();
     if (await this.isFacadeAccessible(nativeFacade)) {
       facades.push(nativeFacade);
-      this.facades.set('native', {
+      this.facades.set("native", {
         facade: nativeFacade,
         accessible: true,
         discoveredAt: Date.now(),
@@ -191,12 +191,12 @@ export class ConfigSearch extends EventEmitter {
     const facade = await WslToWindowsDataFacadeFactory.createAuto();
 
     if (facade) {
-      this.facades.set('windows', {
+      this.facades.set("windows", {
         facade,
         accessible: true,
         discoveredAt: Date.now(),
       });
-      this.debugLog('Discovered Windows environment from WSL');
+      this.debugLog("Discovered Windows environment from WSL");
       return facade;
     }
 
@@ -220,7 +220,7 @@ export class ConfigSearch extends EventEmitter {
    */
   private debugLog(message: string): void {
     // Only log in debug mode
-    if (process.env.DEBUG) {
+    if (process.env.DEBUG !== undefined && process.env.DEBUG !== "") {
       console.debug(`[ConfigSearch] ${message}`);
     }
   }
@@ -229,7 +229,10 @@ export class ConfigSearch extends EventEmitter {
    * Event: dataFacadesChanged
    * Emitted when the list of discovered facades changes
    */
-  override on(eventName: 'dataFacadesChanged', listener: (facades: ClaudeDataFacade[]) => void): this {
+  override on(
+    eventName: "dataFacadesChanged",
+    listener: (facades: ClaudeDataFacade[]) => void
+  ): this {
     return super.on(eventName, listener);
   }
 
@@ -237,7 +240,10 @@ export class ConfigSearch extends EventEmitter {
    * Event: dataFacadesChanged
    * Emitted when the list of discovered facades changes
    */
-  override once(eventName: 'dataFacadesChanged', listener: (facades: ClaudeDataFacade[]) => void): this {
+  override once(
+    eventName: "dataFacadesChanged",
+    listener: (facades: ClaudeDataFacade[]) => void
+  ): this {
     return super.once(eventName, listener);
   }
 

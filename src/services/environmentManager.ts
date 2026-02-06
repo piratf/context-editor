@@ -43,16 +43,20 @@ export class EnvironmentManager extends events.EventEmitter {
   private selectDefaultEnvironment(): void {
     const facades = this.configSearch.getAllFacades();
 
-    // Find native facade (current environment) or use first available
-    const nativeFacade = facades.find((f) => {
-      const info = f.getEnvironmentInfo();
-      // Native facade has instanceName same as its type or no instanceName for native
-      return info.instanceName === undefined || info.instanceName === "";
-    }) ?? facades[0] ?? null;
-
-    if (nativeFacade) {
-      this.currentFacade = nativeFacade;
+    if (facades.length === 0) {
+      this.currentFacade = null;
+      return;
     }
+
+    // Find native facade (current environment) or use first available
+    const nativeFacade =
+      facades.find((f) => {
+        const info = f.getEnvironmentInfo();
+        // Native facade has instanceName same as its type or no instanceName for native
+        return (info.instanceName ?? "") === "";
+      }) ?? facades[0];
+
+    this.currentFacade = nativeFacade;
   }
 
   /**
@@ -73,7 +77,7 @@ export class EnvironmentManager extends events.EventEmitter {
     }
 
     const previousFacade = this.currentFacade;
-    this.currentFacade = facades[index]!;
+    this.currentFacade = facades[index];
 
     const info = this.currentFacade.getEnvironmentInfo();
     const environmentName = this.getEnvironmentDisplayName(info.type, info.instanceName);
@@ -164,7 +168,7 @@ export class EnvironmentManager extends events.EventEmitter {
       placeHolder: "Choose an environment to display",
     });
 
-    if (selected && selected.index !== undefined) {
+    if (selected !== undefined) {
       this.setFacadeByIndex(selected.index);
       await vscode.env.clipboard.writeText(selected.label);
     }
@@ -173,9 +177,7 @@ export class EnvironmentManager extends events.EventEmitter {
   /**
    * Subscribe to environment change events
    */
-  onEnvironmentChanged(
-    listener: (event: EnvironmentChangeEvent) => void
-  ): void {
+  onEnvironmentChanged(listener: (event: EnvironmentChangeEvent) => void): void {
     this.on("environmentChanged", listener);
   }
 
@@ -199,7 +201,7 @@ export class EnvironmentManager extends events.EventEmitter {
 
     // If current facade is no longer available, select default
     const facades = this.configSearch.getAllFacades();
-    if (!facades.includes(this.currentFacade!)) {
+    if (this.currentFacade === null || !facades.includes(this.currentFacade)) {
       this.selectDefaultEnvironment();
     }
   }
@@ -208,9 +210,7 @@ export class EnvironmentManager extends events.EventEmitter {
 /**
  * Type guard for environment changed event
  */
-export function isEnvironmentChangedEvent(
-  event: unknown
-): event is EnvironmentChangeEvent {
+export function isEnvironmentChangedEvent(event: unknown): event is EnvironmentChangeEvent {
   return (
     typeof event === "object" &&
     event !== null &&

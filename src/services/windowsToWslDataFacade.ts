@@ -18,17 +18,17 @@
  * - Tests \\wsl.localhost\ first, falls back to \\wsl$\
  */
 
-import * as fs from 'node:fs/promises';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import * as fs from "node:fs/promises";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import {
   BaseDataFacade,
   type ClaudeGlobalConfig,
   type ConfigReadResult,
   type EnvironmentInfo,
   EnvironmentType,
-} from './dataFacade.js';
-import { PathConverterFactory, type WslDistroConfig } from './pathConverter.js';
+} from "./dataFacade.js";
+import { PathConverterFactory, type WslDistroConfig } from "./pathConverter.js";
 
 const execAsync = promisify(exec);
 
@@ -46,7 +46,9 @@ interface DiscoveredWslInstance {
  */
 export class WindowsToWslDataFacade extends BaseDataFacade {
   private readonly distroConfig: WslDistroConfig;
-  private readonly pathConverter: ReturnType<typeof PathConverterFactory.createWslToWindowsConverter>;
+  private readonly pathConverter: ReturnType<
+    typeof PathConverterFactory.createWslToWindowsConverter
+  >;
 
   constructor(distroName: string, configPath: string, useLegacyFormat = false) {
     const distroConfig: WslDistroConfig = { distroName, useLegacyFormat };
@@ -81,7 +83,7 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
   protected async readConfigFile(): Promise<ConfigReadResult> {
     try {
       const configPath = this.getConfigPath();
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const config = this.parseConfig(content);
 
       // Convert WSL project paths to Windows UNC paths
@@ -90,7 +92,7 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
       return { config, projects };
     } catch (error) {
       // Handle WSL instance not running, no permissions, or config not found
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         // Config file doesn't exist or WSL not accessible
         return { config: {}, projects: [] };
       }
@@ -102,7 +104,7 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
   /**
    * Normalize project entries and convert WSL paths to Windows UNC paths
    */
-  protected normalizeProjects(projects: unknown): import('./dataFacade.js').ProjectEntry[] {
+  protected normalizeProjects(projects: unknown): import("./dataFacade.js").ProjectEntry[] {
     const baseProjects = super.normalizeProjects(projects);
 
     // Convert each WSL path to Windows UNC path
@@ -119,12 +121,12 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
    */
   private convertWslPathToWindows(wslPath: string): string {
     // If path is already a Windows UNC path, return as-is
-    if (wslPath.startsWith('\\\\')) {
+    if (wslPath.startsWith("\\\\")) {
       return wslPath;
     }
 
     // If path is not an absolute WSL path, return as-is
-    if (!wslPath.startsWith('/')) {
+    if (!wslPath.startsWith("/")) {
       return wslPath;
     }
 
@@ -185,20 +187,20 @@ export const WindowsToWslDataFacadeFactory = {
     try {
       // wsl.exe -l -q returns only distro names, one per line
       // Note: wsl.exe returns UTF-16LE encoded output
-      const { stdout } = await execAsync('wsl.exe -l -q', {
+      const { stdout } = await execAsync("wsl.exe -l -q", {
         windowsHide: true,
         timeout: 5000, // 5 second timeout
-        encoding: 'utf16le', // wsl.exe outputs UTF-16LE
+        encoding: "utf16le", // wsl.exe outputs UTF-16LE
       });
 
       // Parse output: split by lines, trim whitespace (including \r), filter empty
       const distros = stdout
-        .split('\n')
+        .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
 
       return distros;
-    } catch (error) {
+    } catch (_error) {
       // wsl.exe command failed (WSL not installed, not available, etc.)
       return [];
     }
@@ -236,7 +238,7 @@ export const WindowsToWslDataFacadeFactory = {
           const username = entry.name;
 
           // Skip system directories
-          if (username.startsWith('.')) {
+          if (username.startsWith(".")) {
             continue;
           }
 
@@ -281,13 +283,13 @@ export const WindowsToWslDataFacadeFactory = {
     }
 
     // Step 2: Try new format (\\wsl.localhost\) first
-    const newFormatInstances = await this.probeWithPrefix('\\\\wsl.localhost\\', distros, false);
+    const newFormatInstances = await this.probeWithPrefix("\\\\wsl.localhost\\", distros, false);
     if (newFormatInstances.length > 0) {
       return newFormatInstances; // Use new format if successful
     }
 
     // Step 3: Fall back to legacy format (\\wsl$\)
-    const legacyFormatInstances = await this.probeWithPrefix('\\\\wsl$\\', distros, true);
+    const legacyFormatInstances = await this.probeWithPrefix("\\\\wsl$\\", distros, true);
     return legacyFormatInstances;
   },
 
@@ -304,7 +306,11 @@ export const WindowsToWslDataFacadeFactory = {
 
     for (const instance of discovered) {
       // Create facade with the actual discovered config path
-      const facade = this.create(instance.distroName, instance.configPath, instance.useLegacyFormat);
+      const facade = this.create(
+        instance.distroName,
+        instance.configPath,
+        instance.useLegacyFormat
+      );
 
       // Verify facade is accessible
       if (await this.isFacadeAccessible(facade)) {

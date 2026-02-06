@@ -30,11 +30,9 @@ function updateCurrentEnvironmentContext(envName: string): void {
 
 // Update status bar item with current environment
 function updateEnvironmentStatusBar(envName: string): void {
-  if (environmentStatusBarItem) {
-    environmentStatusBarItem.text = `$(server-environment) ${envName}`;
-    environmentStatusBarItem.tooltip = `Current environment: ${envName}. Click to switch.`;
-    environmentStatusBarItem.show();
-  }
+  environmentStatusBarItem.text = `$(server-environment) ${envName}`;
+  environmentStatusBarItem.tooltip = `Current environment: ${envName}. Click to switch.`;
+  environmentStatusBarItem.show();
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -93,7 +91,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   // Subscribe to data facades changes
-  configSearch.on('dataFacadesChanged', (facades) => {
+  configSearch.on("dataFacadesChanged", (facades) => {
     debugOutput.appendLine(`Data facades changed: ${String(facades.length)} environment(s)`);
     environmentManager.updateConfigSearch(configSearch);
 
@@ -183,5 +181,5 @@ function registerCommands(
 export function deactivate(): void {
   console.log("Context Editor extension is now deactivated!");
   // Dispose status bar item
-  environmentStatusBarItem?.dispose();
+  environmentStatusBarItem.dispose();
 }

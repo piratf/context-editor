@@ -49,6 +49,6 @@ export default [
     },
   },
   {
-    ignores: ["out/**", "dist/**", "node_modules/**", ".vscode-test/**", "**/*.d.ts", "test/**"],
+    ignores: ["out/**", "dist/**", "node_modules/**", ".vscode-test/**", "**/*.d.ts", "test/**", "src/test/**"],
   },
 ];

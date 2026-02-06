@@ -49,9 +49,11 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
 
   private environmentManager: EnvironmentManager;
   private rootNodes: TreeNode[] = [];
+  private debugOutput: vscode.OutputChannel;
 
-  constructor(envManager: EnvironmentManager, _debugOutput: vscode.OutputChannel) {
+  constructor(envManager: EnvironmentManager, debugOutput: vscode.OutputChannel) {
     this.environmentManager = envManager;
+    this.debugOutput = debugOutput;
     void this.loadRootNodes();
   }
 
@@ -59,6 +61,7 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
    * Refresh the tree view.
    */
   refresh(): void {
+    this.debugOutput.appendLine("[ProjectProvider] refresh() called");
     void this.loadRootNodes();
     this._onDidChangeTreeData.fire(undefined);
   }
@@ -89,17 +92,20 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     // Set resourceUri to enable native VS Code context menu
-    if (element.path !== undefined) {
-      treeItem.resourceUri = vscode.Uri.file(element.path);
+    // Skip all nodes to avoid triggering Git warnings for cross-platform paths
+    // Disabled because resourceUri doesn't automatically enable context menu anyway
+    // and it triggers unwanted Git scanning
+    // if (element.path !== undefined && element.type !== NodeType.FILE) {
+    //   treeItem.resourceUri = vscode.Uri.file(element.path);
+    // }
 
-      // For files, add command to open
-      if (element.type === NodeType.FILE) {
-        treeItem.command = {
-          command: "vscode.open",
-          title: "Open File",
-          arguments: [treeItem.resourceUri],
-        };
-      }
+    // For files, add command to open (use path directly without resourceUri)
+    if (element.type === NodeType.FILE && element.path !== undefined) {
+      treeItem.command = {
+        command: "vscode.open",
+        title: "Open File",
+        arguments: [vscode.Uri.file(element.path)],
+      };
     }
 
     return treeItem;
@@ -136,6 +142,13 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
     try {
       const facade = this.environmentManager.getCurrentFacade();
 
+      this.debugOutput.appendLine(
+        `[ProjectProvider] Current facade: ${facade?.getEnvironmentInfo().type ?? "null"}`
+      );
+      this.debugOutput.appendLine(
+        `[ProjectProvider] Config path: ${facade?.getEnvironmentInfo().configPath ?? "null"}`
+      );
+
       if (facade === null) {
         this.rootNodes.push({
           type: NodeType.ERROR,
@@ -150,6 +163,8 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
 
       // Get projects for current environment
       const projects = await facade.getProjects();
+
+      this.debugOutput.appendLine(`[ProjectProvider] Found ${String(projects.length)} projects:`);
 
       if (projects.length === 0) {
         this.rootNodes.push({
@@ -167,6 +182,8 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
       for (const project of projects) {
         const projectName = this.getProjectName(project.path);
 
+        this.debugOutput.appendLine(`[ProjectProvider]   - ${projectName} | ${project.path}`);
+
         this.rootNodes.push({
           type: NodeType.DIRECTORY,
           label: projectName,
@@ -178,15 +195,20 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
         });
       }
     } catch (error) {
-      this.rootNodes = [{
-        type: NodeType.ERROR,
-        label: "Error loading projects",
-        collapsibleState: 0,
-        iconPath: new vscode.ThemeIcon("error"),
-        tooltip: error instanceof Error ? error.message : String(error),
-        contextValue: "error",
-        error: error instanceof Error ? error : new Error(String(error)),
-      }];
+      this.debugOutput.appendLine(
+        `[ProjectProvider] Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.rootNodes = [
+        {
+          type: NodeType.ERROR,
+          label: "Error loading projects",
+          collapsibleState: 0,
+          iconPath: new vscode.ThemeIcon("error"),
+          tooltip: error instanceof Error ? error.message : String(error),
+          contextValue: "error",
+          error: error instanceof Error ? error : new Error(String(error)),
+        },
+      ];
     }
   }
 
@@ -198,12 +220,14 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
    * - Inside .claude directory: Show all files and subdirectories
    */
   private async getDirectoryChildren(dirPath: string): Promise<TreeNode[]> {
+    this.debugOutput.appendLine(`[ProjectProvider] getDirectoryChildren(): ${dirPath}`);
     const children: TreeNode[] = [];
 
     // Check if we're inside a .claude directory
-    const isInsideClaudeDir = dirPath.includes(`${path.sep}.claude${path.sep}`) ||
-                               dirPath.endsWith(`${path.sep}.claude`) ||
-                               dirPath.endsWith(`.claude`);
+    const isInsideClaudeDir =
+      dirPath.includes(`${path.sep}.claude${path.sep}`) ||
+      dirPath.endsWith(`${path.sep}.claude`) ||
+      dirPath.endsWith(`.claude`);
 
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -266,7 +290,9 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
           label: isInsideClaudeDir ? "(empty)" : "(no Claude files)",
           collapsibleState: 0,
           iconPath: new vscode.ThemeIcon("info"),
-          tooltip: isInsideClaudeDir ? "This directory is empty" : "No .claude directory or CLAUDE.md file found",
+          tooltip: isInsideClaudeDir
+            ? "This directory is empty"
+            : "No .claude directory or CLAUDE.md file found",
           contextValue: "empty",
         });
       }

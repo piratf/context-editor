@@ -16,7 +16,7 @@
  * - WslToWindowsDataFacade: WSL accessing Windows config (converts Windows paths to WSL /mnt/)
  */
 
-import { EnvironmentType } from './environment.js';
+import { EnvironmentType } from "./environment.js";
 
 // Re-export EnvironmentType for convenience
 export { EnvironmentType };
@@ -213,11 +213,11 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    */
   async getGlobalConfig(key: string): Promise<unknown> {
     const result = await this.getCachedConfig();
-    const keys = key.split('.');
+    const keys = key.split(".");
     let value: unknown = result.config;
 
     for (const k of keys) {
-      if (value !== null && typeof value === 'object' && k in value) {
+      if (value !== null && typeof value === "object" && k in value) {
         value = (value as Record<string, unknown>)[k];
       } else {
         return undefined;
@@ -233,7 +233,7 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    */
   async getProjectContextFiles(projectName: string): Promise<readonly string[]> {
     const projects = await this.getProjects();
-    const project = projects.find(p => p.path.includes(projectName) || p.path === projectName);
+    const project = projects.find((p) => p.path.includes(projectName) || p.path === projectName);
 
     if (!project) {
       return [];
@@ -241,7 +241,7 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
 
     // Look for context files in the project directory
     const contextFiles: string[] = [];
-    const possibleFiles = ['.claude.md', 'CLAUDE.md'];
+    const possibleFiles = [".claude.md", "CLAUDE.md"];
 
     // Note: This is a simplified implementation.
     // Subclasses should override to actually check file existence.
@@ -267,7 +267,7 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   protected async getCachedConfig(): Promise<ConfigReadResult> {
     const now = Date.now();
 
-    if (this.configCache && (now - this.cacheTimestamp) < this.cacheTtl) {
+    if (this.configCache && now - this.cacheTimestamp < this.cacheTtl) {
       return this.configCache;
     }
 
@@ -278,12 +278,57 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   }
 
   /**
+   * Check if a path is accessible from Windows.
+   *
+   * Windows can ONLY access Windows-native paths:
+   * - Drive letters: C:\, D:\, etc.
+   * - UNC paths: \\server\share
+   *
+   * Windows CANNOT access:
+   * - /mnt/c/ - This is WSL's view of Windows drives, not a Windows path
+   * - /home/, /root/, /etc/ - WSL/Linux native paths
+   *
+   * The non-Windows paths appear in Windows .claude.json when Claude Desktop
+   * accesses WSL projects, but they cannot be accessed from Windows directly.
+   */
+  protected isWindowsAccessiblePath(path: string): boolean {
+    // Only Windows native paths are accessible from Windows
+    // Drive letter paths: C:\, D:\, etc.
+    if (/^[a-zA-Z]:\\/.test(path)) {
+      return true;
+    }
+
+    // UNC paths: \\server\share
+    if (/^\\\\/.test(path)) {
+      return true;
+    }
+
+    // Everything else (/mnt/c/, /home/, /root/, etc.) is not accessible from Windows
+    return false;
+  }
+
+  /**
+   * Determine if a project path should be included in the project list.
+   * Filters out paths that are not accessible from the current environment.
+   */
+  protected shouldIncludeProjectPath(path: string): boolean {
+    // On Windows, only include Windows-native paths
+    if (this.environmentInfo.type === EnvironmentType.Windows) {
+      return this.isWindowsAccessiblePath(path);
+    }
+    return true;
+  }
+
+  /**
    * Normalize project entries to a consistent format
    * Handles both array and record formats from .claude.json.
    *
    * The actual .claude.json format uses an object where:
    * - Key: project path (e.g., "/home/cloud", "/mnt/c/Users/...")
    * - Value: project configuration (allowedTools, mcpServers, state, etc.)
+   *
+   * For Windows environments, filters out WSL paths (/home/, /root/) since these
+   * cannot be accessed from Windows without knowing the WSL instance name.
    */
   protected normalizeProjects(projects: unknown): ProjectEntry[] {
     if (projects === null || projects === undefined) {
@@ -291,36 +336,47 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
     }
 
     if (Array.isArray(projects)) {
-      return projects.filter(this.isValidProjectEntry.bind(this)).map((entry): ProjectEntry => {
-        const result: ProjectEntry = { path: entry.path };
-        if (entry.state !== undefined) result.state = entry.state;
-        if (entry.mcpServers !== undefined) result.mcpServers = entry.mcpServers;
-        return result;
-      });
+      return projects
+        .filter(this.isValidProjectEntry.bind(this))
+        .filter((entry) => this.shouldIncludeProjectPath(entry.path))
+        .map((entry): ProjectEntry => {
+          const result: ProjectEntry = { path: entry.path };
+          if (entry.state !== undefined) result.state = entry.state;
+          if (entry.mcpServers !== undefined) result.mcpServers = entry.mcpServers;
+          return result;
+        });
     }
 
-    if (typeof projects === 'object') {
+    if (typeof projects === "object") {
       const result: ProjectEntry[] = [];
       // Use Object.entries to get both path (key) and config (value)
       for (const [projectPath, config] of Object.entries(projects as Record<string, unknown>)) {
-        if (typeof config === 'object' && config !== null) {
+        // Filter out WSL paths on Windows
+        if (!this.shouldIncludeProjectPath(projectPath)) {
+          continue;
+        }
+        if (typeof config === "object" && config !== null) {
           const entry: ProjectEntry = { path: projectPath };
 
           // Extract state from config if present
           const configObj = config as Record<string, unknown>;
-          if ('allowedTools' in config || 'hasTrustDialogAccepted' in config) {
+          if ("allowedTools" in config || "hasTrustDialogAccepted" in config) {
             const state: ProjectState = {};
             if (Array.isArray(configObj.allowedTools)) {
               state.allowedTools = configObj.allowedTools as readonly string[];
             }
-            if (typeof configObj.hasTrustDialogAccepted === 'boolean') {
+            if (typeof configObj.hasTrustDialogAccepted === "boolean") {
               state.trust = configObj.hasTrustDialogAccepted;
             }
             entry.state = state;
           }
 
           // Extract mcpServers from config if present
-          if ('mcpServers' in config && typeof configObj.mcpServers === 'object' && configObj.mcpServers !== null) {
+          if (
+            "mcpServers" in config &&
+            typeof configObj.mcpServers === "object" &&
+            configObj.mcpServers !== null
+          ) {
             entry.mcpServers = configObj.mcpServers as McpServers;
           }
 
@@ -338,10 +394,10 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    */
   protected isValidProjectEntry(entry: unknown): entry is ProjectEntry {
     return (
-      typeof entry === 'object' &&
+      typeof entry === "object" &&
       entry !== null &&
-      'path' in entry &&
-      typeof (entry as ProjectEntry).path === 'string'
+      "path" in entry &&
+      typeof (entry as ProjectEntry).path === "string"
     );
   }
 }
@@ -358,6 +414,6 @@ export const DataFacadeFactory = {
   createNativeFacade(_environmentInfo: EnvironmentInfo): ClaudeDataFacade {
     // Import dynamically to avoid circular dependency
     // The actual implementation will be in nativeDataFacade.ts
-    throw new Error('Not implemented yet - use NativeDataFacade class directly');
+    throw new Error("Not implemented yet - use NativeDataFacade class directly");
   },
 } as const;
