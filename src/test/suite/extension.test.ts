@@ -42,6 +42,11 @@ suite("Context Editor Extension Test Suite", () => {
     assert.ok(commands.includes("contextEditor.showDebugOutput"), "showDebugOutput command should be registered");
   });
 
+  test("Should register titleEnvironmentSwitch command", async () => {
+    const commands = await vscode.commands.getCommands(true);
+    assert.ok(commands.includes("contextEditor.titleEnvironmentSwitch"), "titleEnvironmentSwitch command should be registered");
+  });
+
   test("Refresh command should execute without error", async () => {
     try {
       await vscode.commands.executeCommand("contextEditor.refresh");

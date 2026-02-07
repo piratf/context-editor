@@ -43,6 +43,11 @@
         "category": "Context Editor"
       },
       {
+        "command": "contextEditor.titleEnvironmentSwitch",
+        "title": "Current Environment",
+        "category": "Context Editor"
+      },
+      {
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
@@ -60,14 +65,9 @@
     "views": {
       "contextEditorContainer": [
         {
-          "id": "contextEditorPrimaryGlobal",
-          "name": "Global",
-          "title": "$(settings-gear) Global"
-        },
-        {
-          "id": "contextEditorPrimaryProjects",
-          "name": "Projects",
-          "title": "$(folder) Projects"
+          "id": "contextEditorUnified",
+          "name": "Context",
+          "title": "$(server-environment) Context"
         }
       ]
     },
@@ -75,8 +75,13 @@
       "view/title": [
         {
           "command": "contextEditor.refresh",
-          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
+          "when": "view == contextEditorUnified",
           "group": "navigation@1"
+        },
+        {
+          "command": "contextEditor.titleEnvironmentSwitch",
+          "when": "view == contextEditorUnified",
+          "group": "navigation@2"
         }
       ]
     }
