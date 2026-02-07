@@ -189,7 +189,6 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
           label: projectName,
           path: project.path,
           collapsibleState: 1, // Always collapsible to show "(no Claude files)" message
-          iconPath: new vscode.ThemeIcon("folder"),
           tooltip: project.path,
           contextValue: "project",
         });
@@ -248,10 +247,9 @@ export class ProjectProvider implements vscode.TreeDataProvider<TreeNode> {
           if (isInsideClaudeDir || entry.name === ".claude") {
             children.push({
               type: NodeType.DIRECTORY,
-              label: `${entry.name}${isInsideClaudeDir ? path.sep : ""}`,
+              label: entry.name,
               path: fullPath,
               collapsibleState: 1, // Collapsed
-              iconPath: new vscode.ThemeIcon("folder"),
               tooltip: fullPath,
               contextValue: isInsideClaudeDir ? "claudeDirectory" : "directory",
             });

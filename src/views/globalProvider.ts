@@ -203,10 +203,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
       if (hasClaudeDir) {
         this.rootNodes.push({
           type: GlobalNodeType.DIRECTORY,
-          label: "~/.claude/",
+          label: "~/.claude",
           path: claudeDir,
           collapsibleState: 1, // Collapsed
-          iconPath: new vscode.ThemeIcon("folder"),
           tooltip: claudeDir,
           contextValue: "directory",
         });
@@ -275,10 +274,9 @@ export class GlobalProvider implements vscode.TreeDataProvider<GlobalTreeNode> {
         if (entry.isDirectory()) {
           children.push({
             type: GlobalNodeType.DIRECTORY,
-            label: entry.name + "/",
+            label: entry.name,
             path: fullPath,
             collapsibleState: 1, // Collapsed
-            iconPath: new vscode.ThemeIcon("folder"),
             tooltip: fullPath,
             contextValue: "directory",
           });
