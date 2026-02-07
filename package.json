@@ -53,7 +53,7 @@
         {
           "id": "contextEditorContainer",
           "title": "Context Editor",
-          "icon": "resources/icon.png"
+          "icon": "resources/activity-bar-icon.svg"
         }
       ]
     },
@@ -83,7 +83,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && rm -r out/resources && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
