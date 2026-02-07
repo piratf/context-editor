@@ -83,7 +83,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && rm -r out/resources && cp -r resources out/",
+    "compile": "tsc -p ./ && rm -rf out/resources && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
