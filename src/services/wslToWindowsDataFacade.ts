@@ -101,7 +101,7 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
    * @param windowsPath - Windows path (e.g., C:\Users\user\project)
    * @returns WSL path (e.g., /mnt/c/Users/user/project)
    */
-  private convertWindowsPathToWsl(windowsPath: string): string {
+  protected convertWindowsPathToWsl(windowsPath: string): string {
     // If path is already a WSL /mnt/ path, return as-is
     if (windowsPath.startsWith("/mnt/")) {
       return windowsPath;
@@ -119,7 +119,7 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
   /**
    * Parse the configuration file content
    */
-  private parseConfig(content: string): ClaudeGlobalConfig {
+  protected parseConfig(content: string): ClaudeGlobalConfig {
     if (!content || content.trim().length === 0) {
       return {};
     }

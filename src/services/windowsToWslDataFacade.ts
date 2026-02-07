@@ -119,7 +119,7 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
    * @param wslPath - WSL absolute path (e.g., /home/user/project)
    * @returns Windows UNC path (e.g., \\wsl.localhost\Ubuntu\home\user\project)
    */
-  private convertWslPathToWindows(wslPath: string): string {
+  protected convertWslPathToWindows(wslPath: string): string {
     // If path is already a Windows UNC path, return as-is
     if (wslPath.startsWith("\\\\")) {
       return wslPath;
@@ -137,7 +137,7 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
   /**
    * Parse the configuration file content
    */
-  private parseConfig(content: string): ClaudeGlobalConfig {
+  protected parseConfig(content: string): ClaudeGlobalConfig {
     if (!content || content.trim().length === 0) {
       return {};
     }
