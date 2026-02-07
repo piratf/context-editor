@@ -17,14 +17,14 @@ async function main(): Promise<void> {
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
     // The path to the test workspace
-    // You can point this to a folder that contains some test files
+    // Use the project root as test workspace, but with files.watcherExclude configuration
     const testWorkspace = path.resolve(__dirname, "../../");
 
     // Download VS Code, unzip it and run the integration test
     await runTests({
       extensionDevelopmentPath,
       extensionTestsPath,
-      launchArgs: [testWorkspace],
+      launchArgs: [testWorkspace, "--disable-gpu"],
     });
   } catch (err) {
     console.error("Failed to run tests:", err);

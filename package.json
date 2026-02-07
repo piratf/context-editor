@@ -37,6 +37,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "contextEditor.switchEnvironment",
+        "title": "Switch Environment",
+        "icon": "$(server-environment)",
+        "category": "Context Editor"
+      },
+      {
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
@@ -47,19 +53,21 @@
         {
           "id": "contextEditorContainer",
           "title": "Context Editor",
-          "icon": "$(home)"
+          "icon": "resources/activity-bar-icon.svg"
         }
       ]
     },
     "views": {
       "contextEditorContainer": [
         {
-          "id": "contextEditorGlobal",
-          "name": "Global Persona"
+          "id": "contextEditorPrimaryGlobal",
+          "name": "Global",
+          "title": "$(settings-gear) Global"
         },
         {
-          "id": "contextEditorProjects",
-          "name": "Project Registry"
+          "id": "contextEditorPrimaryProjects",
+          "name": "Projects",
+          "title": "$(folder) Projects"
         }
       ]
     },
@@ -67,15 +75,15 @@
       "view/title": [
         {
           "command": "contextEditor.refresh",
-          "when": "view == contextEditorGlobal || view == contextEditorProjects",
-          "group": "navigation"
+          "when": "view == contextEditorPrimaryGlobal || view == contextEditorPrimaryProjects",
+          "group": "navigation@1"
         }
       ]
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && rm -rf out/resources && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -92,6 +100,7 @@
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
     "@vscode/test-electron": "^2.4.1",
+    "c8": "^10.1.3",
     "eslint": "^9.17.0",
     "eslint-plugin-node": "^5.2.1",
     "glob": "^13.0.0",

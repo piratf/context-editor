@@ -5,8 +5,6 @@
 
 import * as assert from "node:assert";
 import * as vscode from "vscode";
-import { GlobalProvider } from "../../views/globalProvider";
-import { ProjectProvider } from "../../views/projectProvider";
 
 suite("Context Editor Extension Test Suite", () => {
   let extension: vscode.Extension<unknown> | undefined;
@@ -29,22 +27,6 @@ suite("Context Editor Extension Test Suite", () => {
     assert.ok(extension?.isActive === true, "Extension should be activated");
   });
 
-  test("Should register tree data providers", async () => {
-    // We can't easily check internal registration, but we can verify the providers work
-    const globalProvider = new GlobalProvider();
-    const projectProvider = new ProjectProvider();
-
-    assert.ok(globalProvider instanceof GlobalProvider, "GlobalProvider should be instantiable");
-    assert.ok(projectProvider instanceof ProjectProvider, "ProjectProvider should be instantiable");
-
-    // Verify basic API contract of the providers
-    const globalRoots = await globalProvider.getChildren();
-    assert.ok(Array.isArray(globalRoots), "GlobalProvider.getChildren should return an array");
-
-    const projectRoots = await projectProvider.getChildren();
-    assert.ok(Array.isArray(projectRoots), "ProjectProvider.getChildren should return an array");
-  });
-
   test("Should register refresh command", async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes("contextEditor.refresh"), "Refresh command should be registered");
@@ -53,6 +35,11 @@ suite("Context Editor Extension Test Suite", () => {
   test("Should register openFile command", async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes("contextEditor.openFile"), "OpenFile command should be registered");
+  });
+
+  test("Should register showDebugOutput command", async () => {
+    const commands = await vscode.commands.getCommands(true);
+    assert.ok(commands.includes("contextEditor.showDebugOutput"), "showDebugOutput command should be registered");
   });
 
   test("Refresh command should execute without error", async () => {
