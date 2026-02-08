@@ -52,6 +52,36 @@
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyNames",
+        "title": "Copy Names",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyPaths",
+        "title": "Copy Paths",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.batchDelete",
+        "title": "Delete",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.batchCopy",
+        "title": "Copy",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.batchCut",
+        "title": "Cut",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.paste",
+        "title": "Paste",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -68,7 +98,8 @@
         {
           "id": "contextEditorUnified",
           "name": "Context",
-          "title": "Context"
+          "title": "Context",
+          "canSelectMany": true
         }
       ]
     },
@@ -83,6 +114,38 @@
           "command": "contextEditor.titleEnvironmentSwitch",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "contextEditor.copyNames",
+          "when": "view == contextEditorUnified",
+          "group": "copy@1"
+        },
+        {
+          "command": "contextEditor.copyPaths",
+          "when": "view == contextEditorUnified",
+          "group": "copy@2"
+        },
+        {
+          "command": "contextEditor.batchCopy",
+          "when": "view == contextEditorUnified",
+          "group": "clipboard@1"
+        },
+        {
+          "command": "contextEditor.batchCut",
+          "when": "view == contextEditorUnified",
+          "group": "clipboard@2"
+        },
+        {
+          "command": "contextEditor.paste",
+          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
+          "group": "clipboard@3"
+        },
+        {
+          "command": "contextEditor.batchDelete",
+          "when": "view == contextEditorUnified",
+          "group": "delete@1"
         }
       ]
     }
@@ -102,6 +165,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.5",
+    "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
@@ -114,6 +178,7 @@
     "lint-staged": "^16.2.7",
     "mocha": "^11.7.5",
     "prettier": "^3.8.1",
+    "sinon": "^21.0.1",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.19.1"
   },

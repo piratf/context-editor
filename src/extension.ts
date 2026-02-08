@@ -15,6 +15,14 @@ import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
 import { Logger } from "./utils/logger.js";
+import {
+  copyNames,
+  copyPaths,
+  batchDelete,
+  batchCopy,
+  batchCut,
+  paste,
+} from "./commands/batchCommands.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -178,6 +186,55 @@ function registerCommands(
     }
   );
   context.subscriptions.push(openFileCommand);
+
+  // Batch commands for multi-select
+  const copyNamesCommand = vscode.commands.registerCommand(
+    "contextEditor.copyNames",
+    async (nodes: unknown[]) => {
+      await copyNames(nodes);
+    }
+  );
+  context.subscriptions.push(copyNamesCommand);
+
+  const copyPathsCommand = vscode.commands.registerCommand(
+    "contextEditor.copyPaths",
+    async (nodes: unknown[]) => {
+      await copyPaths(nodes);
+    }
+  );
+  context.subscriptions.push(copyPathsCommand);
+
+  const batchDeleteCommand = vscode.commands.registerCommand(
+    "contextEditor.batchDelete",
+    async (nodes: unknown[]) => {
+      await batchDelete(nodes);
+    }
+  );
+  context.subscriptions.push(batchDeleteCommand);
+
+  const batchCopyCommand = vscode.commands.registerCommand(
+    "contextEditor.batchCopy",
+    (nodes: unknown[]) => {
+      batchCopy(nodes);
+    }
+  );
+  context.subscriptions.push(batchCopyCommand);
+
+  const batchCutCommand = vscode.commands.registerCommand(
+    "contextEditor.batchCut",
+    (nodes: unknown[]) => {
+      batchCut(nodes);
+    }
+  );
+  context.subscriptions.push(batchCutCommand);
+
+  const pasteCommand = vscode.commands.registerCommand(
+    "contextEditor.paste",
+    async (target: unknown) => {
+      await paste(target);
+    }
+  );
+  context.subscriptions.push(pasteCommand);
 }
 
 export function deactivate(): void {
