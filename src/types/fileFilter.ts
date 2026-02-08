@@ -1,20 +1,36 @@
 /**
- * Abstract file filter system for Claude Code configuration views.
+ * Abstract file filter system for Context Editor.
  *
  * This design provides an extensible, composable filtering mechanism
- * that can be used to show only Claude-related files and directories.
+ * that can be used to show only tool-related files and directories.
  *
- * The filter system is designed to support:
- * - Claude Code files (.claude/, CLAUDE.md, .mcp.json)
- * - Future AI tool files (gemini cli, etc.)
- * - User-configurable filters
- * - Composable filter combinations (AND, OR, NOT)
+ * Each AI tool should have its own dedicated filter class:
+ * - ClaudeCodeFileFilter - for Claude Code files
+ * - GeminiCliFileFilter - for Gemini CLI files (example, create when needed)
+ * - Other tool-specific filters as needed
+ *
+ * Filters can be combined using AndFilter, OrFilter, NotFilter for custom scenarios.
  *
  * @example
  * ```typescript
+ * // Use Claude Code filter
  * const claudeFilter = new ClaudeCodeFileFilter();
- * const includesFilter = new NamePatternFilter(/^include-/);
- * const combined = new OrFilter([claudeFilter, includesFilter]);
+ *
+ * // Create custom filter using patterns
+ * const customFilter = new NamePatternFilter({
+ *   includePatterns: [/^include-/],
+ * });
+ *
+ * // Combine filters
+ * const combined = new OrFilter([claudeFilter, customFilter]);
+ *
+ * // Create filter for another tool (example)
+ * class GeminiCliFileFilter extends BaseFilter implements SyncFileFilter {
+ *   readonly description = "Gemini CLI files filter";
+ *   private readonly GEMINI_DIR_NAMES = [".gemini"];
+ *   private readonly GEMINI_FILE_PATTERNS = [/^gemini-config\.json$/];
+ *   // ... implement evaluate method
+ * }
  * ```
  */
 
@@ -30,7 +46,7 @@ export interface FilterContext {
   readonly name: string;
   /** Whether the entry is a directory */
   readonly isDirectory: boolean;
-  /** Whether this is inside a .claude directory */
+  /** Whether this is inside a tool-specific directory (e.g., .claude, .gemini) */
   readonly isInsideClaudeDir: boolean;
   /** Path separator for the current platform */
   readonly pathSep: string;
@@ -278,14 +294,27 @@ export class NamePatternFilter extends BaseFilter implements SyncFileFilter {
 /**
  * Filter for Claude Code related files and directories
  *
- * Includes:
+ * Strictly cohesive to Claude Code files only:
  * - .claude directory (at any level)
  * - Contents of .claude directory (all files/dirs inside)
  * - CLAUDE.md and .claude.md files
- * - .mcp.json files
- * - .claude.json files
+ * - .mcp.json files (Model Context Protocol servers)
+ * - .claude.json files (Claude Code configuration)
  *
- * Designed to be extensible for future AI tool files
+ * For other AI tools, create dedicated filter classes:
+ * @example
+ * ```typescript
+ * class GeminiCliFileFilter extends BaseFilter implements SyncFileFilter {
+ *   readonly description: string = "Gemini CLI files filter";
+ *   private readonly GEMINI_DIR_NAMES = [".gemini", ".ai-gemini"];
+ *   private readonly GEMINI_FILE_PATTERNS = [/^gemini-config\.json$/, /^\.gemini-cursor$/];
+ *
+ *   evaluate(context: FilterContext): FilterResult {
+ *     const { name, isDirectory, isInsideGeminiDir } = context;
+ *     // ... implementation
+ *   }
+ * }
+ * ```
  */
 export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
   readonly description: string = "Claude Code files filter";
@@ -296,15 +325,6 @@ export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
     /^\.claude\.md$/,
     /^\.mcp\.json$/,
     /^\.claude\.json$/,
-  ];
-
-  /**
-   * Patterns for future AI tool files (extensible)
-   * Example: gemini config files would go here
-   */
-  private readonly AI_TOOL_PATTERNS: RegExp[] = [
-    // Future: /^gemini-config\.json$/
-    // Future: /^\.ai-cursor$/
   ];
 
   evaluate(context: FilterContext): FilterResult {
@@ -320,9 +340,9 @@ export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
       return this.include("Claude directory");
     }
 
-    // For files, check Claude file patterns
+    // For files, check Claude file patterns only
     if (!isDirectory) {
-      for (const pattern of [...this.CLAUDE_FILE_PATTERNS, ...this.AI_TOOL_PATTERNS]) {
+      for (const pattern of this.CLAUDE_FILE_PATTERNS) {
         if (pattern.test(name)) {
           return this.include("Claude-related file");
         }
@@ -337,29 +357,25 @@ export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
 /**
  * Filter for project-specific Claude files
  *
- * More restrictive than global Claude filter:
- * - Shows only .claude directory and its contents
- * - Shows CLAUDE.md and .claude.md files
- * - Shows .mcp.json files
- * - Hides everything else
+ * Extends ClaudeCodeFileFilter with project-specific filtering rules.
+ * Currently uses the same logic as the global Claude filter.
  */
 export class ProjectClaudeFileFilter extends ClaudeCodeFileFilter {
-  readonly description = "Project Claude files filter";
-
-  // Project filter is more restrictive - inherits from ClaudeCodeFileFilter
-  // but can be customized if needed
+  override readonly description: string = "Project Claude files filter";
 
   override evaluate(context: FilterContext): FilterResult {
-    const result = super.evaluate(context);
-
-    // For projects, we might want additional restrictions
-    // For now, use the same logic as the global Claude filter
-    return result;
+    // Currently uses the same logic as ClaudeCodeFileFilter
+    // Can be customized for project-specific rules if needed
+    return super.evaluate(context);
   }
 }
 
 /**
- * Filter factory namespace for creating common filter combinations
+ * Filter factory namespace for creating common filter combinations.
+ *
+ * For other AI tools, create dedicated filter classes rather than
+ * extending ClaudeCodeFileFilter. See ClaudeCodeFileFilter documentation
+ * for an example of creating a tool-specific filter.
  */
 export const FilterFactory = {
   /**
@@ -396,7 +412,7 @@ export const FilterFactory = {
   },
 
   /**
-   * Create a chain of filters for different contexts
+   * Create a filter for Claude Code in different contexts
    *
    * @param context - The filtering context ('global', 'project', 'claude-dir')
    */
