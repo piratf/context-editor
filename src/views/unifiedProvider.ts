@@ -52,23 +52,21 @@ export class UnifiedProvider extends BaseProvider {
       const info = facade.getEnvironmentInfo();
       this.logger.debug("Current environment", { type: info.type, configPath: info.configPath } as Record<string, unknown>);
 
-      // Create Global Configuration root node
+      // Create Global Configuration root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
       this.rootNodes.push(
         TreeNodeFactory.createDirectory("Global Configuration", "", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
           contextValue: RootNodeType.GLOBAL,
-          iconId: "settings-gear",
         })
       );
 
-      // Create Projects root node
+      // Create Projects root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
       this.rootNodes.push(
         TreeNodeFactory.createDirectory("Projects", "", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
           contextValue: RootNodeType.PROJECTS,
-          iconId: "folder-library",
         })
       );
 

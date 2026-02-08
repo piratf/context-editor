@@ -205,7 +205,7 @@ suite("UnifiedProvider Tests", () => {
 
     assert.strictEqual(treeItem.label, "Global Configuration");
     assert.strictEqual(treeItem.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
-    assert.ok(treeItem.iconPath !== undefined, "Should have icon path");
+    assert.strictEqual(treeItem.iconPath, undefined, "Collapsible nodes should not have icon path");
   });
 
   test("refresh should reload root nodes", () => {

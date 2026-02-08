@@ -20,14 +20,15 @@ import { Logger } from "./utils/logger.js";
 let configSearch: ConfigSearch;
 let environmentManager: EnvironmentManager;
 let unifiedProvider: UnifiedProvider;
-let treeView: vscode.TreeView<unknown>;
+let treeView: vscode.TreeView<unknown> | undefined;
 let logger: Logger;
 
 // Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
   void vscode.commands.executeCommand("setContext", "contextEditor.currentEnv", envName);
   // Update the tree view title with icon and environment name
-  if (treeView) {
+  // treeView may not be initialized yet when this function is first called
+  if (treeView !== undefined) {
     // Use a Unicode symbol as a workaround since $(icon) syntax doesn't work in TreeView.title
     treeView.title = `⚡ ${envName}`;
   }
@@ -75,12 +76,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Refresh view to show data from new environment
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     unifiedProvider?.refresh();
-
-    // Update tree view title
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (treeView) {
-      treeView.title = `⚡ ${event.environmentName}`;
-    }
   });
 
   // Subscribe to data facades changes

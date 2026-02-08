@@ -70,7 +70,8 @@ export const TreeNodeFactory = {
       label,
       path,
       collapsibleState,
-      iconPath: new vscode.ThemeIcon(iconId ?? "folder"),
+      // Only set iconPath for non-collapsible nodes (leaf nodes) to avoid VS Code indentation issues
+      ...(collapsibleState === 0 && iconId !== undefined && iconId !== "" ? { iconPath: new vscode.ThemeIcon(iconId) } : {}),
       tooltip: tooltip ?? path,
       contextValue,
     };

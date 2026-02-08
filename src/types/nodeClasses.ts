@@ -206,7 +206,7 @@ export class DirectoryNode extends NodeBase {
       label: name,
       path: fullPath,
       collapsibleState: 1,
-      iconPath: new vscode.ThemeIcon("folder"),
+      // No iconPath for collapsible nodes (directories) to avoid VS Code indentation issues
       tooltip: fullPath,
       contextValue: childInsideClaude ? "claudeDirectory" : "directory",
     };
