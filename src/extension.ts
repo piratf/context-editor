@@ -23,6 +23,7 @@ import {
   batchCut,
   paste,
 } from "./commands/batchCommands.js";
+import { openInNewWindow, createNewFile } from "./commands/directoryCommands.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -235,6 +236,23 @@ function registerCommands(
     }
   );
   context.subscriptions.push(pasteCommand);
+
+  // Directory-specific commands
+  const openInNewWindowCommand = vscode.commands.registerCommand(
+    "contextEditor.openInNewWindow",
+    async (node: unknown) => {
+      await openInNewWindow(node);
+    }
+  );
+  context.subscriptions.push(openInNewWindowCommand);
+
+  const createNewFileCommand = vscode.commands.registerCommand(
+    "contextEditor.createNewFile",
+    async (node: unknown) => {
+      await createNewFile(node);
+    }
+  );
+  context.subscriptions.push(createNewFileCommand);
 }
 
 export function deactivate(): void {

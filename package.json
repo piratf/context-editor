@@ -82,6 +82,16 @@
         "command": "contextEditor.paste",
         "title": "Paste",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.openInNewWindow",
+        "title": "Open in New Window",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.createNewFile",
+        "title": "Create New File",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -146,6 +156,16 @@
           "command": "contextEditor.batchDelete",
           "when": "view == contextEditorUnified",
           "group": "delete@1"
+        },
+        {
+          "command": "contextEditor.openInNewWindow",
+          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
+          "group": "directory@1"
+        },
+        {
+          "command": "contextEditor.createNewFile",
+          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
+          "group": "directory@2"
         }
       ]
     }
