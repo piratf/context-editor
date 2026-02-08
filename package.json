@@ -52,46 +52,6 @@
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.copyNames",
-        "title": "Copy Names",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.copyPaths",
-        "title": "Copy Paths",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.batchDelete",
-        "title": "Delete",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.batchCopy",
-        "title": "Copy",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.batchCut",
-        "title": "Cut",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.paste",
-        "title": "Paste",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.openInNewWindow",
-        "title": "Open in New Window",
-        "category": "Context Editor"
-      },
-      {
-        "command": "contextEditor.createNewFile",
-        "title": "Create New File",
-        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -108,8 +68,7 @@
         {
           "id": "contextEditorUnified",
           "name": "Context",
-          "title": "Context",
-          "canSelectMany": true
+          "title": "Context"
         }
       ]
     },
@@ -124,48 +83,6 @@
           "command": "contextEditor.titleEnvironmentSwitch",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "contextEditor.copyNames",
-          "when": "view == contextEditorUnified",
-          "group": "copy@1"
-        },
-        {
-          "command": "contextEditor.copyPaths",
-          "when": "view == contextEditorUnified",
-          "group": "copy@2"
-        },
-        {
-          "command": "contextEditor.batchCopy",
-          "when": "view == contextEditorUnified",
-          "group": "clipboard@1"
-        },
-        {
-          "command": "contextEditor.batchCut",
-          "when": "view == contextEditorUnified",
-          "group": "clipboard@2"
-        },
-        {
-          "command": "contextEditor.paste",
-          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
-          "group": "clipboard@3"
-        },
-        {
-          "command": "contextEditor.batchDelete",
-          "when": "view == contextEditorUnified",
-          "group": "delete@1"
-        },
-        {
-          "command": "contextEditor.openInNewWindow",
-          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
-          "group": "directory@1"
-        },
-        {
-          "command": "contextEditor.createNewFile",
-          "when": "view == contextEditorUnified && viewItem =~ /^(directory|claudeDirectory|project)$/",
-          "group": "directory@2"
         }
       ]
     }

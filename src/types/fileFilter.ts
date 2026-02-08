@@ -370,7 +370,7 @@ export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
  * Filter for project-specific Claude files
  *
  * Extends ClaudeCodeFileFilter with project-specific filtering rules.
- * Currently uses the same logic as the global Claude filter.
+ * Currently, uses the same logic as the global Claude filter.
  */
 export class ProjectClaudeFileFilter extends ClaudeCodeFileFilter {
   override readonly description: string = "Project Claude files filter";
@@ -414,7 +414,7 @@ export const FilterFactory = {
     let result: SyncFileFilter =
       filters.length === 1 ? (filters[0] as SyncFileFilter) : new OrFilter(filters);
 
-    // Apply exclude patterns on top using NOT + OR pattern
+    // Apply to exclude patterns on top using NOT + OR pattern
     if (extraExcludePatterns && extraExcludePatterns.length > 0) {
       // Create a filter that matches any exclude pattern
       const excludeFilters: FileFilter[] = extraExcludePatterns.map(
