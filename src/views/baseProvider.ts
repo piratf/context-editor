@@ -36,9 +36,23 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
   /**
    * Get the tree item for a given node
-   * Converts internal TreeNode to vscode.TreeItem
+   * Since NodeBase extends vscode.TreeItem, we can return it directly
+   * For plain TreeNode objects (not NodeBase), we create a new TreeItem
    */
   getTreeItem(element: TreeNode): vscode.TreeItem {
+    // Check if element is already a TreeItem (i.e., a NodeBase instance)
+    // NodeBase extends vscode.TreeItem, so we can return it directly
+    if ('resourceUri' in element) {
+      // This is a vscode.TreeItem (NodeBase), return it directly
+      const treeItem = element as vscode.TreeItem;
+      // Set command for clickable nodes (only if not already set)
+      if (treeItem.command === undefined) {
+        this.setNodeCommand(treeItem, element);
+      }
+      return treeItem;
+    }
+
+    // For plain TreeNode objects, create a new TreeItem (backward compatibility)
     const treeItem = new vscode.TreeItem(
       element.label,
       element.collapsibleState === 2
@@ -68,6 +82,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
   /**
    * Get children of a given node, or root nodes if no node provided
+   * Since NodeBase extends TreeItem and implements TreeNode, we need to handle both types
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
@@ -89,7 +104,9 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
     const node = NodeFactory.create(element, this.getNodeOptions(element));
     const children = await node.getChildren();
     this.logger.logChildrenRetrieved(element.label, children.length);
-    return children;
+    // NodeBase extends TreeItem, but TreeDataProvider expects TreeNode
+    // Cast since NodeBase implements all TreeNode properties
+    return children as unknown as TreeNode[];
   }
 
   /**

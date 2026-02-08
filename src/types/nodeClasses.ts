@@ -2,6 +2,11 @@
  * TreeNode classes with getChildren() logic.
  * OOP approach where each node type knows how to load its own children.
  *
+ * VS Code TreeView Integration:
+ * - NodeBase extends vscode.TreeItem so getTreeItem() can return the node itself
+ * - This ensures commands receive the full node object with both TreeItem properties
+ *   and our custom interface methods (ICopyable, IDeletable, IOpenableInVscode)
+ *
  * Menu Interface Implementation:
  * - Node classes implement menu interfaces to indicate which actions they support
  * - ICopyable: FileNode, DirectoryNode, ClaudeJsonNode
@@ -30,39 +35,75 @@ import {
 } from "./menuInterfaces.js";
 
 /**
- * Abstract base class for tree nodes
+ * Convert CollapsibleState to vscode.TreeItemCollapsibleState
  */
-export abstract class NodeBase {
+function toVscodeCollapsibleState(state: CollapsibleState): vscode.TreeItemCollapsibleState {
+  switch (state) {
+    case 0:
+      return vscode.TreeItemCollapsibleState.None;
+    case 1:
+      return vscode.TreeItemCollapsibleState.Collapsed;
+    case 2:
+      return vscode.TreeItemCollapsibleState.Expanded;
+    default:
+      return vscode.TreeItemCollapsibleState.None;
+  }
+}
+
+/**
+ * Abstract base class for tree nodes
+ * Extends vscode.TreeItem so getTreeItem() can return the node itself
+ * This ensures context menu commands receive the full node with interface methods
+ */
+export abstract class NodeBase extends vscode.TreeItem {
   abstract readonly type: NodeType;
-  readonly label: string;
   readonly path: string | undefined;
-  readonly collapsibleState: CollapsibleState;
-  readonly iconPath: vscode.ThemeIcon | undefined;
-  readonly tooltip: string | undefined;
-  readonly contextValue: string | undefined;
   readonly error: Error | undefined;
 
   constructor(data: TreeNode) {
-    this.label = data.label;
+    // Initialize TreeItem with label and collapsible state
+    super(data.label, toVscodeCollapsibleState(data.collapsibleState));
+
+    // Set TreeItem properties from TreeNode data
     this.path = data.path;
-    this.collapsibleState = data.collapsibleState;
-    this.iconPath = data.iconPath;
-    this.tooltip = data.tooltip;
-    this.contextValue = data.contextValue;
     this.error = data.error;
+
+    if (data.iconPath !== undefined) {
+      this.iconPath = data.iconPath;
+    }
+
+    if (data.tooltip !== undefined) {
+      this.tooltip = data.tooltip;
+    }
+
+    if (data.contextValue !== undefined) {
+      this.contextValue = data.contextValue;
+    }
   }
 
   /**
    * Get children for this node - must be implemented by subclasses
+   * Returns NodeBase[] since nodes extend vscode.TreeItem
    */
-  abstract getChildren(): Promise<TreeNode[]>;
+  abstract getChildren(): Promise<NodeBase[]>;
 
   /**
    * Get the display name (file/directory name without path)
    * Used by ICopyable interface
+   * Label is always a string since we pass it from TreeNode which has string label
    */
   getDisplayName(): string {
-    return this.label;
+    // TreeItem.label can be string | TreeItemLabel | undefined,
+    // but we always pass a string from TreeNode, so this is safe
+    if (typeof this.label === "string") {
+      return this.label;
+    }
+    // Handle TreeItemLabel case (has label and description)
+    if (this.label && typeof this.label === "object" && "label" in this.label) {
+      const labelObj = this.label as { label: string };
+      return labelObj.label;
+    }
+    return "";
   }
 
   /**
@@ -96,23 +137,6 @@ export abstract class NodeBase {
       recursive: true,
       useTrash: true,
     });
-  }
-
-  /**
-   * Convert to TreeNode interface
-   * Subclasses should override to add menu interface markers to contextValue
-   */
-  toTreeNode(): TreeNode {
-    return {
-      type: this.type,
-      label: this.label,
-      path: this.path,
-      collapsibleState: this.collapsibleState,
-      iconPath: this.iconPath,
-      tooltip: this.tooltip,
-      contextValue: this.contextValue,
-      error: this.error,
-    } as TreeNode;
   }
 }
 
@@ -210,18 +234,18 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
 
   /**
    * Get children by reading the directory
+   * Returns NodeBase[] since nodes extend vscode.TreeItem
    */
-  async getChildren(): Promise<TreeNode[]> {
+  async getChildren(): Promise<NodeBase[]> {
     if (this.path === undefined) {
-      const node: TreeNode = {
+      return [new ErrorNode({
         type: NodeType.ERROR,
         label: "Error: No path",
         collapsibleState: 0,
         iconPath: new vscode.ThemeIcon("error"),
         tooltip: "Directory node has no path",
         contextValue: "error",
-      };
-      return [node];
+      })];
     }
 
     try {
@@ -234,7 +258,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
         return a.name.localeCompare(b.name);
       });
 
-      const children: TreeNode[] = [];
+      const children: NodeBase[] = [];
 
       for (const entry of entries) {
         // Apply filtering through the Filter
@@ -255,7 +279,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
       return children;
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      const node: TreeNode = {
+      return [new ErrorNode({
         type: NodeType.ERROR,
         label: "Error reading directory",
         collapsibleState: 0,
@@ -263,8 +287,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
         tooltip: error instanceof Error ? error.message : String(error),
         contextValue: "error",
         error: errorObj,
-      } as TreeNode;
-      return [node];
+      })];
     }
   }
 
@@ -292,8 +315,9 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
 
   /**
    * Create a directory node for a child
+   * Returns a DirectoryNode instance (extends NodeBase which extends TreeItem)
    */
-  private createDirectoryNode(name: string): TreeNode {
+  private createDirectoryNode(name: string): DirectoryNode {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fullPath = path.join(this.path!, name);
 
@@ -305,7 +329,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
       CONTEXT_MARKERS.OPENABLE_IN_VSCODE,
     ];
 
-    return {
+    return new DirectoryNode({
       type: NodeType.DIRECTORY,
       label: name,
       path: fullPath,
@@ -313,13 +337,14 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
       // No iconPath for collapsible nodes (directories) to avoid VS Code indentation issues
       tooltip: fullPath,
       contextValue: buildContextValue(baseType, interfaceMarkers),
-    };
+    });
   }
 
   /**
    * Create a file node for a child
+   * Returns a FileNode instance (extends NodeBase which extends TreeItem)
    */
-  private createFileNode(name: string): TreeNode {
+  private createFileNode(name: string): FileNode {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fullPath = path.join(this.path!, name);
     const iconId = this.getFileIcon(name);
@@ -328,7 +353,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
     const baseType = "file";
     const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
 
-    return {
+    return new FileNode({
       type: NodeType.FILE,
       label: name,
       path: fullPath,
@@ -336,7 +361,7 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
       iconPath: new vscode.ThemeIcon(iconId),
       tooltip: fullPath,
       contextValue: buildContextValue(baseType, interfaceMarkers),
-    };
+    });
   }
 
   /**
@@ -351,39 +376,17 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
 
   /**
    * Create an empty node
+   * Returns an ErrorNode instance (extends NodeBase which extends TreeItem)
    */
-  private createEmptyNode(): TreeNode {
-    return {
+  private createEmptyNode(): ErrorNode {
+    return new ErrorNode({
       type: NodeType.ERROR,
       label: "(empty)",
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon("info"),
       tooltip: "This directory is empty",
       contextValue: "empty",
-    };
-  }
-
-  /**
-   * Convert to TreeNode with menu interface markers
-   */
-  override toTreeNode(): TreeNode {
-    const baseType = "directory";
-    const interfaceMarkers = [
-      CONTEXT_MARKERS.COPYABLE,
-      CONTEXT_MARKERS.DELETABLE,
-      CONTEXT_MARKERS.OPENABLE_IN_VSCODE,
-    ];
-
-    return {
-      type: this.type,
-      label: this.label,
-      path: this.path,
-      collapsibleState: this.collapsibleState,
-      iconPath: this.iconPath,
-      tooltip: this.tooltip,
-      contextValue: buildContextValue(baseType, interfaceMarkers),
-      error: this.error,
-    } as TreeNode;
+    });
   }
 }
 
@@ -395,27 +398,8 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
 export class FileNode extends NodeBase implements ICopyable, IDeletable {
   readonly type = NodeType.FILE;
 
-  getChildren(): Promise<TreeNode[]> {
+  getChildren(): Promise<NodeBase[]> {
     return Promise.resolve([]);
-  }
-
-  /**
-   * Convert to TreeNode with menu interface markers
-   */
-  override toTreeNode(): TreeNode {
-    const baseType = "file";
-    const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
-
-    return {
-      type: this.type,
-      label: this.label,
-      path: this.path,
-      collapsibleState: this.collapsibleState,
-      iconPath: this.iconPath,
-      tooltip: this.tooltip,
-      contextValue: buildContextValue(baseType, interfaceMarkers),
-      error: this.error,
-    } as TreeNode;
   }
 }
 
@@ -427,27 +411,8 @@ export class FileNode extends NodeBase implements ICopyable, IDeletable {
 export class ClaudeJsonNode extends NodeBase implements ICopyable, IDeletable {
   readonly type = NodeType.CLAUDE_JSON;
 
-  getChildren(): Promise<TreeNode[]> {
+  getChildren(): Promise<NodeBase[]> {
     return Promise.resolve([]);
-  }
-
-  /**
-   * Convert to TreeNode with menu interface markers
-   */
-  override toTreeNode(): TreeNode {
-    const baseType = "claudeJson";
-    const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
-
-    return {
-      type: this.type,
-      label: this.label,
-      path: this.path,
-      collapsibleState: this.collapsibleState,
-      iconPath: this.iconPath,
-      tooltip: this.tooltip,
-      contextValue: buildContextValue(baseType, interfaceMarkers),
-      error: this.error,
-    } as TreeNode;
   }
 }
 
@@ -459,7 +424,7 @@ export class ClaudeJsonNode extends NodeBase implements ICopyable, IDeletable {
 export class ErrorNode extends NodeBase {
   readonly type = NodeType.ERROR;
 
-  getChildren(): Promise<TreeNode[]> {
+  getChildren(): Promise<NodeBase[]> {
     return Promise.resolve([]);
   }
 }

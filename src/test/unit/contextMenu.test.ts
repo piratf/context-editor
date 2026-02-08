@@ -320,48 +320,4 @@ suite("Context Menu - Node Interface Methods", () => {
       assert.strictEqual(typeof (node as { openInNewWindow?: () => Promise<void> }).openInNewWindow, "undefined");
     });
   });
-
-  suite("toTreeNode contextValue", () => {
-    test("FileNode toTreeNode should include copyable+deletable markers", () => {
-      const data = {
-        type: NodeType.FILE,
-        label: "test.txt",
-        path: "/home/test/test.txt",
-        collapsibleState: 0 as CollapsibleState,
-        contextValue: "file+copyable+deletable",
-      };
-      const node = new FileNode(data);
-      const treeNode = node.toTreeNode();
-
-      assert.strictEqual(treeNode.contextValue, "file+copyable+deletable");
-    });
-
-    test("DirectoryNode toTreeNode should include copyable+deletable+openableInVscode markers", () => {
-      const data = {
-        type: NodeType.DIRECTORY,
-        label: "test",
-        path: "/home/test",
-        collapsibleState: 1 as CollapsibleState,
-        contextValue: "directory+copyable+deletable+openableInVscode",
-      };
-      const node = new DirectoryNode(data);
-      const treeNode = node.toTreeNode();
-
-      assert.strictEqual(treeNode.contextValue, "directory+copyable+deletable+openableInVscode");
-    });
-
-    test("ClaudeJsonNode toTreeNode should include copyable+deletable markers", () => {
-      const data = {
-        type: NodeType.CLAUDE_JSON,
-        label: ".claude.json",
-        path: "/home/test/.claude.json",
-        collapsibleState: 0 as CollapsibleState,
-        contextValue: "claudeJson+copyable+deletable",
-      };
-      const node = new ClaudeJsonNode(data);
-      const treeNode = node.toTreeNode();
-
-      assert.strictEqual(treeNode.contextValue, "claudeJson+copyable+deletable");
-    });
-  });
 });

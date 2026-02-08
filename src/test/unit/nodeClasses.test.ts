@@ -58,7 +58,7 @@ suite("nodeClasses Tests", () => {
       assert.deepStrictEqual(children, []);
     });
 
-    test("should convert to TreeNode interface", () => {
+    test("should have TreeNode interface properties (extends TreeItem)", () => {
       const data: TreeNode = {
         type: NodeType.FILE,
         label: "test.txt",
@@ -68,9 +68,10 @@ suite("nodeClasses Tests", () => {
       };
       const node = new FileNode(data);
 
-      const treeNode = node.toTreeNode();
-      assert.strictEqual(treeNode.type, NodeType.FILE);
-      assert.strictEqual(treeNode.label, "test.txt");
+      // NodeBase extends vscode.TreeItem and implements TreeNode properties
+      assert.strictEqual(node.type, NodeType.FILE);
+      assert.strictEqual(node.label, "test.txt");
+      assert.strictEqual(node.path, "/home/test/test.txt");
     });
   });
 
@@ -314,42 +315,6 @@ suite("nodeClasses Tests", () => {
 
         assert.strictEqual(node.type, NodeType.DIRECTORY);
         assert.strictEqual(node.path, "/home/test");
-      });
-    });
-
-    suite("toTreeNode()", () => {
-      test("should convert to TreeNode interface", () => {
-        const data = createDirectoryTreeNode("/home/test");
-        const node = new DirectoryNode(data);
-
-        const treeNode = node.toTreeNode();
-
-        assert.strictEqual(treeNode.type, NodeType.DIRECTORY);
-        assert.strictEqual(treeNode.label, "test");
-        assert.strictEqual(treeNode.path, "/home/test");
-        assert.strictEqual(treeNode.collapsibleState, 1);
-      });
-
-      test("should build contextValue with menu interface markers", () => {
-        const data: TreeNode = {
-          type: NodeType.DIRECTORY,
-          label: "mydir",
-          path: "/custom/path/mydir",
-          collapsibleState: 1,
-          tooltip: "Custom tooltip",
-          contextValue: "custom-directory", // Input contextValue is ignored
-        };
-        const node = new DirectoryNode(data);
-
-        const treeNode = node.toTreeNode();
-
-        assert.strictEqual(treeNode.type, NodeType.DIRECTORY);
-        assert.strictEqual(treeNode.label, "mydir");
-        assert.strictEqual(treeNode.path, "/custom/path/mydir");
-        assert.strictEqual(treeNode.collapsibleState, 1);
-        assert.strictEqual(treeNode.tooltip, "Custom tooltip");
-        // ContextValue is built from implemented interfaces: ICopyable, IDeletable, IOpenableInVscode
-        assert.strictEqual(treeNode.contextValue, "directory+copyable+deletable+openableInVscode");
       });
     });
 
