@@ -44,7 +44,8 @@
       },
       {
         "command": "contextEditor.titleEnvironmentSwitch",
-        "title": "Current Environment",
+        "title": "Switch Environment",
+        "icon": "$(server-environment)",
         "category": "Context Editor"
       },
       {
@@ -67,7 +68,7 @@
         {
           "id": "contextEditorUnified",
           "name": "Context",
-          "title": "$(server-environment) Context"
+          "title": "Context"
         }
       ]
     },

@@ -20,11 +20,17 @@ import { Logger } from "./utils/logger.js";
 let configSearch: ConfigSearch;
 let environmentManager: EnvironmentManager;
 let unifiedProvider: UnifiedProvider;
+let treeView: vscode.TreeView<unknown>;
 let logger: Logger;
 
-// Set context variable for UI conditionals
+// Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
   void vscode.commands.executeCommand("setContext", "contextEditor.currentEnv", envName);
+  // Update the tree view title with icon and environment name
+  if (treeView) {
+    // Use a Unicode symbol as a workaround since $(icon) syntax doesn't work in TreeView.title
+    treeView.title = `⚡ ${envName}`;
+  }
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -69,6 +75,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Refresh view to show data from new environment
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     unifiedProvider?.refresh();
+
+    // Update tree view title
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (treeView) {
+      treeView.title = `⚡ ${event.environmentName}`;
+    }
   });
 
   // Subscribe to data facades changes
@@ -97,8 +109,14 @@ function registerViews(
   // Create unified provider with environment manager
   unifiedProvider = new UnifiedProvider(envManager, logger);
 
-  // Register the tree data provider
-  vscode.window.registerTreeDataProvider("contextEditorUnified", unifiedProvider);
+  // Create the tree view with dynamic title support
+  treeView = vscode.window.createTreeView("contextEditorUnified", {
+    treeDataProvider: unifiedProvider,
+  });
+
+  // Set the initial title with the current environment name
+  const initialEnvName = envManager.getCurrentEnvironmentName();
+  treeView.title = `⚡ ${initialEnvName}`;
 
   logger.logExit("registerViews");
 }
