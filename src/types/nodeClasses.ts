@@ -51,6 +51,76 @@ function toVscodeCollapsibleState(state: CollapsibleState): vscode.TreeItemColla
 }
 
 /**
+ * Result of a delete operation
+ */
+export type DeleteResult =
+  | { success: true; method: "trash" | "permanent" }
+  | { success: false; reason: "cancelled" | "error"; error?: Error };
+
+/**
+ * Delete function signature for dependency injection in tests
+ */
+export type DeleteFunction = (uri: vscode.Uri, options: { recursive: boolean; useTrash: boolean }) => Promise<void>;
+
+/**
+ * Default delete implementation using vscode.workspace.fs.delete
+ */
+const defaultDelete: DeleteFunction = async (uri, options) => {
+  await vscode.workspace.fs.delete(uri, options);
+};
+
+/**
+ * Helper function to delete a file/directory with useTrash fallback
+ *
+ * Some file systems (WSL remote, Windows files from WSL) don't support trash.
+ * This function handles the error and provides user option to delete permanently.
+ *
+ * @param uri - URI of the file/directory to delete
+ * @param itemName - Display name for user messages
+ * @param deleteFn - Delete function (for testing, defaults to vscode.workspace.fs.delete)
+ * @returns Result indicating success/failure and method used
+ */
+export async function deleteWithTrashFallback(
+  uri: vscode.Uri,
+  itemName: string,
+  deleteFn: DeleteFunction = defaultDelete
+): Promise<DeleteResult> {
+  try {
+    // Try to delete with trash first (safer)
+    await deleteFn(uri, {
+      recursive: true,
+      useTrash: true,
+    });
+    return { success: true, method: "trash" };
+  } catch (error) {
+    // Check if error is about trash not being supported
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("trash") && errorMessage.includes("does not support")) {
+      // Trash not supported, ask user if they want to permanently delete
+      const confirmed = await vscode.window.showWarningMessage(
+        `Cannot move to trash (file system does not support it).\n\nDo you want to permanently delete "${itemName}"?`,
+        { modal: true },
+        "Delete Permanently"
+      );
+
+      if (confirmed !== "Delete Permanently") {
+        return { success: false, reason: "cancelled" };
+      }
+
+      // Delete permanently
+      await deleteFn(uri, {
+        recursive: true,
+        useTrash: false,
+      });
+      return { success: true, method: "permanent" };
+    } else {
+      // Re-throw other errors
+      return { success: false, reason: "error", error: error instanceof Error ? error : new Error(errorMessage) };
+    }
+  }
+}
+
+/**
  * Abstract base class for tree nodes
  * Extends vscode.TreeItem so getTreeItem() can return the node itself
  * This ensures context menu commands receive the full node with interface methods
@@ -127,16 +197,24 @@ export abstract class NodeBase extends vscode.TreeItem {
   /**
    * Delete the file/directory this node represents
    * Used by IDeletable interface
+   *
+   * Attempts to use trash first, falls back to permanent delete if unsupported.
+   * Some file systems (e.g., WSL remote, Windows files from WSL) don't support trash.
    */
   async delete(): Promise<void> {
     if (this.path === undefined) {
       throw new Error("Cannot delete node without path");
     }
 
-    await vscode.workspace.fs.delete(vscode.Uri.file(this.path), {
-      recursive: true,
-      useTrash: true,
-    });
+    const uri = vscode.Uri.file(this.path);
+    const result = await deleteWithTrashFallback(uri, this.getDisplayName());
+
+    if (!result.success) {
+      if (result.reason === "cancelled") {
+        throw new Error("Deletion cancelled by user");
+      }
+      throw result.error ?? new Error("Deletion failed");
+    }
   }
 }
 
@@ -219,18 +297,8 @@ export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IO
 
   /**
    * Delete the directory
-   * Override to handle directory-specific deletion
+   * Uses parent class implementation which handles trash not supported errors
    */
-  async delete(): Promise<void> {
-    if (this.path === undefined) {
-      throw new Error("Cannot delete directory without path");
-    }
-
-    await vscode.workspace.fs.delete(vscode.Uri.file(this.path), {
-      recursive: true,
-      useTrash: true,
-    });
-  }
 
   /**
    * Get children by reading the directory

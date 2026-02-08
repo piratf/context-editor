@@ -7,7 +7,16 @@
  */
 
 import * as assert from "node:assert";
-import { DirectoryNode, FileNode, ErrorNode, NodeFactory, ClaudeJsonNode } from "../../types/nodeClasses.js";
+import * as vscode from "vscode";
+import {
+  DirectoryNode,
+  FileNode,
+  ErrorNode,
+  NodeFactory,
+  ClaudeJsonNode,
+  deleteWithTrashFallback,
+  type DeleteFunction
+} from "../../types/nodeClasses.js";
 import type { TreeNode } from "../../types/treeNode.js";
 import { NodeType } from "../../types/treeNode.js";
 import type { SyncFileFilter, FilterContext } from "../../types/fileFilter.js";
@@ -338,6 +347,106 @@ suite("nodeClasses Tests", () => {
         // Collapsible nodes should not have iconPath (to avoid VS Code indentation issues)
         assert.strictEqual(node.iconPath, undefined);
       });
+    });
+  });
+
+  suite("deleteWithTrashFallback", () => {
+    let deleteCallCount = 0;
+    let lastDeleteOptions: { recursive: boolean; useTrash: boolean } | undefined;
+    let showWarningMessageResult: string | undefined;
+    let originalShowWarningMessage: typeof vscode.window.showWarningMessage;
+
+    setup(() => {
+      deleteCallCount = 0;
+      lastDeleteOptions = undefined;
+      showWarningMessageResult = undefined;
+
+      // Mock vscode.window.showWarningMessage
+      originalShowWarningMessage = vscode.window.showWarningMessage;
+      (vscode.window.showWarningMessage as unknown) = (
+        _message: string,
+        _options: vscode.MessageOptions,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        ..._items: string[]
+      ) => {
+        // If showWarningMessageResult is explicitly set (non-undefined), use it
+        // Otherwise return undefined to simulate user cancellation
+        if (showWarningMessageResult !== undefined) {
+          return Promise.resolve(showWarningMessageResult);
+        }
+        return Promise.resolve(undefined);
+      };
+    });
+
+    teardown(() => {
+      // Restore original function
+      vscode.window.showWarningMessage = originalShowWarningMessage;
+    });
+
+    /**
+     * Create a mock delete function that tracks calls
+     */
+    function createMockDeleteFn(shouldFailWithTrashError = false): DeleteFunction {
+      return (_uri: vscode.Uri, options: { recursive: boolean; useTrash: boolean }) => {
+        deleteCallCount++;
+        lastDeleteOptions = options;
+
+        if (shouldFailWithTrashError && options.useTrash) {
+          return Promise.reject(new Error("Unable to delete file via trash because provider does not support it."));
+        }
+        return Promise.resolve();
+      };
+    }
+
+    test("should delete with trash when supported", async () => {
+      const mockDelete = createMockDeleteFn(false);
+      const uri = vscode.Uri.file("/home/test/file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", mockDelete);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.method, "trash");
+      assert.strictEqual(deleteCallCount, 1);
+      assert.strictEqual(lastDeleteOptions?.useTrash, true);
+    });
+
+    test("should fall back to permanent delete when trash not supported and user confirms", async () => {
+      const mockDelete = createMockDeleteFn(true);
+      showWarningMessageResult = "Delete Permanently";
+      const uri = vscode.Uri.file("/home/test/file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", mockDelete);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.method, "permanent");
+      assert.strictEqual(deleteCallCount, 2); // First call fails, second succeeds
+      assert.strictEqual(lastDeleteOptions?.useTrash, false);
+    });
+
+    test("should cancel when trash not supported and user declines", async () => {
+      const mockDelete = createMockDeleteFn(true);
+      showWarningMessageResult = undefined; // User cancels
+      const uri = vscode.Uri.file("/home/test/file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", mockDelete);
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.reason, "cancelled");
+      assert.strictEqual(deleteCallCount, 1); // Only the first failed call
+    });
+
+    test("should propagate non-trash errors", async () => {
+      const mockDelete: DeleteFunction = () => {
+        return Promise.reject(new Error("Permission denied"));
+      };
+      const uri = vscode.Uri.file("/home/test/file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", mockDelete);
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.reason, "error");
+      assert.ok(result.error !== undefined);
+      assert.ok(result.error.message.includes("Permission denied"));
     });
   });
 });
