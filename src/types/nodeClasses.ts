@@ -1,6 +1,13 @@
 /**
  * TreeNode classes with getChildren() logic.
  * OOP approach where each node type knows how to load its own children.
+ *
+ * Menu Interface Implementation:
+ * - Node classes implement menu interfaces to indicate which actions they support
+ * - ICopyable: FileNode, DirectoryNode, ClaudeJsonNode
+ * - IDeletable: FileNode, DirectoryNode, ClaudeJsonNode
+ * - IOpenableInVscode: DirectoryNode only
+ * - ContextValue is built from implemented interfaces for menu visibility
  */
 
 import * as vscode from "vscode";
@@ -14,6 +21,13 @@ import {
   ProjectClaudeFileFilter,
   createFilterContext,
 } from "./fileFilter.js";
+import {
+  type ICopyable,
+  type IDeletable,
+  type IOpenableInVscode,
+  CONTEXT_MARKERS,
+  buildContextValue,
+} from "./menuInterfaces.js";
 
 /**
  * Abstract base class for tree nodes
@@ -44,7 +58,49 @@ export abstract class NodeBase {
   abstract getChildren(): Promise<TreeNode[]>;
 
   /**
+   * Get the display name (file/directory name without path)
+   * Used by ICopyable interface
+   */
+  getDisplayName(): string {
+    return this.label;
+  }
+
+  /**
+   * Get the accessible file system path
+   * Used by ICopyable interface
+   */
+  getAccessiblePath(): string {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return this.path!;
+  }
+
+  /**
+   * Check if deletion is safe
+   * Used by IDeletable interface
+   * Default implementation allows deletion
+   */
+  canDelete(): boolean {
+    return true;
+  }
+
+  /**
+   * Delete the file/directory this node represents
+   * Used by IDeletable interface
+   */
+  async delete(): Promise<void> {
+    if (this.path === undefined) {
+      throw new Error("Cannot delete node without path");
+    }
+
+    await vscode.workspace.fs.delete(vscode.Uri.file(this.path), {
+      recursive: true,
+      useTrash: true,
+    });
+  }
+
+  /**
    * Convert to TreeNode interface
+   * Subclasses should override to add menu interface markers to contextValue
    */
   toTreeNode(): TreeNode {
     return {
@@ -63,12 +119,14 @@ export abstract class NodeBase {
 /**
  * Directory node - reads filesystem for children
  *
+ * Implements ICopyable, IDeletable, IOpenableInVscode
+ *
  * Responsible for file system operations only:
  * - Reading directory contents
  * - Creating child nodes
  * - Delegating filtering to the Filter
  */
-export class DirectoryNode extends NodeBase {
+export class DirectoryNode extends NodeBase implements ICopyable, IDeletable, IOpenableInVscode {
   readonly type = NodeType.DIRECTORY;
   private readonly filter: SyncFileFilter;
   private readonly pathSep: string;
@@ -93,6 +151,61 @@ export class DirectoryNode extends NodeBase {
       // Default: use Claude Code filter
       this.filter = new ClaudeCodeFileFilter();
     }
+  }
+
+  /**
+   * Get the directory path for opening in new window
+   * Used by IOpenableInVscode interface
+   */
+  getDirectoryPath(): string {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return this.path!;
+  }
+
+  /**
+   * Open this directory in a new VS Code window
+   * Used by IOpenableInVscode interface
+   */
+  async openInNewWindow(): Promise<void> {
+    if (this.path === undefined) {
+      throw new Error("Cannot open directory without path");
+    }
+
+    await vscode.commands.executeCommand(
+      "vscode.openFolder",
+      vscode.Uri.file(this.path),
+      { forceNewWindow: true }
+    );
+  }
+
+  /**
+   * Check if deletion is safe
+   * Override to prevent deletion of root or system directories
+   */
+  canDelete(): boolean {
+    // Don't allow deleting if no path
+    if (this.path === undefined) {
+      return false;
+    }
+
+    // Additional safety checks could go here
+    // For example, check if it's a home directory, system directory, etc.
+    return true;
+  }
+
+  /**
+   * Delete the directory
+   * Override to handle directory-specific deletion
+   */
+  async delete(): Promise<void> {
+    if (this.path === undefined) {
+      throw new Error("Cannot delete directory without path");
+    }
+
+    await vscode.workspace.fs.delete(vscode.Uri.file(this.path), {
+      recursive: true,
+      useTrash: true,
+    });
   }
 
   /**
@@ -184,6 +297,14 @@ export class DirectoryNode extends NodeBase {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fullPath = path.join(this.path!, name);
 
+    // Build contextValue with menu interface markers
+    const baseType = "directory";
+    const interfaceMarkers = [
+      CONTEXT_MARKERS.COPYABLE,
+      CONTEXT_MARKERS.DELETABLE,
+      CONTEXT_MARKERS.OPENABLE_IN_VSCODE,
+    ];
+
     return {
       type: NodeType.DIRECTORY,
       label: name,
@@ -191,7 +312,7 @@ export class DirectoryNode extends NodeBase {
       collapsibleState: 1,
       // No iconPath for collapsible nodes (directories) to avoid VS Code indentation issues
       tooltip: fullPath,
-      contextValue: "directory",
+      contextValue: buildContextValue(baseType, interfaceMarkers),
     };
   }
 
@@ -203,6 +324,10 @@ export class DirectoryNode extends NodeBase {
     const fullPath = path.join(this.path!, name);
     const iconId = this.getFileIcon(name);
 
+    // Build contextValue with menu interface markers
+    const baseType = "file";
+    const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
+
     return {
       type: NodeType.FILE,
       label: name,
@@ -210,7 +335,7 @@ export class DirectoryNode extends NodeBase {
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon(iconId),
       tooltip: fullPath,
-      contextValue: "file",
+      contextValue: buildContextValue(baseType, interfaceMarkers),
     };
   }
 
@@ -237,32 +362,99 @@ export class DirectoryNode extends NodeBase {
       contextValue: "empty",
     };
   }
+
+  /**
+   * Convert to TreeNode with menu interface markers
+   */
+  override toTreeNode(): TreeNode {
+    const baseType = "directory";
+    const interfaceMarkers = [
+      CONTEXT_MARKERS.COPYABLE,
+      CONTEXT_MARKERS.DELETABLE,
+      CONTEXT_MARKERS.OPENABLE_IN_VSCODE,
+    ];
+
+    return {
+      type: this.type,
+      label: this.label,
+      path: this.path,
+      collapsibleState: this.collapsibleState,
+      iconPath: this.iconPath,
+      tooltip: this.tooltip,
+      contextValue: buildContextValue(baseType, interfaceMarkers),
+      error: this.error,
+    } as TreeNode;
+  }
 }
 
 /**
  * File node - leaf node, no children
+ *
+ * Implements ICopyable, IDeletable
  */
-export class FileNode extends NodeBase {
+export class FileNode extends NodeBase implements ICopyable, IDeletable {
   readonly type = NodeType.FILE;
 
   getChildren(): Promise<TreeNode[]> {
     return Promise.resolve([]);
   }
+
+  /**
+   * Convert to TreeNode with menu interface markers
+   */
+  override toTreeNode(): TreeNode {
+    const baseType = "file";
+    const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
+
+    return {
+      type: this.type,
+      label: this.label,
+      path: this.path,
+      collapsibleState: this.collapsibleState,
+      iconPath: this.iconPath,
+      tooltip: this.tooltip,
+      contextValue: buildContextValue(baseType, interfaceMarkers),
+      error: this.error,
+    } as TreeNode;
+  }
 }
 
 /**
  * Claude JSON file node - special file type
+ *
+ * Implements ICopyable, IDeletable
  */
-export class ClaudeJsonNode extends NodeBase {
+export class ClaudeJsonNode extends NodeBase implements ICopyable, IDeletable {
   readonly type = NodeType.CLAUDE_JSON;
 
   getChildren(): Promise<TreeNode[]> {
     return Promise.resolve([]);
   }
+
+  /**
+   * Convert to TreeNode with menu interface markers
+   */
+  override toTreeNode(): TreeNode {
+    const baseType = "claudeJson";
+    const interfaceMarkers = [CONTEXT_MARKERS.COPYABLE, CONTEXT_MARKERS.DELETABLE];
+
+    return {
+      type: this.type,
+      label: this.label,
+      path: this.path,
+      collapsibleState: this.collapsibleState,
+      iconPath: this.iconPath,
+      tooltip: this.tooltip,
+      contextValue: buildContextValue(baseType, interfaceMarkers),
+      error: this.error,
+    } as TreeNode;
+  }
 }
 
 /**
  * Error node - displays error, no children
+ *
+ * Does NOT implement any menu interfaces
  */
 export class ErrorNode extends NodeBase {
   readonly type = NodeType.ERROR;

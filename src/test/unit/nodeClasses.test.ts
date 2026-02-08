@@ -330,14 +330,14 @@ suite("nodeClasses Tests", () => {
         assert.strictEqual(treeNode.collapsibleState, 1);
       });
 
-      test("should preserve all TreeNode properties", () => {
+      test("should build contextValue with menu interface markers", () => {
         const data: TreeNode = {
           type: NodeType.DIRECTORY,
           label: "mydir",
           path: "/custom/path/mydir",
           collapsibleState: 1,
           tooltip: "Custom tooltip",
-          contextValue: "custom-directory",
+          contextValue: "custom-directory", // Input contextValue is ignored
         };
         const node = new DirectoryNode(data);
 
@@ -348,7 +348,8 @@ suite("nodeClasses Tests", () => {
         assert.strictEqual(treeNode.path, "/custom/path/mydir");
         assert.strictEqual(treeNode.collapsibleState, 1);
         assert.strictEqual(treeNode.tooltip, "Custom tooltip");
-        assert.strictEqual(treeNode.contextValue, "custom-directory");
+        // ContextValue is built from implemented interfaces: ICopyable, IDeletable, IOpenableInVscode
+        assert.strictEqual(treeNode.contextValue, "directory+copyable+deletable+openableInVscode");
       });
     });
 

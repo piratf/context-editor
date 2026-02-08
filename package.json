@@ -52,6 +52,26 @@
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyName",
+        "title": "Copy Name",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyPath",
+        "title": "Copy Path",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.delete",
+        "title": "Delete",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.openVscode",
+        "title": "Open in New Window",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -83,6 +103,28 @@
           "command": "contextEditor.titleEnvironmentSwitch",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "contextEditor.copyName",
+          "when": "view == contextEditorUnified && viewItem =~ /\\+copyable($|\\+)/",
+          "group": "copy@1"
+        },
+        {
+          "command": "contextEditor.copyPath",
+          "when": "view == contextEditorUnified && viewItem =~ /\\+copyable($|\\+)/",
+          "group": "copy@2"
+        },
+        {
+          "command": "contextEditor.delete",
+          "when": "view == contextEditorUnified && viewItem =~ /\\+deletable($|\\+)/",
+          "group": "delete@1"
+        },
+        {
+          "command": "contextEditor.openVscode",
+          "when": "view == contextEditorUnified && viewItem =~ /\\+openableInVscode($|\\+)/",
+          "group": "inline"
         }
       ]
     }

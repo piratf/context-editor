@@ -15,6 +15,7 @@ import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
 import { Logger } from "./utils/logger.js";
+import { registerContextMenuCommands } from "./commands/contextMenu.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -178,6 +179,9 @@ function registerCommands(
     }
   );
   context.subscriptions.push(openFileCommand);
+
+  // Register context menu commands
+  registerContextMenuCommands(context);
 }
 
 export function deactivate(): void {
