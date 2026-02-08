@@ -93,10 +93,20 @@ export async function deleteWithTrashFallback(
     });
     return { success: true, method: "trash" };
   } catch (error) {
-    // Check if error is about trash not being supported
+    // Check if error is about trash/recycle bin not being supported
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes("trash") && errorMessage.includes("does not support")) {
-      // Trash not supported, ask user if they want to permanently delete
+
+    // Check for various trash/recycle bin error patterns:
+    // - WSL: "Unable to delete file via trash because provider does not support it"
+    // - Windows: "Failed to move '...' to the recycle bin" or similar
+    const isTrashError =
+      (errorMessage.includes("trash") || errorMessage.includes("recycle")) &&
+      (errorMessage.includes("does not support") ||
+       errorMessage.includes("Failed to move") ||
+       errorMessage.includes("Failed to perform delete"));
+
+    if (isTrashError) {
+      // Trash/recycle bin not supported, ask user if they want to permanently delete
       const confirmed = await vscode.window.showWarningMessage(
         `Cannot move to trash (file system does not support it).\n\nDo you want to permanently delete "${itemName}"?`,
         { modal: true },

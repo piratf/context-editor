@@ -195,12 +195,40 @@ export class EnvironmentManager extends events.EventEmitter {
 
   /**
    * Update the config search (e.g., after refresh)
+   * Preserves the current environment selection by matching environment info
    */
   updateConfigSearch(configSearch: ConfigSearch): void {
+    // Save current environment info BEFORE updating configSearch
+    let previousEnvInfo: { type: import("./dataFacade.js").EnvironmentType; instanceName: string | undefined } | null = null;
+
+    if (this.currentFacade !== null) {
+      const info = this.currentFacade.getEnvironmentInfo();
+      previousEnvInfo = {
+        type: info.type,
+        instanceName: info.instanceName,
+      };
+    }
+
     this.configSearch = configSearch;
 
-    // If current facade is no longer available, select default
+    // Try to restore the previous environment by matching environment info
     const facades = this.configSearch.getAllFacades();
+
+    if (previousEnvInfo !== null) {
+      // Find facade with matching environment info
+      const matchingFacade = facades.find((f) => {
+        const info = f.getEnvironmentInfo();
+        return info.type === previousEnvInfo.type && info.instanceName === previousEnvInfo.instanceName;
+      });
+
+      if (matchingFacade !== undefined) {
+        // Restore the matching facade (same environment, different object reference)
+        this.currentFacade = matchingFacade;
+        return;
+      }
+    }
+
+    // If no match found or no previous environment, select default
     if (this.currentFacade === null || !facades.includes(this.currentFacade)) {
       this.selectDefaultEnvironment();
     }

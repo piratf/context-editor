@@ -366,7 +366,6 @@ suite("nodeClasses Tests", () => {
       (vscode.window.showWarningMessage as unknown) = (
         _message: string,
         _options: vscode.MessageOptions,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         ..._items: string[]
       ) => {
         // If showWarningMessageResult is explicitly set (non-undefined), use it
@@ -447,6 +446,50 @@ suite("nodeClasses Tests", () => {
       assert.strictEqual(result.reason, "error");
       assert.ok(result.error !== undefined);
       assert.ok(result.error.message.includes("Permission denied"));
+    });
+
+    test("should fall back to permanent delete when Windows recycle bin fails", async () => {
+      // Windows error: "Failed to move 'file.txt' to the recycle bin"
+      const windowsMockDelete: DeleteFunction = (_uri, options) => {
+        deleteCallCount++;
+        lastDeleteOptions = options;
+
+        if (options.useTrash) {
+          return Promise.reject(new Error("Failed to move 'file.txt' to the recycle bin"));
+        }
+        return Promise.resolve();
+      };
+      showWarningMessageResult = "Delete Permanently";
+      const uri = vscode.Uri.file("C:\\Users\\test\\file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", windowsMockDelete);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.method, "permanent");
+      assert.strictEqual(deleteCallCount, 2);
+      assert.strictEqual(lastDeleteOptions?.useTrash, false);
+    });
+
+    test("should fall back to permanent delete when delete operation fails with recycle bin", async () => {
+      // Windows error: "Failed to perform delete operation" with recycle bin mention
+      const performDeleteMock: DeleteFunction = (_uri, options) => {
+        deleteCallCount++;
+        lastDeleteOptions = options;
+
+        if (options.useTrash) {
+          return Promise.reject(new Error("Failed to perform delete operation (recycle bin)"));
+        }
+        return Promise.resolve();
+      };
+      showWarningMessageResult = "Delete Permanently";
+      const uri = vscode.Uri.file("C:\\Users\\test\\file.txt");
+
+      const result = await deleteWithTrashFallback(uri, "file.txt", performDeleteMock);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.method, "permanent");
+      assert.strictEqual(deleteCallCount, 2);
+      assert.strictEqual(lastDeleteOptions?.useTrash, false);
     });
   });
 });
