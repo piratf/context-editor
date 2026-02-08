@@ -8,6 +8,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { TreeNode, CollapsibleState } from "./treeNode.js";
 import { NodeType } from "./treeNode.js";
+import type { SyncFileFilter, FilterContext } from "./fileFilter.js";
+import {
+  ClaudeCodeFileFilter,
+  ProjectClaudeFileFilter,
+  createFilterContext,
+} from "./fileFilter.js";
 
 /**
  * Abstract base class for tree nodes
@@ -56,34 +62,37 @@ export abstract class NodeBase {
 
 /**
  * Directory node - reads filesystem for children
+ *
+ * Responsible for file system operations only:
+ * - Reading directory contents
+ * - Creating child nodes
+ * - Delegating filtering to the Filter
  */
 export class DirectoryNode extends NodeBase {
   readonly type = NodeType.DIRECTORY;
-  private readonly isInsideClaudeDir: boolean;
-  private readonly filterClaudeFiles: boolean;
+  private readonly filter: SyncFileFilter;
+  private readonly pathSep: string;
 
   constructor(
     data: TreeNode,
     options: {
-      isInsideClaudeDir?: boolean;
       filterClaudeFiles?: boolean;
+      filter?: SyncFileFilter;
     } = {}
   ) {
     super(data);
-    this.isInsideClaudeDir = options.isInsideClaudeDir ?? this.checkIfInsideClaudeDir();
-    this.filterClaudeFiles = options.filterClaudeFiles ?? false;
-  }
+    this.pathSep = path.sep;
 
-  /**
-   * Check if this directory is inside a .claude directory
-   */
-  private checkIfInsideClaudeDir(): boolean {
-    if (this.path === undefined) return false;
-    return (
-      this.path.includes(`${path.sep}.claude${path.sep}`) ||
-      this.path.endsWith(`${path.sep}.claude`) ||
-      this.path.endsWith(".claude")
-    );
+    // Use provided filter or create default based on filterClaudeFiles flag
+    if (options.filter !== undefined) {
+      this.filter = options.filter;
+    } else if (options.filterClaudeFiles === true) {
+      // Use project Claude file filter for filtered mode
+      this.filter = new ProjectClaudeFileFilter();
+    } else {
+      // Default: use Claude Code filter
+      this.filter = new ClaudeCodeFileFilter();
+    }
   }
 
   /**
@@ -115,13 +124,11 @@ export class DirectoryNode extends NodeBase {
       const children: TreeNode[] = [];
 
       for (const entry of entries) {
-        if (entry.isDirectory()) {
-          // Apply filtering based on configuration
-          if (this.shouldIncludeDirectory(entry.name)) {
+        // Apply filtering through the Filter
+        if (this.shouldInclude(entry.name, entry.isDirectory())) {
+          if (entry.isDirectory()) {
             children.push(this.createDirectoryNode(entry.name));
-          }
-        } else if (entry.isFile()) {
-          if (this.shouldIncludeFile(entry.name)) {
+          } else {
             children.push(this.createFileNode(entry.name));
           }
         }
@@ -149,47 +156,25 @@ export class DirectoryNode extends NodeBase {
   }
 
   /**
-   * Determine if a directory should be included
+   * Determine if an entry should be included using the Filter
    */
-  private shouldIncludeDirectory(name: string): boolean {
-    if (this.filterClaudeFiles) {
-      // In Claude file filtering mode, only show .claude directory
-      return name === ".claude";
-    }
+  private shouldInclude(name: string, isDirectory: boolean): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const parentPath = this.path!;
+    const fullPath = path.join(parentPath, name);
 
-    if (this.isInsideClaudeDir) {
-      // Inside .claude, show all directories
-      return true;
-    }
+    // Create filter context with path information only
+    const context: FilterContext = createFilterContext(
+      fullPath,
+      name,
+      isDirectory,
+      parentPath,
+      this.pathSep
+    );
 
-    // Skip hidden directories
-    if (name.startsWith(".")) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Determine if a file should be included
-   */
-  private shouldIncludeFile(name: string): boolean {
-    if (this.filterClaudeFiles) {
-      // In Claude file filtering mode, only show CLAUDE.md files
-      return name === "CLAUDE.md" || name === ".claude.md";
-    }
-
-    if (this.isInsideClaudeDir) {
-      // Inside .claude, show all files
-      return true;
-    }
-
-    // Skip hidden files (except .claude.json)
-    if (name.startsWith(".") && name !== ".claude.json") {
-      return false;
-    }
-
-    return true;
+    // Delegate filtering to the Filter
+    const result = this.filter.evaluate(context);
+    return result.include;
   }
 
   /**
@@ -198,8 +183,6 @@ export class DirectoryNode extends NodeBase {
   private createDirectoryNode(name: string): TreeNode {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fullPath = path.join(this.path!, name);
-    const childInsideClaude =
-      this.isInsideClaudeDir || name === ".claude" || fullPath.endsWith(".claude");
 
     return {
       type: NodeType.DIRECTORY,
@@ -208,7 +191,7 @@ export class DirectoryNode extends NodeBase {
       collapsibleState: 1,
       // No iconPath for collapsible nodes (directories) to avoid VS Code indentation issues
       tooltip: fullPath,
-      contextValue: childInsideClaude ? "claudeDirectory" : "directory",
+      contextValue: "directory",
     };
   }
 
@@ -219,7 +202,6 @@ export class DirectoryNode extends NodeBase {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fullPath = path.join(this.path!, name);
     const iconId = this.getFileIcon(name);
-    const contextValue = this.isInsideClaudeDir ? "claudeFile" : "file";
 
     return {
       type: NodeType.FILE,
@@ -228,7 +210,7 @@ export class DirectoryNode extends NodeBase {
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon(iconId),
       tooltip: fullPath,
-      contextValue,
+      contextValue: "file",
     };
   }
 
@@ -246,22 +228,12 @@ export class DirectoryNode extends NodeBase {
    * Create an empty node
    */
   private createEmptyNode(): TreeNode {
-    const label = this.filterClaudeFiles
-      ? "(no Claude files)"
-      : this.isInsideClaudeDir
-        ? "(empty)"
-        : "(empty)";
-
-    const tooltip = this.filterClaudeFiles
-      ? "No .claude directory or CLAUDE.md file found"
-      : "This directory is empty";
-
     return {
       type: NodeType.ERROR,
-      label,
+      label: "(empty)",
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon("info"),
-      tooltip,
+      tooltip: "This directory is empty",
       contextValue: "empty",
     };
   }
@@ -304,7 +276,7 @@ export class ErrorNode extends NodeBase {
  * Factory to create Node instances from TreeNode data
  */
 export const NodeFactory = {
-  create(data: TreeNode, options?: { isInsideClaudeDir?: boolean; filterClaudeFiles?: boolean }): NodeBase {
+  create(data: TreeNode, options?: { filterClaudeFiles?: boolean; filter?: SyncFileFilter }): NodeBase {
     switch (data.type) {
       case NodeType.DIRECTORY:
         return new DirectoryNode(data, options);

@@ -1,0 +1,515 @@
+/**
+ * Abstract file filter system for Context Editor.
+ *
+ * This design provides an extensible, composable filtering mechanism
+ * that can be used to show only tool-related files and directories.
+ *
+ * Each AI tool should have its own dedicated filter class:
+ * - ClaudeCodeFileFilter - for Claude Code files
+ * - GeminiCliFileFilter - for Gemini CLI files (example, create when needed)
+ * - Other tool-specific filters as needed
+ *
+ * Filters can be combined using AndFilter, OrFilter, NotFilter for custom scenarios.
+ *
+ * @example
+ * ```typescript
+ * // Use Claude Code filter
+ * const claudeFilter = new ClaudeCodeFileFilter();
+ *
+ * // Create custom filter using patterns
+ * const customFilter = new NamePatternFilter({
+ *   includePatterns: [/^include-/],
+ * });
+ *
+ * // Combine filters
+ * const combined = new OrFilter([claudeFilter, customFilter]);
+ *
+ * // Create filter for another tool (example)
+ * class GeminiCliFileFilter extends BaseFilter implements SyncFileFilter {
+ *   readonly description = "Gemini CLI files filter";
+ *   private readonly GEMINI_DIR_NAMES = [".gemini"];
+ *   private readonly GEMINI_FILE_PATTERNS = [/^gemini-config\.json$/];
+ *   // ... implement evaluate method
+ * }
+ * ```
+ */
+
+/**
+ * Context information for filtering decisions
+ */
+export interface FilterContext {
+  /** Full path being evaluated */
+  readonly path: string;
+  /** Parent directory path */
+  readonly parentPath: string;
+  /** Entry name (file or directory name) */
+  readonly name: string;
+  /** Whether the entry is a directory */
+  readonly isDirectory: boolean;
+  /** Path separator for the current platform */
+  readonly pathSep: string;
+}
+
+/**
+ * Helper to check if a path is inside a directory with a specific name
+ */
+export function isInsideDirectory(path: string, dirName: string, pathSep: string = "/"): boolean {
+  return (
+    path.includes(`${pathSep}${dirName}${pathSep}`) ||
+    path.endsWith(`${pathSep}${dirName}`) ||
+    path.endsWith(dirName)
+  );
+}
+
+/**
+ * Result of a filter evaluation
+ */
+export type FilterResult =
+  | { readonly include: true; readonly reason?: string }
+  | { readonly include: false; readonly reason?: string };
+
+/**
+ * Abstract base interface for file filters
+ *
+ * Filters are used to determine which files and directories should
+ * be displayed in the tree view.
+ */
+export interface FileFilter {
+  /**
+   * Evaluate whether an entry should be included
+   *
+   * @param context - Filter context information
+   * @returns Filter result with include flag and optional reason
+   */
+  evaluate(context: FilterContext): FilterResult | Promise<FilterResult>;
+
+  /**
+   * Optional description of what this filter does
+   */
+  readonly description?: string;
+}
+
+/**
+ * Synchronous filter interface for simple, fast filtering
+ */
+export interface SyncFileFilter extends FileFilter {
+  /**
+   * Synchronous evaluate for performance-critical paths
+   */
+  evaluate(context: FilterContext): FilterResult;
+}
+
+/**
+ * Abstract base class for filters with common functionality
+ */
+export abstract class BaseFilter implements FileFilter {
+  abstract readonly description?: string;
+  abstract evaluate(context: FilterContext): FilterResult | Promise<FilterResult>;
+
+  /**
+   * Helper to create an include result
+   */
+  protected include(reason?: string): FilterResult {
+    return reason === undefined ? { include: true } : { include: true, reason };
+  }
+
+  /**
+   * Helper to create an exclude result
+   */
+  protected exclude(reason?: string): FilterResult {
+    return reason === undefined ? { include: false } : { include: false, reason };
+  }
+}
+
+/**
+ * Filter that includes everything (no filtering)
+ */
+export class AllowAllFilter extends BaseFilter implements SyncFileFilter {
+  readonly description = "Allow all files and directories";
+
+  evaluate(_context: FilterContext): FilterResult {
+    return this.include("Allow all");
+  }
+}
+
+/**
+ * Filter that excludes everything
+ */
+export class DenyAllFilter extends BaseFilter implements SyncFileFilter {
+  readonly description = "Deny all files and directories";
+
+  evaluate(_context: FilterContext): FilterResult {
+    return this.exclude("Deny all");
+  }
+}
+
+/**
+ * Combines multiple filters with AND logic
+ * Entry is included only if ALL filters include it
+ */
+export class AndFilter extends BaseFilter implements SyncFileFilter {
+  readonly description: string;
+
+  constructor(private readonly filters: FileFilter[]) {
+    super();
+    this.description = `AND(${this.filters.map((f) => f.description ?? "unknown").join(", ")})`;
+  }
+
+  evaluate(context: FilterContext): FilterResult {
+    const reasons: string[] = [];
+
+    for (const filter of this.filters) {
+      const result = filter.evaluate(context);
+
+      // Support async filters - but evaluate synchronously when possible
+      if (result instanceof Promise) {
+        // For async filters in AND, we need to handle differently
+        // For now, throw to indicate this shouldn't be used with async
+        throw new Error("AndFilter cannot be used with async filters");
+      }
+
+      if (!result.include) {
+        return this.exclude(`AND failed: ${result.reason ?? "no reason"}`);
+      }
+      if (result.reason !== undefined) {
+        reasons.push(result.reason);
+      }
+    }
+
+    return this.include(reasons.length > 0 ? reasons.join(" AND ") : "AND passed");
+  }
+}
+
+/**
+ * Combines multiple filters with OR logic
+ * Entry is included if ANY filter includes it
+ */
+export class OrFilter extends BaseFilter implements SyncFileFilter {
+  readonly description: string;
+
+  constructor(private readonly filters: FileFilter[]) {
+    super();
+    this.description = `OR(${this.filters.map((f) => f.description !== undefined ? f.description : "unknown").join(", ")})`;
+  }
+
+  evaluate(context: FilterContext): FilterResult {
+    const reasons: string[] = [];
+
+    for (const filter of this.filters) {
+      const result = filter.evaluate(context);
+
+      if (result instanceof Promise) {
+        throw new Error("OrFilter cannot be used with async filters");
+      }
+
+      if (result.include) {
+        return this.include(result.reason ?? "OR passed");
+      }
+      if (result.reason !== undefined) {
+        reasons.push(result.reason);
+      }
+    }
+
+    return this.exclude(`OR failed: all filters rejected (${reasons.join(", ")})`);
+  }
+}
+
+/**
+ * Inverts a filter's decision
+ */
+export class NotFilter extends BaseFilter implements SyncFileFilter {
+  readonly description: string;
+
+  constructor(private readonly filter: FileFilter) {
+    super();
+    this.description = `NOT(${filter.description !== undefined ? filter.description : "unknown"})`;
+  }
+
+  evaluate(context: FilterContext): FilterResult {
+    const result = this.filter.evaluate(context);
+
+    if (result instanceof Promise) {
+      throw new Error("NotFilter cannot be used with async filters");
+    }
+
+    return result.include
+      ? this.exclude(`NOT: ${result.reason ?? "excluded by negation"}`)
+      : this.include(`NOT: ${result.reason ?? "included by negation"}`);
+  }
+}
+
+/**
+ * Filter based on entry name patterns
+ */
+export class NamePatternFilter extends BaseFilter implements SyncFileFilter {
+  readonly description: string;
+
+  constructor(
+    private readonly config: {
+      /** RegExp patterns to match (include if ANY pattern matches) */
+      includePatterns?: RegExp[];
+      /** RegExp patterns to exclude (exclude if ANY pattern matches) */
+      excludePatterns?: RegExp[];
+      /** Whether to apply to directories */
+      applyToDirectories?: boolean;
+      /** Whether to apply to files */
+      applyToFiles?: boolean;
+      /** Filter description */
+      description?: string;
+    }
+  ) {
+    super();
+    const { includePatterns, excludePatterns, description } = config;
+    const includes = includePatterns?.map((p) => p.source).join(", ") ?? "none";
+    const excludes = excludePatterns?.map((p) => p.source).join(", ") ?? "none";
+    this.description = description ?? `NamePattern(include: [${includes}], exclude: [${excludes}])`;
+  }
+
+  evaluate(context: FilterContext): FilterResult {
+    const { name, isDirectory } = context;
+    const { applyToDirectories = true, applyToFiles = true, includePatterns, excludePatterns } = this.config;
+
+    // Check if filter applies to this entry type
+    if (isDirectory && !applyToDirectories) {
+      return this.include("Filter does not apply to directories");
+    }
+    if (!isDirectory && !applyToFiles) {
+      return this.include("Filter does not apply to files");
+    }
+
+    // Check exclude patterns first
+    if (excludePatterns) {
+      for (const pattern of excludePatterns) {
+        if (pattern.test(name)) {
+          return this.exclude(`Name matches exclude pattern: ${pattern.source}`);
+        }
+      }
+    }
+
+    // Check include patterns
+    if (includePatterns && includePatterns.length > 0) {
+      for (const pattern of includePatterns) {
+        if (pattern.test(name)) {
+          return this.include(`Name matches include pattern: ${pattern.source}`);
+        }
+      }
+      return this.exclude("Name does not match any include pattern");
+    }
+
+    return this.include("No include patterns specified");
+  }
+}
+
+/**
+ * Filter for Claude Code related files and directories
+ *
+ * Strictly cohesive to Claude Code files only:
+ * - .claude directory (at any level)
+ * - Contents of .claude directory (all files/dirs inside)
+ * - CLAUDE.md and .claude.md files
+ * - .mcp.json files (Model Context Protocol servers)
+ * - .claude.json files (Claude Code configuration)
+ *
+ * For other AI tools, create dedicated filter classes:
+ * @example
+ * ```typescript
+ * class GeminiCliFileFilter extends BaseFilter implements SyncFileFilter {
+ *   readonly description: string = "Gemini CLI files filter";
+ *   private readonly GEMINI_DIR_NAMES = [".gemini", ".ai-gemini"];
+ *   private readonly GEMINI_FILE_PATTERNS = [/^gemini-config\.json$/, /^\.gemini-cursor$/];
+ *
+ *   evaluate(context: FilterContext): FilterResult {
+ *     const { name, isDirectory, isInsideGeminiDir } = context;
+ *     // ... implementation
+ *   }
+ * }
+ * ```
+ */
+export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
+  readonly description: string = "Claude Code files filter";
+
+  private readonly CLAUDE_DIR_NAMES = [".claude"];
+  private readonly CLAUDE_FILE_PATTERNS = [
+    /^CLAUDE\.md$/,
+    /^\.claude\.md$/,
+    /^\.mcp\.json$/,
+    /^\.claude\.json$/,
+  ];
+
+  evaluate(context: FilterContext): FilterResult {
+    const { name, isDirectory, path, pathSep } = context;
+
+    // Check if inside .claude directory
+    const insideClaudeDir = isInsideDirectory(path, ".claude", pathSep);
+
+    // Always include everything inside .claude directory
+    if (insideClaudeDir) {
+      return this.include("Inside .claude directory");
+    }
+
+    // Always include .claude directory itself
+    if (isDirectory && this.CLAUDE_DIR_NAMES.includes(name)) {
+      return this.include("Claude directory");
+    }
+
+    // For files, check Claude file patterns only
+    if (!isDirectory) {
+      for (const pattern of this.CLAUDE_FILE_PATTERNS) {
+        if (pattern.test(name)) {
+          return this.include("Claude-related file");
+        }
+      }
+    }
+
+    // Exclude everything else
+    return this.exclude("Not a Claude-related file or directory");
+  }
+}
+
+/**
+ * Filter for project-specific Claude files
+ *
+ * Extends ClaudeCodeFileFilter with project-specific filtering rules.
+ * Currently, uses the same logic as the global Claude filter.
+ */
+export class ProjectClaudeFileFilter extends ClaudeCodeFileFilter {
+  override readonly description: string = "Project Claude files filter";
+
+  override evaluate(context: FilterContext): FilterResult {
+    // Currently uses the same logic as ClaudeCodeFileFilter
+    // Can be customized for project-specific rules if needed
+    return super.evaluate(context);
+  }
+}
+
+/**
+ * Filter factory namespace for creating common filter combinations.
+ *
+ * For other AI tools, create dedicated filter classes rather than
+ * extending ClaudeCodeFileFilter. See ClaudeCodeFileFilter documentation
+ * for an example of creating a tool-specific filter.
+ */
+export const FilterFactory = {
+  /**
+   * Create a filter that combines Claude file filter with additional patterns
+   *
+   * @param extraIncludePatterns - Additional patterns to include
+   * @param extraExcludePatterns - Additional patterns to exclude (applied to all results)
+   */
+  createClaudeFilterWithExtras(
+    extraIncludePatterns?: RegExp[],
+    extraExcludePatterns?: RegExp[]
+  ): SyncFileFilter {
+    const filters: FileFilter[] = [new ClaudeCodeFileFilter()];
+
+    // Add extra include patterns
+    if (extraIncludePatterns && extraIncludePatterns.length > 0) {
+      const includeFilter = new NamePatternFilter({
+        includePatterns: extraIncludePatterns,
+      });
+      filters.push(includeFilter);
+    }
+
+    // Combine with OR to get items from Claude filter OR extra patterns
+    let result: SyncFileFilter =
+      filters.length === 1 ? (filters[0] as SyncFileFilter) : new OrFilter(filters);
+
+    // Apply to exclude patterns on top using NOT + OR pattern
+    if (extraExcludePatterns && extraExcludePatterns.length > 0) {
+      // Create a filter that matches any exclude pattern
+      const excludeFilters: FileFilter[] = extraExcludePatterns.map(
+        (pattern) =>
+          new NamePatternFilter({
+            includePatterns: [pattern],
+          })
+      );
+      const excludeFilter = new OrFilter(excludeFilters);
+      const excludeNotFilter = new NotFilter(excludeFilter);
+      // Combine: (Claude OR extraInclude) AND NOT (any exclude pattern)
+      result = new AndFilter([result, excludeNotFilter]);
+    }
+
+    return result;
+  },
+
+  /**
+   * Create a filter for Claude Code in different contexts
+   *
+   * @param context - The filtering context ('global', 'project', 'claude-dir')
+   */
+  createFilterForContext(context: "global" | "project" | "claude-dir"): SyncFileFilter {
+    switch (context) {
+      case "project":
+        return new ProjectClaudeFileFilter();
+      case "claude-dir":
+        return new AllowAllFilter(); // Show everything inside .claude
+      case "global":
+      default:
+        return new ClaudeCodeFileFilter();
+    }
+  },
+
+  /**
+   * Create a filter from configuration
+   *
+   * This allows users to configure filters via settings
+   *
+   * @param config - Filter configuration
+   */
+  fromConfig(config: {
+    includePatterns?: string[];
+    excludePatterns?: string[];
+    useClaudeFilter?: boolean;
+    context?: "global" | "project" | "claude-dir";
+  }): SyncFileFilter {
+    const filters: SyncFileFilter[] = [];
+
+    // Add Claude filter if requested
+    if (config.useClaudeFilter !== false) {
+      filters.push(FilterFactory.createFilterForContext(config.context ?? "project"));
+    }
+
+    // Add custom pattern filters
+    if (config.includePatterns && config.includePatterns.length > 0) {
+      const patternConfig: {
+        includePatterns: RegExp[];
+        excludePatterns?: RegExp[];
+        applyToDirectories?: boolean;
+        applyToFiles?: boolean;
+        description?: string;
+      } = {
+        includePatterns: config.includePatterns.map((p) => new RegExp(p)),
+      };
+      if (config.excludePatterns && config.excludePatterns.length > 0) {
+        patternConfig.excludePatterns = config.excludePatterns.map((p) => new RegExp(p));
+      }
+      filters.push(new NamePatternFilter(patternConfig));
+    }
+
+    // Combine with OR if we have Claude filter + custom patterns
+    if (filters.length > 1) {
+      return new OrFilter(filters);
+    }
+
+    return filters[0] ?? new AllowAllFilter();
+  },
+} as const;
+
+/**
+ * Helper function to create filter context from path info
+ */
+export function createFilterContext(
+  path: string,
+  name: string,
+  isDirectory: boolean,
+  parentPath: string = "",
+  pathSep: string = "/"
+): FilterContext {
+  return {
+    path,
+    name,
+    isDirectory,
+    parentPath,
+    pathSep,
+  };
+}
