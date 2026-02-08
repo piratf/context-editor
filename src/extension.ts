@@ -11,28 +11,27 @@
  */
 
 import * as vscode from "vscode";
-import { GlobalProvider } from "./views/globalProvider.js";
-import { ProjectProvider } from "./views/projectProvider.js";
+import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
+import { Logger } from "./utils/logger.js";
 
 // Global state
 let configSearch: ConfigSearch;
 let environmentManager: EnvironmentManager;
-let globalProvider: GlobalProvider;
-let projectProvider: ProjectProvider;
-let environmentStatusBarItem: vscode.StatusBarItem;
+let unifiedProvider: UnifiedProvider;
+let treeView: vscode.TreeView<unknown> | undefined;
+let logger: Logger;
 
-// Set context variable for UI conditionals
+// Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
   void vscode.commands.executeCommand("setContext", "contextEditor.currentEnv", envName);
-}
-
-// Update status bar item with current environment
-function updateEnvironmentStatusBar(envName: string): void {
-  environmentStatusBarItem.text = `$(server-environment) ${envName}`;
-  environmentStatusBarItem.tooltip = `Current environment: ${envName}. Click to switch.`;
-  environmentStatusBarItem.show();
+  // Update the tree view title with icon and environment name
+  // treeView may not be initialized yet when this function is first called
+  if (treeView !== undefined) {
+    // Use a Unicode symbol as a workaround since $(icon) syntax doesn't work in TreeView.title
+    treeView.title = `⚡ ${envName}`;
+  }
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -42,69 +41,54 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const debugOutput = vscode.window.createOutputChannel("Context Editor");
   context.subscriptions.push(debugOutput);
 
-  debugOutput.appendLine("Initializing Context Editor...");
+  // Initialize logger
+  logger = new Logger(debugOutput, "ContextEditor");
+  logger.logEntry("activate");
 
   // Initialize config search and discover all environments
   configSearch = await ConfigSearchFactory.createAndDiscover();
 
   const facades = configSearch.getAllFacades();
-  debugOutput.appendLine(`Discovered ${String(facades.length)} environment(s):`);
+  logger.info(`Discovered ${String(facades.length)} environment(s)`);
 
   for (const facade of facades) {
     const info = facade.getEnvironmentInfo();
-    debugOutput.appendLine(`  - ${info.type}: ${info.configPath}`);
+    logger.debug(`Environment: ${info.type}`, { configPath: info.configPath });
   }
 
   // Initialize environment manager (defaults to native facade)
   environmentManager = new EnvironmentManager(configSearch);
   const currentEnvName = environmentManager.getCurrentEnvironmentName();
   updateCurrentEnvironmentContext(currentEnvName);
-  debugOutput.appendLine(`Current environment: ${currentEnvName}`);
-
-  // Create status bar item for environment switching
-  environmentStatusBarItem = vscode.window.createStatusBarItem(
-    "contextEditor.environmentStatus",
-    vscode.StatusBarAlignment.Left,
-    100 // Priority
-  );
-  environmentStatusBarItem.command = "contextEditor.switchEnvironment";
-  context.subscriptions.push(environmentStatusBarItem);
-  updateEnvironmentStatusBar(currentEnvName);
+  logger.info(`Current environment: ${currentEnvName}`);
 
   // Register views with environment manager
-  registerViews(context, environmentManager, debugOutput);
+  registerViews(context, environmentManager, logger);
 
   // Register commands
-  registerCommands(context, environmentManager, debugOutput);
+  registerCommands(context, environmentManager, logger);
 
   // Subscribe to environment changes
   environmentManager.on("environmentChanged", (event: EnvironmentChangeEvent) => {
-    debugOutput.appendLine(`Environment changed: ${event.environmentName}`);
+    logger.info(`Environment changed: ${event.environmentName}`);
     updateCurrentEnvironmentContext(event.environmentName);
-    updateEnvironmentStatusBar(event.environmentName);
 
-    // Refresh views to show data from new environment
+    // Refresh view to show data from new environment
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    globalProvider?.refresh();
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    projectProvider?.refresh();
+    unifiedProvider?.refresh();
   });
 
   // Subscribe to data facades changes
   configSearch.on("dataFacadesChanged", (facades) => {
-    debugOutput.appendLine(`Data facades changed: ${String(facades.length)} environment(s)`);
+    logger.info(`Data facades changed: ${String(facades.length)} environment(s)`);
     environmentManager.updateConfigSearch(configSearch);
 
-    // Update status bar with new current environment name
-    const updatedEnvName = environmentManager.getCurrentEnvironmentName();
-    updateEnvironmentStatusBar(updatedEnvName);
-
-    // Refresh views to show updated data
+    // Refresh view to show updated data
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    globalProvider?.refresh();
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    projectProvider?.refresh();
+    unifiedProvider?.refresh();
   });
+
+  logger.logExit("activate");
 }
 
 /**
@@ -113,17 +97,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 function registerViews(
   _context: vscode.ExtensionContext,
   envManager: EnvironmentManager,
-  debugOutput: vscode.OutputChannel
+  logger: Logger
 ): void {
-  debugOutput.appendLine("Registering views...");
+  logger.logEntry("registerViews");
 
-  // Create providers with environment manager
-  globalProvider = new GlobalProvider(envManager, debugOutput);
-  projectProvider = new ProjectProvider(envManager, debugOutput);
+  // Create unified provider with environment manager
+  unifiedProvider = new UnifiedProvider(envManager, logger);
 
-  // Register the tree data providers
-  vscode.window.registerTreeDataProvider("contextEditorPrimaryGlobal", globalProvider);
-  vscode.window.registerTreeDataProvider("contextEditorPrimaryProjects", projectProvider);
+  // Create the tree view with dynamic title support
+  treeView = vscode.window.createTreeView("contextEditorUnified", {
+    treeDataProvider: unifiedProvider,
+  });
+
+  // Set the initial title with the current environment name
+  const initialEnvName = envManager.getCurrentEnvironmentName();
+  treeView.title = `⚡ ${initialEnvName}`;
+
+  logger.logExit("registerViews");
 }
 
 /**
@@ -132,11 +122,11 @@ function registerViews(
 function registerCommands(
   context: vscode.ExtensionContext,
   envManager: EnvironmentManager,
-  debugOutput: vscode.OutputChannel
+  logger: Logger
 ): void {
   // Show debug output command
   const showDebugCommand = vscode.commands.registerCommand("contextEditor.showDebugOutput", () => {
-    debugOutput.show();
+    logger.show();
   });
   context.subscriptions.push(showDebugCommand);
 
@@ -144,15 +134,25 @@ function registerCommands(
   const switchEnvironmentCommand = vscode.commands.registerCommand(
     "contextEditor.switchEnvironment",
     async () => {
-      debugOutput.appendLine("Switch environment command triggered");
+      logger.debug("Switch environment command triggered");
       await envManager.showEnvironmentQuickPick();
     }
   );
   context.subscriptions.push(switchEnvironmentCommand);
 
-  // Refresh command - refreshes both views and re-discovers environments
+  // Title environment switcher command - shows quick pick
+  const titleEnvironmentSwitchCommand = vscode.commands.registerCommand(
+    "contextEditor.titleEnvironmentSwitch",
+    async () => {
+      logger.debug("Title environment switch triggered");
+      await envManager.showEnvironmentQuickPick();
+    }
+  );
+  context.subscriptions.push(titleEnvironmentSwitchCommand);
+
+  // Refresh command - refreshes view and re-discovers environments
   const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", async () => {
-    debugOutput.appendLine("Refreshing environments...");
+    logger.debug("Refreshing environments...");
     await configSearch.refresh();
   });
   context.subscriptions.push(refreshCommand);
@@ -169,8 +169,10 @@ function registerCommands(
         const uri = vscode.Uri.file(filePath);
         await vscode.commands.executeCommand("vscode.open", uri);
       } catch (error) {
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        logger.error("Failed to open file", errorObj);
         vscode.window.showErrorMessage(
-          `Failed to open file: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to open file: ${errorObj.message}`
         );
       }
     }
@@ -180,6 +182,4 @@ function registerCommands(
 
 export function deactivate(): void {
   console.log("Context Editor extension is now deactivated!");
-  // Dispose status bar item
-  environmentStatusBarItem.dispose();
 }
