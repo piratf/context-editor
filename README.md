@@ -34,11 +34,12 @@
 
 ## ✨ Key Features
 
-* 🌳 **Unified View** - Dual-view design managing both global configuration and project registry
+* 🌳 **Unified Single View** - Streamlined sidebar combining global configuration and project registry in one place
 * 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json`
-* 🖥️ **Windows + WSL Support** - Switch between Windows and WSL environments via status bar
+* 🖥️ **Multi-Environment Support** - Switch between Windows, WSL, macOS, and Linux environments
   * Manage configurations across multiple environments in one VS Code window
   * Automatic path conversion (e.g., `\\wsl.localhost\Ubuntu\home\...` ↔ `C:\Users\...`)
+  * Dynamic environment indicator in view title (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)")
 * 🔄 **Real-time Refresh** - One-click refresh to apply changes instantly
 * 📂 **Direct File Access** - Double-click to open any configuration file in the editor
 * 🛠️ **Debug Friendly** - Built-in Debug Output panel for troubleshooting
@@ -46,33 +47,41 @@
 
 ## 📸 Interface Preview
 
-### Dual-View Design
+### Unified Single View
 
-> **Global Persona**
-> Displays `~/.claude.json` file content and `~/.claude/` directory tree structure
+The extension provides a unified sidebar view with two main sections:
 
-> **Project Registry**
-> Shows all registered Claude Code projects and their configuration files
+> **Global Configuration**
+> Displays `~/.claude.json` file and `~/.claude/` directory tree structure
+
+> **Projects**
+> Shows all registered Claude Code projects and their Claude configuration files
+
+The view title dynamically shows the current environment (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)") and provides a toolbar button for quick environment switching.
 
 <details>
-<summary><b>📁 Project Structure Example</b></summary>
+<summary><b>📁 Tree View Structure Example</b></summary>
 
 ```
-Context Editor
-├── 🌍 Global Persona
+Context Editor: ⚡ Windows
+├── > Global Configuration
 │   ├── ~/.claude.json
-│   └── ~/.claude/
+│   └── > ~/.claude
 │       ├── settings.json
 │       └── skills/
-└── 📦 Project Registry
+└── > Projects
     ├── project-alpha
-    │   └── .claude/settings.json
+    │   └── > .claude
+    │       └── settings.json
     ├── project-beta
     │   ├── CLAUDE.md
-    │   └── .claude/settings.json
+    │   └── > .claude
+    │       └── context.json
     └── project-gamma
-        └── .claude/context.json
+        └── CLAUDE.md
 ```
+
+> **Note:** Directories (collapsible nodes) display without icons to maintain proper indentation. Files (leaf nodes) display with appropriate icons.
 
 </details>
 
@@ -94,17 +103,18 @@ Context Editor
 
 1. **Activate Extension** - Extension auto-activates on VS Code startup
 2. **Open View** - Click the **Context Editor** icon (home icon) in the activity bar
-3. **Browse Configuration** - View two panels in the sidebar:
-    - **Global Persona**: Global configuration
-    - **Project Registry**: Project list
-4. **Open Files** - Double-click any file to open it in the editor
+3. **Browse Configuration** - View unified sidebar with two main sections:
+    - **Global Configuration**: Global config files and ~/.claude/ directory
+    - **Projects**: All registered Claude projects
+4. **Switch Environments** - Click the environment indicator (e.g., "⚡ Windows") in the view title or toolbar to switch environments
+5. **Open Files** - Double-click any file to open it in the editor
 
 ### Available Commands
 
 | Command | Shortcut | Description |
 |:---|:---|:---|
-| `Context Editor: Switch Environment` | Click status bar item `$(server-environment)` | Switch between Windows and WSL environments |
-| `Context Editor: Refresh` | Click refresh icon in view title | Refresh configuration view |
+| `Context Editor: Switch Environment` | Click status bar item `⚡ <Environment>` or toolbar button | Switch between available environments (Windows, WSL, macOS, Linux) |
+| `Context Editor: Refresh` | Click refresh icon in view title | Refresh configuration view and re-discover environments |
 | `Context Editor: Show Debug Output` | Command Palette (`Ctrl+Shift+P`) | Show debug output panel |
 
 ## ⚙️ Extension Settings
@@ -218,17 +228,27 @@ context-editor/
 ├── src/
 │   ├── extension.ts              # Extension entry point
 │   ├── services/
-│   │   └── claudeConfigReader.ts # Claude config reader
+│   │   ├── configSearch.ts       # Discovers all Claude environments
+│   │   ├── environmentManager.ts # Manages current environment
+│   │   ├── dataFacade.ts         # Data interface for environments
+│   │   ├── nativeDataFacade.ts   # Native environment implementation
+│   │   ├── windowsToWslDataFacade.ts
+│   │   ├── wslToWindowsDataFacade.ts
+│   │   ├── claudeConfigReader.ts # Claude config reader
+│   │   ├── environmentDetector.ts # Detects OS and WSL
+│   │   └── ...
 │   ├── views/
-│   │   ├── globalProvider.ts     # Global configuration view
-│   │   └── projectProvider.ts    # Project registry view
+│   │   ├── unifiedProvider.ts    # Unified single view provider
+│   │   └── baseProvider.ts       # Base class for tree providers
 │   └── types/
+│       ├── treeNode.ts           # Tree node types and factory
+│       ├── nodeClasses.ts        # Node classes with getChildren() logic
 │       └── claudeConfig.ts       # Claude config type definitions
 ├── resources/
-│   └── icon.png                  # Extension icon
-├── docs/                         # Product documentation
-│   ├── PRD.md                    # Product requirements document
-│   └── claude-code-storage-design.md
+│   ├── icon.png                  # Extension icon
+│   └── activity-bar-icon.svg     # Activity bar icon
+├── docs/
+│   └── ...
 ├── .github/workflows/
 │   └── ci.yml                    # CI configuration
 ├── package.json
@@ -266,11 +286,12 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 ## ✨ 核心特性
 
-* 🌳 **统一视图** - 双视图设计，同时管理全局配置和项目注册
+* 🌳 **统一单视图** - 精简侧边栏设计，全局配置和项目注册合二为一
 * 🔍 **自动发现** - 自动解析 `~/.claude.json` 中的项目配置
-* 🖥️ **Windows + WSL 支持** - 通过状态栏在 Windows 和 WSL 环境间切换
+* 🖥️ **多环境支持** - 在 Windows、WSL、macOS、Linux 环境间自由切换
   * 一个 VS Code 窗口管理多个环境下的配置
   * 自动路径转换（如 `\\wsl.localhost\Ubuntu\home\...` ↔ `C:\Users\...`）
+  * 视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"）
 * 🔄 **实时刷新** - 一键刷新配置视图，即时生效
 * 📂 **文件直达** - 双击即可打开任意配置文件进行编辑
 * 🛠️ **调试友好** - 内置 Debug Output 面板，方便问题排查
@@ -278,33 +299,41 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 ## 📸 界面预览
 
-### 双视图设计
+### 统一单视图设计
 
-> **Global Persona（全局配置视图）**
-> 显示 `~/.claude.json` 文件内容和 `~/.claude/` 目录树结构
+扩展提供统一的侧边栏视图，包含两个主要部分：
 
-> **Project Registry（项目注册视图）**
-> 展示所有已注册的 Claude Code 项目及其配置文件
+> **Global Configuration（全局配置）**
+> 显示 `~/.claude.json` 文件和 `~/.claude/` 目录树结构
+
+> **Projects（项目列表）**
+> 展示所有已注册的 Claude Code 项目及其 Claude 配置文件
+
+视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"），并提供工具栏按钮用于快速切换环境。
 
 <details>
-<summary><b>📁 项目结构示例</b></summary>
+<summary><b>📁 树视图结构示例</b></summary>
 
 ```
-Context Editor
-├── 🌍 Global Persona
+Context Editor: ⚡ Windows
+├── > Global Configuration
 │   ├── ~/.claude.json
-│   └── ~/.claude/
+│   └── > ~/.claude
 │       ├── settings.json
 │       └── skills/
-└── 📦 Project Registry
+└── > Projects
     ├── project-alpha
-    │   └── .claude/settings.json
+    │   └── > .claude
+    │       └── settings.json
     ├── project-beta
     │   ├── CLAUDE.md
-    │   └── .claude/settings.json
+    │   └── > .claude
+    │       └── context.json
     └── project-gamma
-        └── .claude/context.json
+        └── CLAUDE.md
 ```
+
+> **注意**：目录（可展开节点）不显示图标以保持正确的缩进对齐。文件（叶子节点）显示相应的图标。
 
 </details>
 
@@ -326,16 +355,18 @@ Context Editor
 
 1. **激活扩展** - 扩展会在 VS Code 启动时自动激活
 2. **打开视图** - 点击活动栏中的 **Context Editor** 图标（首页图标）
-3. **浏览配置** - 在侧边栏中查看两个视图：
-    - **Global Persona**：全局配置
-    - **Project Registry**：项目列表
-4. **打开文件** - 双击任意文件即可在编辑器中打开
+3. **浏览配置** - 查看统一侧边栏，包含两个主要部分：
+    - **Global Configuration**：全局配置文件和 ~/.claude/ 目录
+    - **Projects**：所有已注册的 Claude Code 项目
+4. **切换环境** - 点击视图标题中的环境指示器（如 "⚡ Windows"）或工具栏按钮切换环境
+5. **打开文件** - 双击任意文件即可在编辑器中打开
 
 ### 可用命令
 
 | 命令 | 快捷方式 | 说明 |
 |:---|:---|:---|
-| `Context Editor: Refresh` | 点击视图标题栏刷新图标 | 刷新配置视图 |
+| `Context Editor: Switch Environment` | 点击状态栏项 `⚡ <环境名>` 或工具栏按钮 | 在可用环境（Windows、WSL、macOS、Linux）之间切换 |
+| `Context Editor: Refresh` | 点击视图标题栏刷新图标 | 刷新配置视图并重新发现环境 |
 | `Context Editor: Show Debug Output` | 命令面板 (`Ctrl+Shift+P`) | 显示调试输出面板 |
 
 ## ⚙️ 扩展配置
@@ -449,17 +480,27 @@ context-editor/
 ├── src/
 │   ├── extension.ts              # 扩展入口点
 │   ├── services/
-│   │   └── claudeConfigReader.ts # Claude 配置读取器
+│   │   ├── configSearch.ts       # 发现所有 Claude 环境
+│   │   ├── environmentManager.ts # 管理当前环境
+│   │   ├── dataFacade.ts         # 环境数据接口
+│   │   ├── nativeDataFacade.ts   # 原生环境实现
+│   │   ├── windowsToWslDataFacade.ts
+│   │   ├── wslToWindowsDataFacade.ts
+│   │   ├── claudeConfigReader.ts # Claude 配置读取器
+│   │   ├── environmentDetector.ts # 检测操作系统和 WSL
+│   │   └── ...
 │   ├── views/
-│   │   ├── globalProvider.ts     # 全局配置视图
-│   │   └── projectProvider.ts    # 项目注册视图
+│   │   ├── unifiedProvider.ts    # 统一单视图提供器
+│   │   └── baseProvider.ts       # 树视图提供器基类
 │   └── types/
+│       ├── treeNode.ts           # 树节点类型和工厂方法
+│       ├── nodeClasses.ts        # 带有 getChildren() 的节点类
 │       └── claudeConfig.ts       # Claude 配置类型定义
 ├── resources/
-│   └── icon.png                  # 扩展图标
-├── docs/                         # 产品文档
-│   ├── PRD.md                    # 产品需求文档
-│   └── claude-code-storage-design.md
+│   ├── icon.png                  # 扩展图标
+│   └── activity-bar-icon.svg     # 活动栏图标
+├── docs/
+│   └── ...
 ├── .github/workflows/
 │   └── ci.yml                    # CI 配置
 ├── package.json
