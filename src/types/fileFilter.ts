@@ -46,10 +46,19 @@ export interface FilterContext {
   readonly name: string;
   /** Whether the entry is a directory */
   readonly isDirectory: boolean;
-  /** Whether this is inside a tool-specific directory (e.g., .claude, .gemini) */
-  readonly isInsideClaudeDir: boolean;
   /** Path separator for the current platform */
   readonly pathSep: string;
+}
+
+/**
+ * Helper to check if a path is inside a directory with a specific name
+ */
+export function isInsideDirectory(path: string, dirName: string, pathSep: string = "/"): boolean {
+  return (
+    path.includes(`${pathSep}${dirName}${pathSep}`) ||
+    path.endsWith(`${pathSep}${dirName}`) ||
+    path.endsWith(dirName)
+  );
 }
 
 /**
@@ -328,10 +337,13 @@ export class ClaudeCodeFileFilter extends BaseFilter implements SyncFileFilter {
   ];
 
   evaluate(context: FilterContext): FilterResult {
-    const { name, isDirectory, isInsideClaudeDir } = context;
+    const { name, isDirectory, path, pathSep } = context;
+
+    // Check if inside .claude directory
+    const insideClaudeDir = isInsideDirectory(path, ".claude", pathSep);
 
     // Always include everything inside .claude directory
-    if (isInsideClaudeDir) {
+    if (insideClaudeDir) {
       return this.include("Inside .claude directory");
     }
 
@@ -382,7 +394,7 @@ export const FilterFactory = {
    * Create a filter that combines Claude file filter with additional patterns
    *
    * @param extraIncludePatterns - Additional patterns to include
-   * @param extraExcludePatterns - Additional patterns to exclude
+   * @param extraExcludePatterns - Additional patterns to exclude (applied to all results)
    */
   createClaudeFilterWithExtras(
     extraIncludePatterns?: RegExp[],
@@ -390,25 +402,34 @@ export const FilterFactory = {
   ): SyncFileFilter {
     const filters: FileFilter[] = [new ClaudeCodeFileFilter()];
 
+    // Add extra include patterns
     if (extraIncludePatterns && extraIncludePatterns.length > 0) {
-      const config: {
-        includePatterns: RegExp[];
-        excludePatterns?: RegExp[];
-        applyToDirectories?: boolean;
-        applyToFiles?: boolean;
-        description?: string;
-      } = {
+      const includeFilter = new NamePatternFilter({
         includePatterns: extraIncludePatterns,
-      };
-      if (extraExcludePatterns && extraExcludePatterns.length > 0) {
-        config.excludePatterns = extraExcludePatterns;
-      }
-      filters.push(new NamePatternFilter(config));
+      });
+      filters.push(includeFilter);
     }
 
-    return filters.length === 1
-      ? (filters[0] as SyncFileFilter)
-      : new OrFilter(filters);
+    // Combine with OR to get items from Claude filter OR extra patterns
+    let result: SyncFileFilter =
+      filters.length === 1 ? (filters[0] as SyncFileFilter) : new OrFilter(filters);
+
+    // Apply exclude patterns on top using NOT + OR pattern
+    if (extraExcludePatterns && extraExcludePatterns.length > 0) {
+      // Create a filter that matches any exclude pattern
+      const excludeFilters: FileFilter[] = extraExcludePatterns.map(
+        (pattern) =>
+          new NamePatternFilter({
+            includePatterns: [pattern],
+          })
+      );
+      const excludeFilter = new OrFilter(excludeFilters);
+      const excludeNotFilter = new NotFilter(excludeFilter);
+      // Combine: (Claude OR extraInclude) AND NOT (any exclude pattern)
+      result = new AndFilter([result, excludeNotFilter]);
+    }
+
+    return result;
   },
 
   /**
@@ -481,7 +502,6 @@ export function createFilterContext(
   path: string,
   name: string,
   isDirectory: boolean,
-  isInsideClaudeDir: boolean,
   parentPath: string = "",
   pathSep: string = "/"
 ): FilterContext {
@@ -489,19 +509,7 @@ export function createFilterContext(
     path,
     name,
     isDirectory,
-    isInsideClaudeDir,
     parentPath,
     pathSep,
   };
-}
-
-/**
- * Helper to check if a path is inside a .claude directory
- */
-export function isInsideClaudeDir(path: string, pathSep: string = "/"): boolean {
-  return (
-    path.includes(`${pathSep}.claude${pathSep}`) ||
-    path.endsWith(`${pathSep}.claude`) ||
-    path.endsWith(".claude")
-  );
 }
