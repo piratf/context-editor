@@ -4,6 +4,7 @@
  */
 
 import * as vscode from "vscode";
+import { buildContextValue, CONTEXT_MARKERS } from "./menuInterfaces.js";
 
 /**
  * Tree node types - unified across all providers
@@ -51,7 +52,8 @@ export interface TreeNode {
  */
 export const TreeNodeFactory = {
   /**
-   * Create a directory node
+   * Create a directory node with menu markers
+   * Automatically adds copyable, deletable, and openableInVscode markers
    */
   createDirectory(
     label: string,
@@ -63,7 +65,16 @@ export const TreeNodeFactory = {
       iconId?: string;
     } = {}
   ): TreeNode {
-    const { collapsibleState = 1, tooltip, contextValue = "directory", iconId } = options;
+    const { collapsibleState = 1, tooltip, contextValue, iconId } = options;
+
+    // Use provided contextValue as base type, otherwise default to "directory"
+    // Then add menu interface markers
+    const baseType = contextValue ?? "directory";
+    const finalContextValue = buildContextValue(baseType, [
+      CONTEXT_MARKERS.COPYABLE,
+      CONTEXT_MARKERS.DELETABLE,
+      CONTEXT_MARKERS.OPENABLE_IN_VSCODE,
+    ]);
 
     return {
       type: NodeType.DIRECTORY,
@@ -73,12 +84,13 @@ export const TreeNodeFactory = {
       // Only set iconPath for non-collapsible nodes (leaf nodes) to avoid VS Code indentation issues
       ...(collapsibleState === 0 && iconId !== undefined && iconId !== "" ? { iconPath: new vscode.ThemeIcon(iconId) } : {}),
       tooltip: tooltip ?? path,
-      contextValue,
+      contextValue: finalContextValue,
     };
   },
 
   /**
-   * Create a file node
+   * Create a file node with menu markers
+   * Automatically adds copyable and deletable markers
    */
   createFile(
     label: string,
@@ -89,7 +101,15 @@ export const TreeNodeFactory = {
       iconId?: string;
     } = {}
   ): TreeNode {
-    const { tooltip, contextValue = "file", iconId = "file" } = options;
+    const { tooltip, contextValue, iconId = "file" } = options;
+
+    // Use provided contextValue as base type, otherwise default to "file"
+    // Then add menu interface markers
+    const baseType = contextValue ?? "file";
+    const finalContextValue = buildContextValue(baseType, [
+      CONTEXT_MARKERS.COPYABLE,
+      CONTEXT_MARKERS.DELETABLE,
+    ]);
 
     return {
       type: NodeType.FILE,
@@ -98,12 +118,13 @@ export const TreeNodeFactory = {
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon(iconId),
       tooltip: tooltip ?? path,
-      contextValue,
+      contextValue: finalContextValue,
     };
   },
 
   /**
-   * Create a Claude JSON config file node
+   * Create a Claude JSON config file node with menu markers
+   * Automatically adds copyable and deletable markers
    */
   createClaudeJson(
     label: string,
@@ -113,7 +134,15 @@ export const TreeNodeFactory = {
       contextValue?: string;
     } = {}
   ): TreeNode {
-    const { tooltip, contextValue = "claudeJson" } = options;
+    const { tooltip, contextValue } = options;
+
+    // Use provided contextValue as base type, otherwise default to "claudeJson"
+    // Then add menu interface markers
+    const baseType = contextValue ?? "claudeJson";
+    const finalContextValue = buildContextValue(baseType, [
+      CONTEXT_MARKERS.COPYABLE,
+      CONTEXT_MARKERS.DELETABLE,
+    ]);
 
     return {
       type: NodeType.CLAUDE_JSON,
@@ -122,7 +151,7 @@ export const TreeNodeFactory = {
       collapsibleState: 0,
       iconPath: new vscode.ThemeIcon("settings-gear"),
       tooltip: tooltip ?? path,
-      contextValue,
+      contextValue: finalContextValue,
     };
   },
 
