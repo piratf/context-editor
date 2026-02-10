@@ -15,6 +15,7 @@ import { NodeType } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { EnvironmentManager } from "../services/environmentManager.js";
 import { Logger } from "../utils/logger.js";
+import type { DIContainer } from "../di/container.js";
 
 /**
  * Root node type for unified view
@@ -44,8 +45,12 @@ function labelToString(label: string | vscode.TreeItemLabel | undefined): string
 export class UnifiedProvider extends BaseProvider {
   private readonly environmentManager: EnvironmentManager;
 
-  constructor(environmentManager: EnvironmentManager, logger: Logger) {
-    super(logger);
+  constructor(
+    environmentManager: EnvironmentManager,
+    logger: Logger,
+    container: DIContainer
+  ) {
+    super(logger, container);
     this.environmentManager = environmentManager;
     this.loadRootNodes();
   }
@@ -94,20 +99,6 @@ export class UnifiedProvider extends BaseProvider {
     }
 
     this.logger.logExit("loadRootNodes", { nodeCount: this.rootNodes.length });
-  }
-
-  /**
-   * Get options for node creation based on node type
-   */
-  protected getNodeOptions(element: TreeNode): {
-    isInsideClaudeDir?: boolean;
-    filterClaudeFiles?: boolean;
-  } {
-    // For project root nodes, enable Claude file filtering
-    if (element.contextValue === RootNodeType.PROJECTS) {
-      return { filterClaudeFiles: true };
-    }
-    return {} as Record<string, never>;
   }
 
   /**

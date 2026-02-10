@@ -70,12 +70,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   updateCurrentEnvironmentContext(currentEnvName);
   logger.info(`Current environment: ${currentEnvName}`);
 
-  // Register views with environment manager
-  registerViews(context, environmentManager, logger);
-
   // Create DI container for service management
   container = createContainer();
   context.subscriptions.push(container);
+
+  // Register views with environment manager and container
+  registerViews(context, environmentManager, logger, container);
 
   // Register commands
   registerCommands(context, environmentManager, logger);
@@ -109,12 +109,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 function registerViews(
   _context: vscode.ExtensionContext,
   envManager: EnvironmentManager,
-  logger: Logger
+  logger: Logger,
+  container: SimpleDIContainer
 ): void {
   logger.logEntry("registerViews");
 
-  // Create unified provider with environment manager
-  unifiedProvider = new UnifiedProvider(envManager, logger);
+  // Create unified provider with environment manager and container
+  unifiedProvider = new UnifiedProvider(envManager, logger, container);
 
   // Create the tree view with dynamic title support
   treeView = vscode.window.createTreeView("contextEditorUnified", {

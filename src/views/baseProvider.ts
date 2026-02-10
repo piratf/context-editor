@@ -5,7 +5,7 @@
  * Architecture:
  * - Uses NodeData for pure data representation
  * - Uses TreeItemFactory for TreeItem conversion
- * - Uses NodeService for business logic
+ * - Uses NodeService from DI container for business logic
  */
 
 import * as vscode from "vscode";
@@ -14,7 +14,8 @@ import { NodeType, isDirectoryData } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
 import { treeItemFactory } from "../adapters/treeItemFactory.js";
-import { NodeService, NodeServiceFactory } from "../services/nodeService.js";
+import type { DIContainer } from "../di/container.js";
+import { ServiceTokens } from "../di/tokens.js";
 
 /**
  * Node type for TreeDataProvider
@@ -33,7 +34,10 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   protected readonly logger: Logger;
   protected rootNodes: TreeNode[] = [];
 
-  constructor(logger: Logger) {
+  constructor(
+    logger: Logger,
+    protected readonly container: DIContainer
+  ) {
     this.logger = logger;
   }
 
@@ -61,7 +65,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   /**
    * Get children of a given node, or root nodes if no node provided
    *
-   * Uses NodeService to get children for directory nodes
+   * Uses NodeService from DI container to get children for directory nodes
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
@@ -84,8 +88,8 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
       return [];
     }
 
-    // Use NodeService to get children
-    const nodeService = this.createNodeService();
+    // Get NodeService from DI container (already configured)
+    const nodeService = this.container.get(ServiceTokens.NodeService);
     const result = await nodeService.getChildren(element);
 
     if (result.success) {
@@ -95,24 +99,6 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
       this.logger.error("Error getting children", new Error(result.error.tooltip));
       return [result.error];
     }
-  }
-
-  /**
-   * Create NodeService for getting children
-   * Can be overridden to provide custom configuration
-   */
-  protected createNodeService(): NodeService {
-    return NodeServiceFactory.create(this.getNodeOptions(undefined));
-  }
-
-  /**
-   * Get options for node creation - can be overridden by subclass
-   */
-  protected getNodeOptions(_element: TreeNode | undefined): {
-    isInsideClaudeDir?: boolean;
-    filterClaudeFiles?: boolean;
-  } {
-    return {};
   }
 
   /**

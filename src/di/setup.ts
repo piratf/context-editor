@@ -21,6 +21,7 @@ import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
 import { NodeService } from "../services/nodeService.js";
 import type { FileSystem } from "../services/nodeService.js";
+import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 
 /**
  * Create and configure the dependency injection container
@@ -29,6 +30,8 @@ import type { FileSystem } from "../services/nodeService.js";
  * - Adapters wrap VS Code APIs (should be single instances)
  * - Services are stateless (only hold dependencies, no runtime state)
  * - Commands capture services via closure at registration time
+ *
+ * Service configuration is centralized here - all options are set during registration.
  *
  * @returns Configured DI container instance
  */
@@ -73,6 +76,8 @@ export function createContainer(): SimpleDIContainer {
     return new OpenVscodeService(folderOpener);
   });
 
+  // Register NodeService with configuration
+  // Using ProjectClaudeFileFilter for filtering Claude project files
   container.registerSingleton(ServiceTokens.NodeService, () => {
     const fileSystem: FileSystem = {
       pathSep: path.sep,
@@ -85,8 +90,16 @@ export function createContainer(): SimpleDIContainer {
         }));
       },
     };
-    return new NodeService(fileSystem, {});
+
+    // Configuration: use ProjectClaudeFileFilter
+    const filter = new ProjectClaudeFileFilter();
+
+    return new NodeService(fileSystem, { filter });
   });
+
+  // Initialize all singleton services immediately
+  // This detects circular dependencies and ensures all services are ready
+  container.initializeSingletons();
 
   return container;
 }

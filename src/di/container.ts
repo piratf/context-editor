@@ -2,7 +2,7 @@
  * Dependency Injection Container
  *
  * Manages service lifecycle and dependencies for the Context Editor extension.
- * Supports singleton (shared) and transient (per-request) service lifecycles.
+ * Supports singleton (shared) services with deferred registration and circular dependency detection.
  */
 
 /**
@@ -15,7 +15,7 @@ export interface Disposable {
 /**
  * Dependency Injection Container interface
  *
- * Provides methods for registering and retrieving services with different lifecycles.
+ * Provides methods for registering and retrieving services.
  */
 export interface DIContainer extends Disposable {
   /**
@@ -34,11 +34,11 @@ export interface DIContainer extends Disposable {
   registerSingleton<T>(token: ServiceToken<T>, factory: () => T): void;
 
   /**
-   * Register a transient service (new instance created for each request)
-   * @param token - Service identifier
-   * @param factory - Factory function to create instances
+   * Initialize all singleton services
+   * Creates all singleton instances immediately, detecting circular dependencies
+   * @throws Error if circular dependency is detected
    */
-  registerTransient<T>(token: ServiceToken<T>, factory: () => T): void;
+  initializeSingletons(): void;
 }
 
 /**
@@ -53,35 +53,58 @@ export class ServiceToken<T> {
 /**
  * Simple dependency injection container implementation
  *
- * Manages singleton and transient service lifecycles.
- * Automatically disposes disposable singletons on cleanup.
+ * Features:
+ * - Singleton lifecycle (all services are singletons)
+ * - Deferred registration (services can be registered in any order)
+ * - Circular dependency detection
+ * - Automatic disposal of disposable services
  */
 export class SimpleDIContainer implements DIContainer {
   private singletons = new Map<ServiceToken<unknown>, unknown>();
-  private transientFactories = new Map<ServiceToken<unknown>, () => unknown>();
+  private singletonFactories = new Map<ServiceToken<unknown>, () => unknown>();
+  private resolvingStack = new Set<ServiceToken<unknown>>();
 
   get<T>(token: ServiceToken<T>): T {
-    // Return singleton if registered
+    // Return existing instance if already created
     if (this.singletons.has(token)) {
       return this.singletons.get(token) as T;
     }
 
-    // Create transient instance
-    const factory = this.transientFactories.get(token);
+    // Check for circular dependency
+    if (this.resolvingStack.has(token)) {
+      const cycle = Array.from(this.resolvingStack).map((t) => t.description);
+      cycle.push(token.description);
+      throw new Error(`Circular dependency detected: ${cycle.join(" → ")}`);
+    }
+
+    // Create from singleton factory
+    const factory = this.singletonFactories.get(token);
     if (factory) {
-      return factory() as T;
+      this.resolvingStack.add(token);
+      try {
+        const instance = factory();
+        this.singletons.set(token, instance);
+        return instance as T;
+      } finally {
+        this.resolvingStack.delete(token);
+      }
     }
 
     throw new Error(`Service not registered: ${token.description}`);
   }
 
   registerSingleton<T>(token: ServiceToken<T>, factory: () => T): void {
-    const instance = factory();
-    this.singletons.set(token, instance);
+    this.singletonFactories.set(token, factory);
   }
 
-  registerTransient<T>(token: ServiceToken<T>, factory: () => T): void {
-    this.transientFactories.set(token, factory);
+  /**
+   * Initialize all singleton services
+   * Creates all singleton instances immediately, detecting circular dependencies
+   */
+  initializeSingletons(): void {
+    for (const [token] of this.singletonFactories) {
+      this.get(token); // Triggers creation, will throw on circular dependency
+    }
   }
 
   dispose(): void {
@@ -96,7 +119,7 @@ export class SimpleDIContainer implements DIContainer {
       }
     }
     this.singletons.clear();
-    this.transientFactories.clear();
+    this.singletonFactories.clear();
   }
 
   private isDisposable(obj: unknown): obj is Disposable {

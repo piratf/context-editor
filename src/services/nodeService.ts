@@ -15,7 +15,7 @@ import * as path from "node:path";
 import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
-import { createFilterContext } from "../types/fileFilter.js";
+import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
 
 /**
  * File system entry information
@@ -109,21 +109,15 @@ export class NodeService {
     private readonly fileSystem: FileSystem,
     options: {
       filter?: SyncFileFilter;
-      filterClaudeFiles?: boolean;
     } = {}
   ) {
     this.pathSep = fileSystem.pathSep;
 
-    // Use provided filter or create default
+    // Use provided filter or default to ClaudeCodeFileFilter
     if (options.filter !== undefined) {
       this.filter = options.filter;
-    } else if (options.filterClaudeFiles === true) {
-      // Import ProjectClaudeFileFilter dynamically to avoid circular dependency
-      const { ProjectClaudeFileFilter } = require("../types/fileFilter.js");
-      this.filter = new ProjectClaudeFileFilter();
     } else {
-      // Import ClaudeCodeFileFilter dynamically
-      const { ClaudeCodeFileFilter } = require("../types/fileFilter.js");
+      // Default filter for Claude files
       this.filter = new ClaudeCodeFileFilter();
     }
   }
@@ -269,29 +263,3 @@ export class NodeService {
     return this.filter;
   }
 }
-
-/**
- * Factory for creating NodeService instances
- */
-export const NodeServiceFactory = {
-  /**
-   * Create a NodeService with real file system
-   */
-  create(options?: {
-    filter?: SyncFileFilter;
-    filterClaudeFiles?: boolean;
-  }): NodeService {
-    const fileSystem: FileSystem = {
-      pathSep: path.sep,
-      readDirectory: async (dirPath: string) => {
-        const fs = await import("node:fs/promises");
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        return entries.map((entry) => ({
-          name: entry.name,
-          isDirectory: entry.isDirectory(),
-        }));
-      },
-    };
-    return new NodeService(fileSystem, options);
-  },
-} as const;

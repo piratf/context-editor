@@ -16,8 +16,7 @@ import type { NodeService } from "../services/nodeService.js";
 /**
  * All service tokens for the DI container
  *
- * Adapters are registered as singletons (shared instances)
- * Services are registered as transient (new instance per request)
+ * All services are registered as singletons (shared instances)
  */
 export const ServiceTokens = {
   // Adapters (singleton - VS Code API wrappers)
