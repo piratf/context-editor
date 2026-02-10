@@ -131,12 +131,12 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && rm -rf out/resources && cp -r resources out/",
+    "compile": "rm -rf out/ && tsc -p ./ && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "test": "node ./out/test/runTest.js",
+    "test": "node --test out/test/unit/**/*.test.js",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -9,8 +9,10 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { BaseProvider } from "./baseProvider.js";
-import { TreeNodeFactory, NodeType, type TreeNode } from "../types/treeNode.js";
+import * as vscode from "vscode";
+import { BaseProvider, type TreeNode } from "./baseProvider.js";
+import { NodeType } from "../types/nodeData.js";
+import { NodeDataFactory } from "../types/nodeData.js";
 import { EnvironmentManager } from "../services/environmentManager.js";
 import { Logger } from "../utils/logger.js";
 
@@ -20,6 +22,20 @@ import { Logger } from "../utils/logger.js";
 enum RootNodeType {
   GLOBAL = "global",
   PROJECTS = "projects",
+}
+
+/**
+ * Helper function to convert TreeItem label to string
+ * TreeItem.label can be string | TreeItemLabel | undefined
+ */
+function labelToString(label: string | vscode.TreeItemLabel | undefined): string {
+  if (typeof label === "string") {
+    return label;
+  }
+  if (label && typeof label === "object" && "label" in label) {
+    return label.label;
+  }
+  return "";
 }
 
 /**
@@ -54,20 +70,20 @@ export class UnifiedProvider extends BaseProvider {
 
       // Create Global Configuration root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
       this.rootNodes.push(
-        TreeNodeFactory.createDirectory("Global Configuration", "", {
+        NodeDataFactory.createDirectory("Global Configuration", "", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
           contextValue: RootNodeType.GLOBAL,
-        })
+        }) as TreeNode
       );
 
       // Create Projects root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
       this.rootNodes.push(
-        TreeNodeFactory.createDirectory("Projects", "", {
+        NodeDataFactory.createDirectory("Projects", "", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
           contextValue: RootNodeType.PROJECTS,
-        })
+        }) as TreeNode
       );
 
       this.logger.debug(`Loaded ${String(this.rootNodes.length)} root nodes`);
@@ -96,10 +112,13 @@ export class UnifiedProvider extends BaseProvider {
 
   /**
    * Override getChildren to handle root nodes specially
+   *
+   * IMPORTANT: Check contextValue FIRST before delegating to base class.
+   * We need special handling for GLOBAL and PROJECTS root nodes.
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${element.label}" (${String(element.contextValue)})`,
+      element: element === undefined ? "root" : `"${labelToString(element.label)}" (${String(element.contextValue)})`,
     });
 
     // Return error node if loading failed
@@ -114,6 +133,8 @@ export class UnifiedProvider extends BaseProvider {
     }
 
     // Handle root node children - load actual content
+    // IMPORTANT: Check contextValue FIRST before delegating to base class
+    // We need special handling for GLOBAL and PROJECTS root nodes
     if (element.contextValue === RootNodeType.GLOBAL) {
       return this.getGlobalChildren();
     }
@@ -148,9 +169,9 @@ export class UnifiedProvider extends BaseProvider {
       // Add ~/.claude.json file
       if (hasConfig) {
         children.push(
-          TreeNodeFactory.createClaudeJson("~/.claude.json", info.configPath, {
+          NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
             tooltip: info.configPath,
-          })
+          }) as TreeNode
         );
       }
 
@@ -159,10 +180,10 @@ export class UnifiedProvider extends BaseProvider {
       const hasClaudeDir = await this.directoryExists(claudeDir);
       if (hasClaudeDir) {
         children.push(
-          TreeNodeFactory.createDirectory("~/.claude", claudeDir, {
+          NodeDataFactory.createDirectory("~/.claude", claudeDir, {
             collapsibleState: 1,
             tooltip: claudeDir,
-          })
+          }) as TreeNode
         );
       }
 
@@ -218,11 +239,11 @@ export class UnifiedProvider extends BaseProvider {
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
 
         children.push(
-          TreeNodeFactory.createDirectory(projectName, project.path, {
+          NodeDataFactory.createDirectory(projectName, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
             contextValue: "project",
-          })
+          }) as TreeNode
         );
       }
 

@@ -16,6 +16,7 @@ import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
 import { Logger } from "./utils/logger.js";
 import { registerContextMenuCommands } from "./commands/contextMenu.js";
+import { VsCodeUserInteraction } from "./adapters/ui.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -57,8 +58,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     logger.debug(`Environment: ${info.type}`, { configPath: info.configPath });
   }
 
+  // Initialize user interaction adapter
+  const userInteraction = new VsCodeUserInteraction();
+
   // Initialize environment manager (defaults to native facade)
-  environmentManager = new EnvironmentManager(configSearch);
+  environmentManager = new EnvironmentManager(configSearch, userInteraction);
   const currentEnvName = environmentManager.getCurrentEnvironmentName();
   updateCurrentEnvironmentContext(currentEnvName);
   logger.info(`Current environment: ${currentEnvName}`);

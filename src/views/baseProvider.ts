@@ -1,13 +1,26 @@
 /**
  * Abstract base class for tree data providers.
  * Provides common functionality for all view providers.
+ *
+ * Architecture:
+ * - Uses NodeData for pure data representation
+ * - Uses TreeItemFactory for TreeItem conversion
+ * - Uses NodeService for business logic
  */
 
 import * as vscode from "vscode";
-import type { TreeNode } from "../types/treeNode.js";
-import { NodeType } from "../types/treeNode.js";
+import type { NodeData } from "../types/nodeData.js";
+import { NodeType, isDirectoryData } from "../types/nodeData.js";
+import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
-import { NodeFactory } from "../types/nodeClasses.js";
+import { treeItemFactory } from "../adapters/treeItemFactory.js";
+import { NodeService, NodeServiceFactory } from "../services/nodeService.js";
+
+/**
+ * Node type for TreeDataProvider
+ * Uses pure NodeData interface
+ */
+export type TreeNode = NodeData;
 
 /**
  * Abstract base class for tree data providers
@@ -36,53 +49,19 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
   /**
    * Get the tree item for a given node
-   * Since NodeBase extends vscode.TreeItem, we can return it directly
-   * For plain TreeNode objects (not NodeBase), we create a new TreeItem
+   *
+   * Converts NodeData to vscode.TreeItem using TreeItemFactory
    */
   getTreeItem(element: TreeNode): vscode.TreeItem {
-    // Check if element is already a TreeItem (i.e., a NodeBase instance)
-    // NodeBase extends vscode.TreeItem, so we can return it directly
-    if ('resourceUri' in element) {
-      // This is a vscode.TreeItem (NodeBase), return it directly
-      const treeItem = element as vscode.TreeItem;
-      // Set command for clickable nodes (only if not already set)
-      if (treeItem.command === undefined) {
-        this.setNodeCommand(treeItem, element);
-      }
-      return treeItem;
-    }
-
-    // For plain TreeNode objects, create a new TreeItem (backward compatibility)
-    const treeItem = new vscode.TreeItem(
-      element.label,
-      element.collapsibleState === 2
-        ? vscode.TreeItemCollapsibleState.Expanded
-        : element.collapsibleState === 1
-          ? vscode.TreeItemCollapsibleState.Collapsed
-          : vscode.TreeItemCollapsibleState.None
-    );
-
-    if (element.iconPath !== undefined) {
-      treeItem.iconPath = element.iconPath;
-    }
-
-    if (element.tooltip !== undefined) {
-      treeItem.tooltip = element.tooltip;
-    }
-
-    if (element.contextValue !== undefined) {
-      treeItem.contextValue = element.contextValue;
-    }
-
-    // Set command for clickable nodes
+    const treeItem = treeItemFactory.createTreeItem(element);
     this.setNodeCommand(treeItem, element);
-
     return treeItem;
   }
 
   /**
    * Get children of a given node, or root nodes if no node provided
-   * Since NodeBase extends TreeItem and implements TreeNode, we need to handle both types
+   *
+   * Uses NodeService to get children for directory nodes
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
@@ -100,19 +79,36 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
       return this.rootNodes;
     }
 
-    // Use NodeBase classes for OOP approach to get children
-    const node = NodeFactory.create(element, this.getNodeOptions(element));
-    const children = await node.getChildren();
-    this.logger.logChildrenRetrieved(element.label, children.length);
-    // NodeBase extends TreeItem, but TreeDataProvider expects TreeNode
-    // Cast since NodeBase implements all TreeNode properties
-    return children as unknown as TreeNode[];
+    // Only directories have children
+    if (!isDirectoryData(element)) {
+      return [];
+    }
+
+    // Use NodeService to get children
+    const nodeService = this.createNodeService();
+    const result = await nodeService.getChildren(element);
+
+    if (result.success) {
+      this.logger.logChildrenRetrieved(element.label, result.children.length);
+      return [...result.children];
+    } else {
+      this.logger.error("Error getting children", new Error(result.error.tooltip));
+      return [result.error];
+    }
+  }
+
+  /**
+   * Create NodeService for getting children
+   * Can be overridden to provide custom configuration
+   */
+  protected createNodeService(): NodeService {
+    return NodeServiceFactory.create(this.getNodeOptions(undefined));
   }
 
   /**
    * Get options for node creation - can be overridden by subclass
    */
-  protected getNodeOptions(_element: TreeNode): {
+  protected getNodeOptions(_element: TreeNode | undefined): {
     isInsideClaudeDir?: boolean;
     filterClaudeFiles?: boolean;
   } {
@@ -147,15 +143,13 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
     error?: Error
   ): TreeNode {
     this.logger.error(label, error);
-    return {
-      type: NodeType.ERROR,
-      label,
-      collapsibleState: 0,
-      iconPath: new vscode.ThemeIcon("error"),
+
+    // Create as NodeData (new architecture)
+    return NodeDataFactory.createError(label, {
       tooltip,
       contextValue: "error",
       error,
-    } as TreeNode;
+    });
   }
 
   /**
@@ -166,14 +160,12 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
     tooltip: string,
     contextValue = "empty"
   ): TreeNode {
-    return {
-      type: NodeType.ERROR,
-      label,
-      collapsibleState: 0,
-      iconPath: new vscode.ThemeIcon("info"),
+    // Create as NodeData (new architecture)
+    return NodeDataFactory.createInfo(label, {
       tooltip,
       contextValue,
-    };
+      iconId: "info",
+    });
   }
 
   /**
