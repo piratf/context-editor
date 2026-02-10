@@ -52,4 +52,6 @@ export const ContextKeys = {
   HAS_COPYABLE_PATH: "hasCopyablePath",
   CAN_DELETE: "canDelete",
   CAN_OPEN_IN_VSCODE: "canOpenInVscode",
+  CAN_CREATE_FILE: "canCreateFile",
+  CAN_CREATE_FOLDER: "canCreateFolder",
 } as const;

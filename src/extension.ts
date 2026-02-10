@@ -198,7 +198,7 @@ function registerCommands(
 
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
-  menuRegistry.registerCommands(context);
+  void menuRegistry.registerCommands(context);
 }
 
 export function deactivate(): void {

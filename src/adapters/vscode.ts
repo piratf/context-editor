@@ -87,3 +87,65 @@ export class VsCodeDialogService implements DialogService {
     return vscode.window.showWarningMessage(message, options, ...items);
   }
 }
+
+/**
+ * File creation options
+ */
+export interface FileCreateOptions {
+  overwrite: boolean;
+  createParentDirectories: boolean;
+}
+
+/**
+ * File creator interface
+ */
+export interface FileCreator {
+  createFile(uri: SimpleUri, options: FileCreateOptions): Promise<void>;
+  createDirectory(uri: SimpleUri): Promise<void>;
+}
+
+/**
+ * VS Code file creator implementation
+ */
+export class VsCodeFileCreator implements FileCreator {
+  async createFile(uri: SimpleUri, _options: FileCreateOptions): Promise<void> {
+    const vscodeUri = vscode.Uri.file(uri.path);
+    await vscode.workspace.fs.writeFile(vscodeUri, new Uint8Array());
+  }
+
+  async createDirectory(uri: SimpleUri): Promise<void> {
+    const vscodeUri = vscode.Uri.file(uri.path);
+    await vscode.workspace.fs.createDirectory(vscodeUri);
+  }
+}
+
+/**
+ * Input box options
+ */
+export interface InputBoxOptions {
+  title: string;
+  prompt: string;
+  placeHolder: string;
+  validateInput: (value: string) => string | undefined;
+}
+
+/**
+ * Input service interface
+ */
+export interface InputService {
+  showInputBox(options: InputBoxOptions): Thenable<string | undefined>;
+}
+
+/**
+ * VS Code input service implementation
+ */
+export class VsCodeInputService implements InputService {
+  showInputBox(options: InputBoxOptions): Thenable<string | undefined> {
+    return vscode.window.showInputBox({
+      title: options.title,
+      prompt: options.prompt,
+      placeHolder: options.placeHolder,
+      validateInput: options.validateInput,
+    });
+  }
+}

@@ -16,11 +16,14 @@ import {
 import {
   VsCodeFileDeleter,
   VsCodeDialogService,
+  VsCodeFileCreator,
+  VsCodeInputService,
 } from "../adapters/vscode.js";
 import { CopyService } from "../services/copyService.js";
 import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
 import { NodeService } from "../services/nodeService.js";
+import { FileCreationService } from "../services/fileCreationService.js";
 import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
@@ -67,6 +70,16 @@ export function createContainer(): SimpleDIContainer {
     () => new VsCodeUserInteraction()
   );
 
+  container.registerSingleton(
+    ServiceTokens.FileCreator,
+    () => new VsCodeFileCreator()
+  );
+
+  container.registerSingleton(
+    ServiceTokens.InputService,
+    () => new VsCodeInputService()
+  );
+
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.CopyService, () => {
     const clipboard = container.get(ServiceTokens.ClipboardService);
@@ -103,6 +116,12 @@ export function createContainer(): SimpleDIContainer {
     const filter = new ProjectClaudeFileFilter();
 
     return new NodeService(fileSystem, { filter });
+  });
+
+  container.registerSingleton(ServiceTokens.FileCreationService, () => {
+    const fileCreator = container.get(ServiceTokens.FileCreator);
+    const inputService = container.get(ServiceTokens.InputService);
+    return new FileCreationService(fileCreator, inputService);
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)

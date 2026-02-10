@@ -7,4 +7,6 @@ export const MenuCommands = {
   COPY_PATH: "contextEditor.copyPath",
   DELETE: "contextEditor.delete",
   OPEN_VSCODE: "contextEditor.openVscode",
+  CREATE_FILE: "contextEditor.createFile",
+  CREATE_FOLDER: "contextEditor.createFolder",
 } as const;
