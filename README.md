@@ -5,10 +5,9 @@
 <h1 align="center">Context Editor</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/visual-studio-marketplace/v/piratf.context-editor?style=flat-square&logo=visual-studio-code" alt="Version">
+  <img src="https://img.shields.io/vscode-marketplace/v/piratf.context-editor?style=flat-square&logo=visual-studio-code" alt="Version">
   <img src="https://img.shields.io/badge/license-MPL--2.0-blue" alt="License">
   <img src="https://img.shields.io/badge/VS%20Code-1.96.0%2B-blue?style=flat-square&logo=visual-studio-code" alt="VS Code Version">
-  <img src="https://img.shields.io/badge/Status-MVP-orange?style=flat-square&logo=starship" alt="Status: MVP">
 </p>
 
 <p align="center">
@@ -27,29 +26,19 @@
   Manage your CLAUDE.md instruction trees, MCP server configurations, and global project settings in a unified VS Code sidebar
 </p>
 
-> [!WARNING]
-> **This version is MVP (Minimum Viable Product)**
->
-> You can now edit all your CLAUDE.md files in one place! More features are under development.
-
 ## ✨ Key Features
 
-* 🌳 **Unified Single View** - Streamlined sidebar combining global configuration and project registry in one place
+* 🌳 **Unified Configuration Management** - Manage your user scope (`~/.claude`) and all project Claude configurations in one single interface
 * 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json`
-* 🖥️ **Multi-Environment Support** - Switch between Windows, WSL, macOS, and Linux environments
-  * Manage configurations across multiple environments in one VS Code window
-  * Automatic path conversion (e.g., `\\wsl.localhost\Ubuntu\home\...` ↔ `C:\Users\...`)
-  * Dynamic environment indicator in view title (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)")
-* 🔄 **Real-time Refresh** - One-click refresh to apply changes instantly
-* 📂 **Direct File Access** - Double-click to open any configuration file in the editor
-* 🛠️ **Debug Friendly** - Built-in Debug Output panel for troubleshooting
+* 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
+* ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
 * 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
 
 ## 📸 Interface Preview
 
-### Unified Single View
+### Unified Configuration Management
 
-The extension provides a unified sidebar view with two main sections:
+The extension provides a unified sidebar to manage all your Claude configurations:
 
 > **Global Configuration**
 > Displays `~/.claude.json` file and `~/.claude/` directory tree structure
@@ -58,6 +47,19 @@ The extension provides a unified sidebar view with two main sections:
 > Shows all registered Claude Code projects and their Claude configuration files
 
 The view title dynamically shows the current environment (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)") and provides a toolbar button for quick environment switching.
+
+### Context Menu
+
+Right-click on any item in the tree view to access quick actions:
+
+| Menu Item | Description |
+|:---|:---|
+| **Copy Name** | Copy the item name to clipboard |
+| **Copy Path** | Copy the full file/directory path |
+| **Delete** | Delete the selected file or directory |
+| **Open in New Window** | Open a directory in a new VS Code window |
+| **Create File** | Create a new file in the selected directory |
+| **Create Folder** | Create a new folder in the selected directory |
 
 <details>
 <summary><b>📁 Tree View Structure Example</b></summary>
@@ -116,59 +118,6 @@ Context Editor: ⚡ Windows
 | `Context Editor: Switch Environment` | Click status bar item `⚡ <Environment>` or toolbar button | Switch between available environments (Windows, WSL, macOS, Linux) |
 | `Context Editor: Refresh` | Click refresh icon in view title | Refresh configuration view and re-discover environments |
 | `Context Editor: Show Debug Output` | Command Palette (`Ctrl+Shift+P`) | Show debug output panel |
-
-## ⚙️ Extension Settings
-
-No additional configuration required. The extension works out of the box.
-
-It automatically reads the following Claude Code configuration files:
-
-```bash
-~/.claude.json          # Claude Code main configuration file
-~/.claude/              # Global configuration directory
-~/.claude/settings.json # Global settings
-```
-
-<details>
-<summary><b>📋 Supported Project Registration Formats</b></summary>
-
-The extension automatically recognizes two project registration formats in `~/.claude.json`:
-
-**Array Format**
-```json
-{
-  "projects": [
-    {"path": "/path/to/project1"},
-    {"path": "/path/to/project2"}
-  ]
-}
-```
-
-**Record Format**
-```json
-{
-  "projects": {
-    "project1": {"path": "/path/to/project1"},
-    "project2": {"path": "/path/to/project2"}
-  }
-}
-```
-
-</details>
-
-## 🚧 Known Limitations
-
-> [!NOTE]
-> This extension is currently in **MVP stage**. The following features are under development:
-
-- [ ] MCP server configuration visualization
-- [ ] Permission management UI
-- [ ] Instruction inheritance chain visualization
-- [ ] Built-in configuration file editor
-- [ ] JSON Schema validation integration
-- [ ] Configuration search and filtering
-
-If you have feature suggestions or encounter bugs, please submit an [Issue](https://github.com/piratf/context-editor/issues).
 
 ## 🛠️ Development
 
@@ -279,29 +228,19 @@ This project is licensed under [MPL-2.0](LICENSE).
   在统一的 VS Code 侧边栏中管理你的 CLAUDE.md 指令树、MCP 服务器配置和全局项目设置
 </p>
 
-> [!WARNING]
-> **当前版本为 MVP (最小可行性产品)**
->
-> 可以在一个地方编辑所有 CLAUDE.md 了！更多功能正在开发中。
-
 ## ✨ 核心特性
 
-* 🌳 **统一单视图** - 精简侧边栏设计，全局配置和项目注册合二为一
+* 🌳 **统一配置管理** - 在一个界面中直接管理 user scope（`~/.claude`）和所有项目的 Claude 配置
 * 🔍 **自动发现** - 自动解析 `~/.claude.json` 中的项目配置
-* 🖥️ **多环境支持** - 在 Windows、WSL、macOS、Linux 环境间自由切换
-  * 一个 VS Code 窗口管理多个环境下的配置
-  * 自动路径转换（如 `\\wsl.localhost\Ubuntu\home\...` ↔ `C:\Users\...`）
-  * 视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"）
-* 🔄 **实时刷新** - 一键刷新配置视图，即时生效
-* 📂 **文件直达** - 双击即可打开任意配置文件进行编辑
-* 🛠️ **调试友好** - 内置 Debug Output 面板，方便问题排查
+* 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
+* ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
 * 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
 
 ## 📸 界面预览
 
-### 统一单视图设计
+### 统一配置管理
 
-扩展提供统一的侧边栏视图，包含两个主要部分：
+扩展提供统一的侧边栏，管理所有 Claude 配置：
 
 > **Global Configuration（全局配置）**
 > 显示 `~/.claude.json` 文件和 `~/.claude/` 目录树结构
@@ -310,6 +249,19 @@ This project is licensed under [MPL-2.0](LICENSE).
 > 展示所有已注册的 Claude Code 项目及其 Claude 配置文件
 
 视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"），并提供工具栏按钮用于快速切换环境。
+
+### 右键菜单
+
+在树视图中右键点击任意项目即可访问快捷操作：
+
+| 菜单项 | 说明 |
+|:---|:---|
+| **复制名称** | 复制项目名称到剪贴板 |
+| **复制路径** | 复制完整的文件/目录路径 |
+| **删除** | 删除选中的文件或目录 |
+| **在新窗口中打开** | 在新 VS Code 窗口中打开目录 |
+| **创建文件** | 在选中目录中创建新文件 |
+| **创建文件夹** | 在选中目录中创建新文件夹 |
 
 <details>
 <summary><b>📁 树视图结构示例</b></summary>
@@ -368,59 +320,6 @@ Context Editor: ⚡ Windows
 | `Context Editor: Switch Environment` | 点击状态栏项 `⚡ <环境名>` 或工具栏按钮 | 在可用环境（Windows、WSL、macOS、Linux）之间切换 |
 | `Context Editor: Refresh` | 点击视图标题栏刷新图标 | 刷新配置视图并重新发现环境 |
 | `Context Editor: Show Debug Output` | 命令面板 (`Ctrl+Shift+P`) | 显示调试输出面板 |
-
-## ⚙️ 扩展配置
-
-目前本扩展无需额外配置，安装后即可使用。
-
-扩展会自动读取以下 Claude Code 配置文件：
-
-```bash
-~/.claude.json          # Claude Code 主配置文件
-~/.claude/              # 全局配置目录
-~/.claude/settings.json # 全局设置
-```
-
-<details>
-<summary><b>📋 支持的项目注册格式</b></summary>
-
-扩展自动识别 `~/.claude.json` 中的两种项目注册格式：
-
-**数组格式**
-```json
-{
-  "projects": [
-    {"path": "/path/to/project1"},
-    {"path": "/path/to/project2"}
-  ]
-}
-```
-
-**记录格式**
-```json
-{
-  "projects": {
-    "project1": {"path": "/path/to/project1"},
-    "project2": {"path": "/path/to/project2"}
-  }
-}
-```
-
-</details>
-
-## 🚧 已知限制
-
-> [!NOTE]
-> 本扩展目前处于 **MVP 阶段**，以下功能正在开发中：
-
-- [ ] MCP 服务器配置可视化
-- [ ] 权限管理 UI
-- [ ] 指令继承链可视化
-- [ ] 内置配置文件编辑器
-- [ ] JSON Schema 校验集成
-- [ ] 配置搜索和过滤功能
-
-如果你有功能建议或遇到 Bug，欢迎提交 [Issue](https://github.com/piratf/context-editor/issues)。
 
 ## 🛠️ 开发
 
