@@ -11,13 +11,13 @@
  */
 
 import * as vscode from "vscode";
-import type { NodeData } from "../types/nodeData.js";
-import { isNodeData, isDirectoryData } from "../types/nodeData.js";
-import type { ContextMenuCommand } from "../types/contextMenu.js";
-import { ContextKeys } from "../types/contextMenu.js";
+import { MenuCommands } from "../commands/contextMenu.js";
 import type { SimpleDIContainer } from "../di/container.js";
 import { ServiceTokens } from "../di/tokens.js";
-import { MenuCommands } from "../commands/contextMenu.js";
+import type { ContextMenuCommand } from "../types/contextMenu.js";
+import { ContextKeys } from "../types/contextMenu.js";
+import type { NodeData } from "../types/nodeData.js";
+import { isDirectoryData, isNodeData } from "../types/nodeData.js";
 
 /**
  * Extract NodeData from command argument

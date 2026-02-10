@@ -74,7 +74,6 @@ export class UnifiedProvider extends BaseProvider {
         NodeDataFactory.createVirtualNode("Global Configuration", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
-          iconId: "folder",
         })
       );
 
@@ -83,7 +82,6 @@ export class UnifiedProvider extends BaseProvider {
         NodeDataFactory.createVirtualNode("Projects", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
-          iconId: "folder",
         })
       );
 

@@ -244,10 +244,9 @@ export const NodeDataFactory = {
       collapsibleState?: CollapsibleState;
       tooltip?: string;
       contextValue?: string;
-      iconId?: IconId;
     } = {}
   ): DirectoryData {
-    const { collapsibleState = 1, tooltip, contextValue, iconId } = options;
+    const { collapsibleState = 1, tooltip, contextValue } = options;
 
     return {
       [NodeDataMarker]: true,
@@ -256,7 +255,6 @@ export const NodeDataFactory = {
       label,
       path: dirPath,
       collapsibleState,
-      iconId: iconId ?? "",
       tooltip: tooltip ?? dirPath,
       contextValue: contextValue ?? "",
     };
@@ -385,10 +383,9 @@ export const NodeDataFactory = {
     options: {
       collapsibleState?: CollapsibleState;
       tooltip?: string;
-      iconId?: IconId;
     } = {}
   ): NodeData {
-    const { collapsibleState = 1, tooltip, iconId } = options;
+    const { collapsibleState = 1, tooltip } = options;
 
     // Omit path property entirely - this makes virtual nodes distinct from file system nodes
     return {
@@ -398,7 +395,6 @@ export const NodeDataFactory = {
       label,
       // No path property - virtual nodes don't represent file system items
       collapsibleState,
-      iconId: iconId ?? "folder",
       tooltip: tooltip ?? label,
       // contextValue will be generated dynamically by the command system
     };
