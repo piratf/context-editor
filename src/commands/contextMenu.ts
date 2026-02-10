@@ -1,14 +1,14 @@
 /**
  * Context menu command handlers for Context Editor tree nodes.
  *
- * Refactored to use DI container for service management:
+ * Refactored to use DI container with closure-captured services:
  * - Commands extract data from nodes
- * - Services retrieved from DI container
+ * - Services captured as closures at registration time
  * - Commands handle UI feedback and refresh
  *
  * Architecture:
- * - Command Layer: Extract data, get services from container, handle UI feedback
- * - Service Layer: Business logic (delete, copy, etc.) - managed by DI container
+ * - Command Layer: Extract data, receive services via parameters, handle UI feedback
+ * - Service Layer: Business logic (delete, copy, etc.) - singleton instances
  * - Adapter Layer: VS Code API abstractions - shared as singletons
  */
 
@@ -17,13 +17,9 @@ import type { NodeData } from "../types/nodeData.js";
 import { isNodeData } from "../types/nodeData.js";
 import { SimpleDIContainer } from "../di/container.js";
 import { ServiceTokens } from "../di/tokens.js";
-
-/**
- * DI Container instance for service retrieval
- *
- * Set during command registration and used by all command handlers.
- */
-let container: SimpleDIContainer;
+import type { CopyService } from "../services/copyService.js";
+import type { DeleteService } from "../services/deleteService.js";
+import type { OpenVscodeService } from "../services/openVscodeService.js";
 
 /**
  * Menu command identifiers
@@ -48,16 +44,16 @@ function extractNodeData(node: unknown): NodeData | null {
 /**
  * Copy the display name (file/directory name) to clipboard
  *
- * Gets CopyService from DI container for business logic
+ * @param node - Tree node to copy name from
+ * @param copyService - Copy service instance (captured via closure)
  */
-export async function copyName(node: unknown): Promise<void> {
+export async function copyName(node: unknown, copyService: CopyService): Promise<void> {
   const data = extractNodeData(node);
   if (!data) {
     showErrorMessage("Cannot copy name", "Selected item does not support copying names.");
     return;
   }
 
-  const copyService = container.get(ServiceTokens.CopyService);
   const result = await copyService.copyName(data);
 
   if (result.success) {
@@ -70,16 +66,16 @@ export async function copyName(node: unknown): Promise<void> {
 /**
  * Copy the full file system path to clipboard
  *
- * Gets CopyService from DI container for business logic
+ * @param node - Tree node to copy path from
+ * @param copyService - Copy service instance (captured via closure)
  */
-export async function copyPath(node: unknown): Promise<void> {
+export async function copyPath(node: unknown, copyService: CopyService): Promise<void> {
   const data = extractNodeData(node);
   if (!data) {
     showErrorMessage("Cannot copy path", "Selected item does not support copying paths.");
     return;
   }
 
-  const copyService = container.get(ServiceTokens.CopyService);
   const result = await copyService.copyPath(data);
 
   if (result.success) {
@@ -94,23 +90,22 @@ export async function copyPath(node: unknown): Promise<void> {
 /**
  * Delete the file/directory represented by the node
  *
- * Gets DeleteService from DI container for business logic
+ * @param node - Tree node to delete
+ * @param deleteService - Delete service instance (captured via closure)
  */
-export async function deleteNode(node: unknown): Promise<void> {
+export async function deleteNode(node: unknown, deleteService: DeleteService): Promise<void> {
   const data = extractNodeData(node);
   if (!data) {
     showErrorMessage("Cannot delete", "Selected item does not support deletion.");
     return;
   }
 
-  const deleteService = container.get(ServiceTokens.DeleteService);
-
   if (!deleteService.canDelete(data)) {
     showErrorMessage("Cannot delete", "This item cannot be deleted (may be a system directory).");
     return;
   }
 
-  const confirmMessage = data.path && data.path.length > 0
+  const confirmMessage = data.path !== undefined && data.path.length > 0
     ? `Are you sure you want to delete "${data.label}"?\n\n${data.path}`
     : `Are you sure you want to delete "${data.label}"?`;
 
@@ -139,16 +134,16 @@ export async function deleteNode(node: unknown): Promise<void> {
 /**
  * Open the directory in a new VS Code window
  *
- * Gets OpenVscodeService from DI container for business logic
+ * @param node - Tree node to open
+ * @param openVscodeService - Open VS Code service instance (captured via closure)
  */
-export async function openVscode(node: unknown): Promise<void> {
+export async function openVscode(node: unknown, openVscodeService: OpenVscodeService): Promise<void> {
   const data = extractNodeData(node);
   if (!data) {
     showErrorMessage("Cannot open", "Selected item is not a directory that can be opened.");
     return;
   }
 
-  const openVscodeService = container.get(ServiceTokens.OpenVscodeService);
   const result = await openVscodeService.execute(data);
 
   if (!result.success) {
@@ -179,22 +174,26 @@ function showErrorMessage(title: string, message: string): void {
 /**
  * Register all context menu commands with VS Code
  *
- * Called from extension.ts during activation.
- * Receives DI container and stores it for use by command handlers.
+ * Services are retrieved once at registration time and captured via closures.
+ * This eliminates global state and makes dependencies explicit in function signatures.
  *
  * @param context - VS Code extension context for command registration
- * @param diContainer - DI container instance for service retrieval
+ * @param container - DI container instance for service retrieval
  */
 export function registerContextMenuCommands(
   context: vscode.ExtensionContext,
-  diContainer: SimpleDIContainer
+  container: SimpleDIContainer
 ): void {
-  container = diContainer;
+  // Get singleton services once at registration time
+  const copyService = container.get(ServiceTokens.CopyService);
+  const deleteService = container.get(ServiceTokens.DeleteService);
+  const openVscodeService = container.get(ServiceTokens.OpenVscodeService);
 
+  // Register commands with services captured via closure
   const copyNameCommand = vscode.commands.registerCommand(
     MenuCommands.COPY_NAME,
     async (node: unknown) => {
-      await copyName(node);
+      await copyName(node, copyService);
     }
   );
   context.subscriptions.push(copyNameCommand);
@@ -202,7 +201,7 @@ export function registerContextMenuCommands(
   const copyPathCommand = vscode.commands.registerCommand(
     MenuCommands.COPY_PATH,
     async (node: unknown) => {
-      await copyPath(node);
+      await copyPath(node, copyService);
     }
   );
   context.subscriptions.push(copyPathCommand);
@@ -210,7 +209,7 @@ export function registerContextMenuCommands(
   const deleteCommand = vscode.commands.registerCommand(
     MenuCommands.DELETE,
     async (node: unknown) => {
-      await deleteNode(node);
+      await deleteNode(node, deleteService);
     }
   );
   context.subscriptions.push(deleteCommand);
@@ -218,7 +217,7 @@ export function registerContextMenuCommands(
   const openVscodeCommand = vscode.commands.registerCommand(
     MenuCommands.OPEN_VSCODE,
     async (node: unknown) => {
-      await openVscode(node);
+      await openVscode(node, openVscodeService);
     }
   );
   context.subscriptions.push(openVscodeCommand);

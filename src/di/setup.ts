@@ -25,8 +25,10 @@ import type { FileSystem } from "../services/nodeService.js";
 /**
  * Create and configure the dependency injection container
  *
- * Registers all adapters as singletons and all services as transient.
- * Services receive their dependencies automatically from the container.
+ * All services are registered as singletons since:
+ * - Adapters wrap VS Code APIs (should be single instances)
+ * - Services are stateless (only hold dependencies, no runtime state)
+ * - Commands capture services via closure at registration time
  *
  * @returns Configured DI container instance
  */
@@ -54,25 +56,24 @@ export function createContainer(): SimpleDIContainer {
     () => new VsCodeFolderOpener()
   );
 
-  // Register transient Services (business logic)
-  // Dependencies are automatically injected from the container
-  container.registerTransient(ServiceTokens.CopyService, () => {
+  // Register singleton Services (stateless business logic)
+  container.registerSingleton(ServiceTokens.CopyService, () => {
     const clipboard = container.get(ServiceTokens.ClipboardService);
     return new CopyService(clipboard);
   });
 
-  container.registerTransient(ServiceTokens.DeleteService, () => {
+  container.registerSingleton(ServiceTokens.DeleteService, () => {
     const fileDeleter = container.get(ServiceTokens.FileDeleter);
     const dialog = container.get(ServiceTokens.DialogService);
     return new DeleteService(fileDeleter, dialog);
   });
 
-  container.registerTransient(ServiceTokens.OpenVscodeService, () => {
+  container.registerSingleton(ServiceTokens.OpenVscodeService, () => {
     const folderOpener = container.get(ServiceTokens.FolderOpener);
     return new OpenVscodeService(folderOpener);
   });
 
-  container.registerTransient(ServiceTokens.NodeService, () => {
+  container.registerSingleton(ServiceTokens.NodeService, () => {
     const fileSystem: FileSystem = {
       pathSep: path.sep,
       readDirectory: async (dirPath: string) => {
