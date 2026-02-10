@@ -1,25 +1,29 @@
 /**
  * Context menu command handlers for Context Editor tree nodes.
  *
- * Refactored to use Service layer for business logic:
+ * Refactored to use DI container for service management:
  * - Commands extract data from nodes
- * - Service layer handles business logic
+ * - Services retrieved from DI container
  * - Commands handle UI feedback and refresh
  *
  * Architecture:
- * - Command Layer: Extract data, call services, handle UI feedback
- * - Service Layer: Business logic (delete, copy, etc.)
- * - Adapter Layer: VS Code API abstractions
+ * - Command Layer: Extract data, get services from container, handle UI feedback
+ * - Service Layer: Business logic (delete, copy, etc.) - managed by DI container
+ * - Adapter Layer: VS Code API abstractions - shared as singletons
  */
 
 import * as vscode from "vscode";
 import type { NodeData } from "../types/nodeData.js";
 import { isNodeData } from "../types/nodeData.js";
-import { DeleteServiceFactory } from "../services/deleteService.js";
-import { CopyServiceFactory } from "../services/copyService.js";
-import { OpenVscodeServiceFactory } from "../services/openVscodeService.js";
-import { VsCodeFileDeleter, VsCodeDialogService } from "../adapters/vscode.js";
-import { VsCodeClipboardService, VsCodeFolderOpener } from "../adapters/ui.js";
+import { SimpleDIContainer } from "../di/container.js";
+import { ServiceTokens } from "../di/tokens.js";
+
+/**
+ * DI Container instance for service retrieval
+ *
+ * Set during command registration and used by all command handlers.
+ */
+let container: SimpleDIContainer;
 
 /**
  * Menu command identifiers
@@ -44,7 +48,7 @@ function extractNodeData(node: unknown): NodeData | null {
 /**
  * Copy the display name (file/directory name) to clipboard
  *
- * Uses CopyService for business logic
+ * Gets CopyService from DI container for business logic
  */
 export async function copyName(node: unknown): Promise<void> {
   const data = extractNodeData(node);
@@ -53,14 +57,12 @@ export async function copyName(node: unknown): Promise<void> {
     return;
   }
 
-  const clipboardService = new VsCodeClipboardService();
-  const copyService = CopyServiceFactory.create(clipboardService);
-
+  const copyService = container.get(ServiceTokens.CopyService);
   const result = await copyService.copyName(data);
 
   if (result.success) {
     showInfoMessage(`Copied name: ${result.copiedText}`);
-  } else if (result.reason === "error") {
+  } else {
     showErrorMessage("Failed to copy name", result.error?.message ?? "Unknown error");
   }
 }
@@ -68,7 +70,7 @@ export async function copyName(node: unknown): Promise<void> {
 /**
  * Copy the full file system path to clipboard
  *
- * Uses CopyService for business logic
+ * Gets CopyService from DI container for business logic
  */
 export async function copyPath(node: unknown): Promise<void> {
   const data = extractNodeData(node);
@@ -77,16 +79,14 @@ export async function copyPath(node: unknown): Promise<void> {
     return;
   }
 
-  const clipboardService = new VsCodeClipboardService();
-  const copyService = CopyServiceFactory.create(clipboardService);
-
+  const copyService = container.get(ServiceTokens.CopyService);
   const result = await copyService.copyPath(data);
 
   if (result.success) {
     showInfoMessage(`Copied path: ${result.copiedText}`);
   } else if (result.reason === "no_path") {
     showErrorMessage("Cannot copy path", "Selected item has no path.");
-  } else if (result.reason === "error") {
+  } else {
     showErrorMessage("Failed to copy path", result.error?.message ?? "Unknown error");
   }
 }
@@ -94,7 +94,7 @@ export async function copyPath(node: unknown): Promise<void> {
 /**
  * Delete the file/directory represented by the node
  *
- * Uses DeleteService for business logic
+ * Gets DeleteService from DI container for business logic
  */
 export async function deleteNode(node: unknown): Promise<void> {
   const data = extractNodeData(node);
@@ -103,19 +103,14 @@ export async function deleteNode(node: unknown): Promise<void> {
     return;
   }
 
-  // Create service with VS Code adapters
-  const fileDeleter = new VsCodeFileDeleter();
-  const dialogService = new VsCodeDialogService();
-  const deleteService = DeleteServiceFactory.create(fileDeleter, dialogService);
+  const deleteService = container.get(ServiceTokens.DeleteService);
 
-  // Check if deletion is safe
   if (!deleteService.canDelete(data)) {
     showErrorMessage("Cannot delete", "This item cannot be deleted (may be a system directory).");
     return;
   }
 
-  // Show confirmation dialog
-  const confirmMessage = data.path
+  const confirmMessage = data.path && data.path.length > 0
     ? `Are you sure you want to delete "${data.label}"?\n\n${data.path}`
     : `Are you sure you want to delete "${data.label}"?`;
 
@@ -126,20 +121,17 @@ export async function deleteNode(node: unknown): Promise<void> {
   );
 
   if (confirmed !== "Delete") {
-    return; // User cancelled
+    return;
   }
 
-  // Execute delete
   const result = await deleteService.execute(data);
 
   if (result.success) {
     showInfoMessage(`Deleted: ${data.label} (${result.method})`);
-
-    // Trigger refresh of the tree view
     await vscode.commands.executeCommand("contextEditor.refresh");
   } else if (result.reason === "cancelled") {
     showInfoMessage("Deletion cancelled");
-  } else if (result.reason === "error") {
+  } else {
     showErrorMessage("Failed to delete", result.error?.message ?? "Unknown error");
   }
 }
@@ -147,7 +139,7 @@ export async function deleteNode(node: unknown): Promise<void> {
 /**
  * Open the directory in a new VS Code window
  *
- * Uses OpenVscodeService for business logic
+ * Gets OpenVscodeService from DI container for business logic
  */
 export async function openVscode(node: unknown): Promise<void> {
   const data = extractNodeData(node);
@@ -156,9 +148,7 @@ export async function openVscode(node: unknown): Promise<void> {
     return;
   }
 
-  const folderOpener = new VsCodeFolderOpener();
-  const openVscodeService = OpenVscodeServiceFactory.create(folderOpener);
-
+  const openVscodeService = container.get(ServiceTokens.OpenVscodeService);
   const result = await openVscodeService.execute(data);
 
   if (!result.success) {
@@ -189,12 +179,18 @@ function showErrorMessage(title: string, message: string): void {
 /**
  * Register all context menu commands with VS Code
  *
- * Called from extension.ts during activation
+ * Called from extension.ts during activation.
+ * Receives DI container and stores it for use by command handlers.
+ *
+ * @param context - VS Code extension context for command registration
+ * @param diContainer - DI container instance for service retrieval
  */
 export function registerContextMenuCommands(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
+  diContainer: SimpleDIContainer
 ): void {
-  // Register copyName command
+  container = diContainer;
+
   const copyNameCommand = vscode.commands.registerCommand(
     MenuCommands.COPY_NAME,
     async (node: unknown) => {
@@ -203,7 +199,6 @@ export function registerContextMenuCommands(
   );
   context.subscriptions.push(copyNameCommand);
 
-  // Register copyPath command
   const copyPathCommand = vscode.commands.registerCommand(
     MenuCommands.COPY_PATH,
     async (node: unknown) => {
@@ -212,7 +207,6 @@ export function registerContextMenuCommands(
   );
   context.subscriptions.push(copyPathCommand);
 
-  // Register delete command
   const deleteCommand = vscode.commands.registerCommand(
     MenuCommands.DELETE,
     async (node: unknown) => {
@@ -221,7 +215,6 @@ export function registerContextMenuCommands(
   );
   context.subscriptions.push(deleteCommand);
 
-  // Register openVscode command
   const openVscodeCommand = vscode.commands.registerCommand(
     MenuCommands.OPEN_VSCODE,
     async (node: unknown) => {

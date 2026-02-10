@@ -17,6 +17,8 @@ import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/envi
 import { Logger } from "./utils/logger.js";
 import { registerContextMenuCommands } from "./commands/contextMenu.js";
 import { VsCodeUserInteraction } from "./adapters/ui.js";
+import { createContainer } from "./di/setup.js";
+import { SimpleDIContainer } from "./di/container.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -24,6 +26,7 @@ let environmentManager: EnvironmentManager;
 let unifiedProvider: UnifiedProvider;
 let treeView: vscode.TreeView<unknown> | undefined;
 let logger: Logger;
+let container: SimpleDIContainer;
 
 // Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
@@ -69,6 +72,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Register views with environment manager
   registerViews(context, environmentManager, logger);
+
+  // Create DI container for service management
+  container = createContainer();
+  context.subscriptions.push(container);
 
   // Register commands
   registerCommands(context, environmentManager, logger);
@@ -184,8 +191,8 @@ function registerCommands(
   );
   context.subscriptions.push(openFileCommand);
 
-  // Register context menu commands
-  registerContextMenuCommands(context);
+  // Register context menu commands with DI container
+  registerContextMenuCommands(context, container);
 }
 
 export function deactivate(): void {
