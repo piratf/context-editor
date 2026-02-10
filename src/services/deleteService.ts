@@ -40,7 +40,7 @@ export class DeleteService {
    * @returns Result indicating success/failure and method used
    */
   async execute(data: NodeData): Promise<DeleteResult> {
-    if (!data.path) {
+    if (data.path === undefined || data.path.length === 0) {
       return {
         success: false,
         reason: "error",
@@ -123,7 +123,7 @@ export class DeleteService {
    */
   canDelete(data: NodeData): boolean {
     // Don't allow deleting if no path
-    if (!data.path) {
+    if (data.path === undefined || data.path.length === 0) {
       return false;
     }
 

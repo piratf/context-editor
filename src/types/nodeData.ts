@@ -367,4 +367,40 @@ export const NodeDataFactory = {
       contextValue,
     };
   },
+
+  /**
+   * Create a virtual node (non-file-system node)
+   *
+   * Virtual nodes are grouping nodes that don't represent actual files/directories.
+   * They have no path property, so commands that require a path will automatically fail.
+   *
+   * Examples: "Global Configuration", "Projects" root nodes
+   *
+   * @param label - Display label
+   * @param options - Optional configuration
+   * @returns Virtual node data
+   */
+  createVirtualNode(
+    label: string,
+    options: {
+      collapsibleState?: CollapsibleState;
+      tooltip?: string;
+      iconId?: IconId;
+    } = {}
+  ): NodeData {
+    const { collapsibleState = 1, tooltip, iconId } = options;
+
+    // Omit path property entirely - this makes virtual nodes distinct from file system nodes
+    return {
+      [NodeDataMarker]: true,
+      id: this.generateId(NodeType.ROOT, label),
+      type: NodeType.ROOT,
+      label,
+      // No path property - virtual nodes don't represent file system items
+      collapsibleState,
+      iconId: iconId ?? "folder",
+      tooltip: tooltip ?? label,
+      // contextValue will be generated dynamically by the command system
+    };
+  },
 } as const;

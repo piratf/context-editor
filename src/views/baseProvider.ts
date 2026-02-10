@@ -13,7 +13,7 @@ import type { NodeData } from "../types/nodeData.js";
 import { NodeType, isDirectoryData } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
-import { treeItemFactory } from "../adapters/treeItemFactory.js";
+import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { DIContainer } from "../di/container.js";
 import { ServiceTokens } from "../di/tokens.js";
 
@@ -36,7 +36,8 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
   constructor(
     logger: Logger,
-    protected readonly container: DIContainer
+    protected readonly container: DIContainer,
+    protected readonly treeItemFactory: TreeItemFactory
   ) {
     this.logger = logger;
   }
@@ -57,8 +58,13 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
    * Converts NodeData to vscode.TreeItem using TreeItemFactory
    */
   getTreeItem(element: TreeNode): vscode.TreeItem {
-    const treeItem = treeItemFactory.createTreeItem(element);
+    const treeItem = this.treeItemFactory.createTreeItem(element);
     this.setNodeCommand(treeItem, element);
+
+    // Debug: log contextValue to verify menu markers
+    const contextValueStr = treeItem.contextValue ?? "";
+    this.logger.debug(`[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`);
+
     return treeItem;
   }
 

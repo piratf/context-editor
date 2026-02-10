@@ -67,7 +67,7 @@ export class CopyService {
    * @returns Result indicating success/failure
    */
   async copyPath(data: NodeData): Promise<CopyResult> {
-    if (!data.path) {
+    if (data.path === undefined || data.path.length === 0) {
       return {
         success: false,
         reason: "no_path",

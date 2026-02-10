@@ -16,14 +16,7 @@ import { NodeDataFactory } from "../types/nodeData.js";
 import { EnvironmentManager } from "../services/environmentManager.js";
 import { Logger } from "../utils/logger.js";
 import type { DIContainer } from "../di/container.js";
-
-/**
- * Root node type for unified view
- */
-enum RootNodeType {
-  GLOBAL = "global",
-  PROJECTS = "projects",
-}
+import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 
 /**
  * Helper function to convert TreeItem label to string
@@ -48,15 +41,18 @@ export class UnifiedProvider extends BaseProvider {
   constructor(
     environmentManager: EnvironmentManager,
     logger: Logger,
-    container: DIContainer
+    container: DIContainer,
+    treeItemFactory: TreeItemFactory
   ) {
-    super(logger, container);
+    super(logger, container, treeItemFactory);
     this.environmentManager = environmentManager;
     this.loadRootNodes();
   }
 
   /**
    * Load root level nodes - exactly 2 nodes: Global Configuration and Projects
+   *
+   * Uses createVirtualNode for root nodes (no path = no menu items)
    */
   protected loadRootNodes(): void {
     this.logger.logEntry("loadRootNodes");
@@ -73,22 +69,22 @@ export class UnifiedProvider extends BaseProvider {
       const info = facade.getEnvironmentInfo();
       this.logger.debug("Current environment", { type: info.type, configPath: info.configPath } as Record<string, unknown>);
 
-      // Create Global Configuration root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
+      // Create Global Configuration root node (VIRTUAL - no path, no menu)
       this.rootNodes.push(
-        NodeDataFactory.createDirectory("Global Configuration", "", {
+        NodeDataFactory.createVirtualNode("Global Configuration", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
-          contextValue: RootNodeType.GLOBAL,
-        }) as TreeNode
+          iconId: "folder",
+        })
       );
 
-      // Create Projects root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
+      // Create Projects root node (VIRTUAL - no path, no menu)
       this.rootNodes.push(
-        NodeDataFactory.createDirectory("Projects", "", {
+        NodeDataFactory.createVirtualNode("Projects", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
-          contextValue: RootNodeType.PROJECTS,
-        }) as TreeNode
+          iconId: "folder",
+        })
       );
 
       this.logger.debug(`Loaded ${String(this.rootNodes.length)} root nodes`);
@@ -104,12 +100,12 @@ export class UnifiedProvider extends BaseProvider {
   /**
    * Override getChildren to handle root nodes specially
    *
-   * IMPORTANT: Check contextValue FIRST before delegating to base class.
-   * We need special handling for GLOBAL and PROJECTS root nodes.
+   * IMPORTANT: Check type FIRST before delegating to base class.
+   * We need special handling for ROOT type nodes (virtual root nodes).
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${labelToString(element.label)}" (${String(element.contextValue)})`,
+      element: element === undefined ? "root" : `"${labelToString(element.label)}" (${element.type})`,
     });
 
     // Return error node if loading failed
@@ -123,15 +119,15 @@ export class UnifiedProvider extends BaseProvider {
       return this.rootNodes;
     }
 
-    // Handle root node children - load actual content
-    // IMPORTANT: Check contextValue FIRST before delegating to base class
-    // We need special handling for GLOBAL and PROJECTS root nodes
-    if (element.contextValue === RootNodeType.GLOBAL) {
-      return this.getGlobalChildren();
-    }
-
-    if (element.contextValue === RootNodeType.PROJECTS) {
-      return this.getProjectsChildren();
+    // Handle virtual root nodes - load actual content by index
+    // Root nodes don't have contextValue anymore, they're identified by their label
+    if (element.type === NodeType.ROOT) {
+      if (element.label === "Global Configuration") {
+        return this.getGlobalChildren();
+      }
+      if (element.label === "Projects") {
+        return this.getProjectsChildren();
+      }
     }
 
     // For other nodes, use the base class implementation
@@ -162,7 +158,7 @@ export class UnifiedProvider extends BaseProvider {
         children.push(
           NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
             tooltip: info.configPath,
-          }) as TreeNode
+          })
         );
       }
 
@@ -174,7 +170,7 @@ export class UnifiedProvider extends BaseProvider {
           NodeDataFactory.createDirectory("~/.claude", claudeDir, {
             collapsibleState: 1,
             tooltip: claudeDir,
-          }) as TreeNode
+          })
         );
       }
 
@@ -199,6 +195,9 @@ export class UnifiedProvider extends BaseProvider {
 
   /**
    * Get children for Projects node
+   *
+   * Project directories are REAL file system nodes with paths,
+   * so they can show the full context menu including "Open in New Window".
    */
   private async getProjectsChildren(): Promise<TreeNode[]> {
     this.logger.debug("getProjectsChildren called");
@@ -225,6 +224,7 @@ export class UnifiedProvider extends BaseProvider {
       }
 
       // Create directory nodes for each project
+      // Project directories are REAL file system nodes - they have paths and can be opened
       for (const project of projects) {
         const projectName = this.getProjectName(project.path);
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
@@ -233,8 +233,8 @@ export class UnifiedProvider extends BaseProvider {
           NodeDataFactory.createDirectory(projectName, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
-            contextValue: "project",
-          }) as TreeNode
+            // Don't set contextValue - let the command system generate it dynamically
+          })
         );
       }
 

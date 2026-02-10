@@ -11,6 +11,7 @@ import { ServiceTokens } from "./tokens.js";
 import {
   VsCodeClipboardService,
   VsCodeFolderOpener,
+  VsCodeUserInteraction,
 } from "../adapters/ui.js";
 import {
   VsCodeFileDeleter,
@@ -20,6 +21,8 @@ import { CopyService } from "../services/copyService.js";
 import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
 import { NodeService } from "../services/nodeService.js";
+import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
+import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 
@@ -59,6 +62,11 @@ export function createContainer(): SimpleDIContainer {
     () => new VsCodeFolderOpener()
   );
 
+  container.registerSingleton(
+    ServiceTokens.UserInteraction,
+    () => new VsCodeUserInteraction()
+  );
+
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.CopyService, () => {
     const clipboard = container.get(ServiceTokens.ClipboardService);
@@ -95,6 +103,18 @@ export function createContainer(): SimpleDIContainer {
     const filter = new ProjectClaudeFileFilter();
 
     return new NodeService(fileSystem, { filter });
+  });
+
+  // Register ContextMenuRegistry (depends on container for accessing services)
+  // Must be registered after all services it depends on
+  container.registerSingleton(ServiceTokens.ContextMenuRegistry, () => {
+    return new ContextMenuRegistry(container);
+  });
+
+  // Register TreeItemFactory (depends on ContextMenuRegistry)
+  container.registerSingleton(ServiceTokens.TreeItemFactory, () => {
+    const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
+    return new TreeItemFactory(menuRegistry);
   });
 
   // Initialize all singleton services immediately

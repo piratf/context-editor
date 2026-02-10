@@ -84,6 +84,19 @@ export interface UserInteraction {
    * @param text - Text to write
    */
   writeText(text: string): Promise<void>;
+
+  /**
+   * Show info (non-modal, fire-and-forget)
+   * @param message - Message to display
+   */
+  showInfo(message: string): void;
+
+  /**
+   * Show error (non-modal, fire-and-forget)
+   * @param title - Error title
+   * @param message - Error message
+   */
+  showError(title: string, message: string): void;
 }
 
 /**
@@ -145,6 +158,14 @@ export class VsCodeUserInteraction implements UserInteraction {
 
   async writeText(text: string): Promise<void> {
     await vscode.env.clipboard.writeText(text);
+  }
+
+  showInfo(message: string): void {
+    void vscode.window.showInformationMessage(message);
+  }
+
+  showError(title: string, message: string): void {
+    void vscode.window.showErrorMessage(`${title}: ${message}`);
   }
 }
 
