@@ -28,6 +28,10 @@ import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
 import { NodeService } from "../services/nodeService.js";
 import { FileCreationService } from "../services/fileCreationService.js";
+import { NodeCollector } from "../services/nodeCollector.js";
+import { BulkCopier } from "../services/bulkCopier.js";
+import { ExportImportService } from "../services/exportImportService.js";
+import { FileAccessService } from "../services/fileAccessService.js";
 import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
@@ -122,6 +126,26 @@ export function createContainer(): SimpleDIContainer {
     const fileCreator = container.get(ServiceTokens.FileCreator);
     const inputService = container.get(ServiceTokens.InputService);
     return new FileCreationService(fileCreator, inputService);
+  });
+
+  // Register NodeCollector (depends on NodeService)
+  container.registerSingleton(ServiceTokens.NodeCollector, () => {
+    const nodeService = container.get(ServiceTokens.NodeService);
+    return new NodeCollector(nodeService);
+  });
+
+  // Register BulkCopier (depends on FileAccessService)
+  container.registerSingleton(ServiceTokens.BulkCopier, () => {
+    // FileAccessService is created directly, not from container
+    return new BulkCopier(new FileAccessService());
+  });
+
+  // Register ExportImportService (depends on FileAccessService, NodeCollector, BulkCopier)
+  container.registerSingleton(ServiceTokens.ExportImportService, () => {
+    const fileAccessService = new FileAccessService();
+    const nodeCollector = container.get(ServiceTokens.NodeCollector);
+    const bulkCopier = container.get(ServiceTokens.BulkCopier);
+    return new ExportImportService(fileAccessService, nodeCollector, bulkCopier);
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)

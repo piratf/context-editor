@@ -6,14 +6,13 @@
  */
 
 import * as vscode from "vscode";
-import type { ClaudeDataFacade } from "../services/dataFacade.js";
+import type { UnifiedProvider } from "../views/unifiedProvider.js";
 import type { SimpleDIContainer } from "../di/container.js";
 import type { ConfigurationService } from "../adapters/configuration.js";
 import type { DirectorySelector } from "../adapters/directorySelector.js";
-import type { FileSystemOperations } from "../adapters/fileSystem.js";
 import type { ProgressService } from "../adapters/progress.js";
 import type { UserInteraction } from "../adapters/ui.js";
-import { ExportImportService } from "../services/exportImportService.js";
+import { ServiceTokens } from "../di/tokens.js";
 import {
   validateExportConfig,
   createFilterFromConfig,
@@ -26,14 +25,12 @@ import {
 interface CommandContext {
   /** DI container */
   container: SimpleDIContainer;
-  /** Current data facade */
-  facade: ClaudeDataFacade;
+  /** Unified tree provider */
+  unifiedProvider: UnifiedProvider;
   /** Configuration service */
   config: ConfigurationService;
   /** Directory selector */
   directorySelector: DirectorySelector;
-  /** File system operations */
-  fileSystem: FileSystemOperations;
   /** Progress service */
   progress: ProgressService;
   /** User interaction */
@@ -48,28 +45,19 @@ interface CommandContext {
  */
 export async function executeExportCommand(
   container: SimpleDIContainer,
-  options: { facade?: ClaudeDataFacade; targetDirectory?: string }
+  options: { unifiedProvider: UnifiedProvider; targetDirectory?: string }
 ): Promise<void> {
   // Get services from container
-  const config = container.get<ConfigurationService>("ConfigurationService" as never);
-  const directorySelector = container.get<DirectorySelector>("DirectorySelector" as never);
-  const fileSystem = container.get<FileSystemOperations>("FileSystemOperations" as never);
-  const progress = container.get<ProgressService>("ProgressService" as never);
-  const ui = container.get<UserInteraction>("UserInteraction" as never);
-
-  // Get current facade from options or environment manager
-  const facade = options.facade;
-  if (!facade) {
-    ui.showError("错误", "无法获取当前环境信息");
-    return;
-  }
+  const config = container.get(ServiceTokens.ConfigurationService);
+  const directorySelector = container.get(ServiceTokens.DirectorySelector);
+  const progress = container.get(ServiceTokens.ProgressService);
+  const ui = container.get(ServiceTokens.UserInteraction);
 
   const context: CommandContext = {
     container,
-    facade,
+    unifiedProvider: options.unifiedProvider,
     config,
     directorySelector,
-    fileSystem,
     progress,
     ui,
   };
@@ -81,7 +69,7 @@ export async function executeExportCommand(
  * Perform export operation
  */
 async function performExport(context: CommandContext, targetDirectory?: string): Promise<void> {
-  const { config, directorySelector, ui, progress } = context;
+  const { config, directorySelector, ui, progress, container, unifiedProvider } = context;
 
   // Get export configuration from VS Code settings
   const exportConfigData = config.getExportConfig();
@@ -124,12 +112,15 @@ async function performExport(context: CommandContext, targetDirectory?: string):
   // Create filter from config
   const filter = createFilterFromConfig(exportConfig);
 
+  // Get root nodes from the unified provider
+  const rootNodes = await unifiedProvider.getChildren();
+
   // Perform export with progress
   try {
     const result = await progress.showProgress("导出配置", async (progress) => {
-      const service = new ExportImportService(context.fileSystem);
+      const service = container.get(ServiceTokens.ExportImportService);
       return service.export(
-        context.facade,
+        rootNodes,
         {
           targetDirectory: exportDir,
           filter,
@@ -158,28 +149,19 @@ async function performExport(context: CommandContext, targetDirectory?: string):
  */
 export async function executeImportCommand(
   container: SimpleDIContainer,
-  options: { facade?: ClaudeDataFacade; sourceDirectory?: string }
+  options: { unifiedProvider: UnifiedProvider; sourceDirectory?: string }
 ): Promise<void> {
   // Get services from container
-  const config = container.get<ConfigurationService>("ConfigurationService" as never);
-  const directorySelector = container.get<DirectorySelector>("DirectorySelector" as never);
-  const fileSystem = container.get<FileSystemOperations>("FileSystemOperations" as never);
-  const progress = container.get<ProgressService>("ProgressService" as never);
-  const ui = container.get<UserInteraction>("UserInteraction" as never);
-
-  // Get current facade from options or environment manager
-  const facade = options.facade;
-  if (!facade) {
-    ui.showError("错误", "无法获取当前环境信息");
-    return;
-  }
+  const config = container.get(ServiceTokens.ConfigurationService);
+  const directorySelector = container.get(ServiceTokens.DirectorySelector);
+  const progress = container.get(ServiceTokens.ProgressService);
+  const ui = container.get(ServiceTokens.UserInteraction);
 
   const context: CommandContext = {
     container,
-    facade,
+    unifiedProvider: options.unifiedProvider,
     config,
     directorySelector,
-    fileSystem,
     progress,
     ui,
   };
@@ -191,7 +173,7 @@ export async function executeImportCommand(
  * Perform import operation
  */
 async function performImport(context: CommandContext, sourceDirectory?: string): Promise<void> {
-  const { config, directorySelector, ui, progress } = context;
+  const { config, directorySelector, ui, progress, container, unifiedProvider } = context;
 
   // Determine source directory
   let importDir = sourceDirectory ?? config.getExportConfig().directory;
@@ -223,12 +205,15 @@ async function performImport(context: CommandContext, sourceDirectory?: string):
     return;
   }
 
+  // Get root nodes from the unified provider
+  const rootNodes = await unifiedProvider.getChildren();
+
   // Perform import with progress
   try {
     const result = await progress.showProgress("导入配置", async (progress) => {
-      const service = new ExportImportService(context.fileSystem);
+      const service = container.get(ServiceTokens.ExportImportService);
       return service.import(
-        context.facade,
+        rootNodes,
         {
           sourceDirectory: importDir,
           overwrite: true,
@@ -260,9 +245,9 @@ async function performImport(context: CommandContext, sourceDirectory?: string):
 export async function executeSelectExportDirectoryCommand(
   container: SimpleDIContainer
 ): Promise<void> {
-  const config = container.get<ConfigurationService>("ConfigurationService" as never);
-  const directorySelector = container.get<DirectorySelector>("DirectorySelector" as never);
-  const ui = container.get<UserInteraction>("UserInteraction" as never);
+  const config = container.get(ServiceTokens.ConfigurationService);
+  const directorySelector = container.get(ServiceTokens.DirectorySelector);
+  const ui = container.get(ServiceTokens.UserInteraction);
 
   const selected = await directorySelector.selectDirectory({
     title: "选择默认导出目录",
