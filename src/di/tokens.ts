@@ -6,7 +6,11 @@
  */
 
 import { ServiceToken } from "./container.js";
-import type { VsCodeClipboardService, VsCodeFolderOpener, UserInteraction } from "../adapters/ui.js";
+import type {
+  VsCodeClipboardService,
+  VsCodeFolderOpener,
+  UserInteraction,
+} from "../adapters/ui.js";
 import type {
   VsCodeFileDeleter,
   VsCodeDialogService,
@@ -20,6 +24,10 @@ import type { NodeService } from "../services/nodeService.js";
 import type { FileCreationService } from "../services/fileCreationService.js";
 import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
+import type { ConfigurationService } from "../adapters/configuration.js";
+import type { DirectorySelector } from "../adapters/directorySelector.js";
+import type { FileSystemOperations } from "../adapters/fileSystem.js";
+import type { ProgressService } from "../adapters/progress.js";
 
 /**
  * All service tokens for the DI container
@@ -35,6 +43,10 @@ export const ServiceTokens = {
   UserInteraction: new ServiceToken<UserInteraction>("UserInteraction"),
   FileCreator: new ServiceToken<FileCreator>("FileCreator"),
   InputService: new ServiceToken<InputService>("InputService"),
+  ConfigurationService: new ServiceToken<ConfigurationService>("ConfigurationService"),
+  DirectorySelector: new ServiceToken<DirectorySelector>("DirectorySelector"),
+  FileSystemOperations: new ServiceToken<FileSystemOperations>("FileSystemOperations"),
+  ProgressService: new ServiceToken<ProgressService>("ProgressService"),
 
   // Services (transient - business logic)
   CopyService: new ServiceToken<CopyService>("CopyService"),
