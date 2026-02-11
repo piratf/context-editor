@@ -9,17 +9,27 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { BaseProvider } from "./baseProvider.js";
-import { TreeNodeFactory, NodeType, type TreeNode } from "../types/treeNode.js";
+import * as vscode from "vscode";
+import { BaseProvider, type TreeNode } from "./baseProvider.js";
+import { NodeType } from "../types/nodeData.js";
+import { NodeDataFactory } from "../types/nodeData.js";
 import { EnvironmentManager } from "../services/environmentManager.js";
 import { Logger } from "../utils/logger.js";
+import type { DIContainer } from "../di/container.js";
+import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 
 /**
- * Root node type for unified view
+ * Helper function to convert TreeItem label to string
+ * TreeItem.label can be string | TreeItemLabel | undefined
  */
-enum RootNodeType {
-  GLOBAL = "global",
-  PROJECTS = "projects",
+function labelToString(label: string | vscode.TreeItemLabel | undefined): string {
+  if (typeof label === "string") {
+    return label;
+  }
+  if (label && typeof label === "object" && "label" in label) {
+    return label.label;
+  }
+  return "";
 }
 
 /**
@@ -28,14 +38,21 @@ enum RootNodeType {
 export class UnifiedProvider extends BaseProvider {
   private readonly environmentManager: EnvironmentManager;
 
-  constructor(environmentManager: EnvironmentManager, logger: Logger) {
-    super(logger);
+  constructor(
+    environmentManager: EnvironmentManager,
+    logger: Logger,
+    container: DIContainer,
+    treeItemFactory: TreeItemFactory
+  ) {
+    super(logger, container, treeItemFactory);
     this.environmentManager = environmentManager;
     this.loadRootNodes();
   }
 
   /**
    * Load root level nodes - exactly 2 nodes: Global Configuration and Projects
+   *
+   * Uses createVirtualNode for root nodes (no path = no menu items)
    */
   protected loadRootNodes(): void {
     this.logger.logEntry("loadRootNodes");
@@ -52,21 +69,19 @@ export class UnifiedProvider extends BaseProvider {
       const info = facade.getEnvironmentInfo();
       this.logger.debug("Current environment", { type: info.type, configPath: info.configPath } as Record<string, unknown>);
 
-      // Create Global Configuration root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
+      // Create Global Configuration root node (VIRTUAL - no path, no menu)
       this.rootNodes.push(
-        TreeNodeFactory.createDirectory("Global Configuration", "", {
+        NodeDataFactory.createVirtualNode("Global Configuration", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
-          contextValue: RootNodeType.GLOBAL,
         })
       );
 
-      // Create Projects root node (no icon - collapsible nodes should not have icons to avoid VS Code indentation issues)
+      // Create Projects root node (VIRTUAL - no path, no menu)
       this.rootNodes.push(
-        TreeNodeFactory.createDirectory("Projects", "", {
+        NodeDataFactory.createVirtualNode("Projects", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
-          contextValue: RootNodeType.PROJECTS,
         })
       );
 
@@ -81,25 +96,14 @@ export class UnifiedProvider extends BaseProvider {
   }
 
   /**
-   * Get options for node creation based on node type
-   */
-  protected getNodeOptions(element: TreeNode): {
-    isInsideClaudeDir?: boolean;
-    filterClaudeFiles?: boolean;
-  } {
-    // For project root nodes, enable Claude file filtering
-    if (element.contextValue === RootNodeType.PROJECTS) {
-      return { filterClaudeFiles: true };
-    }
-    return {} as Record<string, never>;
-  }
-
-  /**
    * Override getChildren to handle root nodes specially
+   *
+   * IMPORTANT: Check type FIRST before delegating to base class.
+   * We need special handling for ROOT type nodes (virtual root nodes).
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${element.label}" (${String(element.contextValue)})`,
+      element: element === undefined ? "root" : `"${labelToString(element.label)}" (${element.type})`,
     });
 
     // Return error node if loading failed
@@ -113,13 +117,15 @@ export class UnifiedProvider extends BaseProvider {
       return this.rootNodes;
     }
 
-    // Handle root node children - load actual content
-    if (element.contextValue === RootNodeType.GLOBAL) {
-      return this.getGlobalChildren();
-    }
-
-    if (element.contextValue === RootNodeType.PROJECTS) {
-      return this.getProjectsChildren();
+    // Handle virtual root nodes - load actual content by index
+    // Root nodes don't have contextValue anymore, they're identified by their label
+    if (element.type === NodeType.ROOT) {
+      if (element.label === "Global Configuration") {
+        return this.getGlobalChildren();
+      }
+      if (element.label === "Projects") {
+        return this.getProjectsChildren();
+      }
     }
 
     // For other nodes, use the base class implementation
@@ -148,7 +154,7 @@ export class UnifiedProvider extends BaseProvider {
       // Add ~/.claude.json file
       if (hasConfig) {
         children.push(
-          TreeNodeFactory.createClaudeJson("~/.claude.json", info.configPath, {
+          NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
             tooltip: info.configPath,
           })
         );
@@ -159,7 +165,7 @@ export class UnifiedProvider extends BaseProvider {
       const hasClaudeDir = await this.directoryExists(claudeDir);
       if (hasClaudeDir) {
         children.push(
-          TreeNodeFactory.createDirectory("~/.claude", claudeDir, {
+          NodeDataFactory.createDirectory("~/.claude", claudeDir, {
             collapsibleState: 1,
             tooltip: claudeDir,
           })
@@ -187,6 +193,9 @@ export class UnifiedProvider extends BaseProvider {
 
   /**
    * Get children for Projects node
+   *
+   * Project directories are REAL file system nodes with paths,
+   * so they can show the full context menu including "Open in New Window".
    */
   private async getProjectsChildren(): Promise<TreeNode[]> {
     this.logger.debug("getProjectsChildren called");
@@ -213,15 +222,16 @@ export class UnifiedProvider extends BaseProvider {
       }
 
       // Create directory nodes for each project
+      // Project directories are REAL file system nodes - they have paths and can be opened
       for (const project of projects) {
         const projectName = this.getProjectName(project.path);
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
 
         children.push(
-          TreeNodeFactory.createDirectory(projectName, project.path, {
+          NodeDataFactory.createDirectory(projectName, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
-            contextValue: "project",
+            // Don't set contextValue - let the command system generate it dynamically
           })
         );
       }

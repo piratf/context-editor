@@ -52,6 +52,36 @@
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyName",
+        "title": "Copy Name",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.copyPath",
+        "title": "Copy Path",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.delete",
+        "title": "Delete",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.openVscode",
+        "title": "Open in New Window",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.createFile",
+        "title": "Create File",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.createFolder",
+        "title": "Create Folder",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -84,17 +114,49 @@
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "contextEditor.copyName",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )hasNameToCopy($| )/",
+          "group": "1_copy@1"
+        },
+        {
+          "command": "contextEditor.copyPath",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )hasCopyablePath($| )/",
+          "group": "1_copy@2"
+        },
+        {
+          "command": "contextEditor.openVscode",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )canOpenInVscode($| )/",
+          "group": "2_open@1"
+        },
+        {
+          "command": "contextEditor.createFile",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )canCreateFile($| )/",
+          "group": "3_create@1"
+        },
+        {
+          "command": "contextEditor.createFolder",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )canCreateFolder($| )/",
+          "group": "3_create@2"
+        },
+        {
+          "command": "contextEditor.delete",
+          "when": "view == contextEditorUnified && viewItem =~ /(^| )canDelete($| )/",
+          "group": "4_delete@1"
+        }
       ]
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && rm -rf out/resources && cp -r resources out/",
+    "compile": "rm -rf out/ && tsc -p ./ && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "test": "node ./out/test/runTest.js",
+    "test": "node --test out/test/unit/**/*.test.js",
     "prepare": "husky"
   },
   "devDependencies": {

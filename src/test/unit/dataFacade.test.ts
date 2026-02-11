@@ -5,7 +5,9 @@
  * Tests project normalization through getProjects() public API, not private methods.
  */
 
+/* eslint-disable @typescript-eslint/no-floating-promises */
 import * as assert from "node:assert";
+import { describe, it } from "node:test";
 import {
   BaseDataFacade,
   EnvironmentType,
@@ -50,9 +52,9 @@ class TestDataFacade extends BaseDataFacade {
   }
 }
 
-suite("DataFacade", () => {
-  suite("EnvironmentInfo", () => {
-    test("should store environment type and config path", () => {
+describe("DataFacade", () => {
+  describe("EnvironmentInfo", () => {
+    it("should store environment type and config path", () => {
       const info: EnvironmentInfo = {
         type: EnvironmentType.Windows,
         configPath: "C:\\Users\\test\\.claude.json",
@@ -62,7 +64,7 @@ suite("DataFacade", () => {
       assert.strictEqual(info.configPath, "C:\\Users\\test\\.claude.json");
     });
 
-    test("should include WSL instance name when provided", () => {
+    it("should include WSL instance name when provided", () => {
       const info: EnvironmentInfo = {
         type: EnvironmentType.WSL,
         configPath: "\\\\wsl.localhost\\Ubuntu\\home\\test\\.claude.json",
@@ -73,8 +75,8 @@ suite("DataFacade", () => {
     });
   });
 
-  suite("BaseDataFacade - constructor and properties", () => {
-    test("should create facade with environment info", () => {
+  describe("BaseDataFacade - constructor and properties", () => {
+    it("should create facade with environment info", () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -89,7 +91,7 @@ suite("DataFacade", () => {
       assert.strictEqual(facade.getEnvironmentInfo().configPath, "/home/test/.claude.json");
     });
 
-    test("should return config path", () => {
+    it("should return config path", () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -103,7 +105,7 @@ suite("DataFacade", () => {
       assert.strictEqual(facade.getConfigPath(), "/home/test/.claude.json");
     });
 
-    test("should report accessibility status", () => {
+    it("should report accessibility status", () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -121,8 +123,8 @@ suite("DataFacade", () => {
     });
   });
 
-  suite("BaseDataFacade - getProjects()", () => {
-    test("should return project list from array format", async () => {
+  describe("BaseDataFacade - getProjects()", () => {
+    it("should return project list from array format", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -143,7 +145,7 @@ suite("DataFacade", () => {
       assert.strictEqual(projects[1]?.path, "/home/test/p2");
     });
 
-    test("should normalize record format projects to array format", async () => {
+    it("should normalize record format projects to array format", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -176,7 +178,7 @@ suite("DataFacade", () => {
       assert.ok(projects[1]?.mcpServers);
     });
 
-    test("should extract project state from record format", async () => {
+    it("should extract project state from record format", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -201,7 +203,7 @@ suite("DataFacade", () => {
       assert.deepStrictEqual(projects[0]?.state?.allowedTools, ["Bash", "Read", "Write"]);
     });
 
-    test("should extract mcpServers from record format", async () => {
+    it("should extract mcpServers from record format", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -225,7 +227,7 @@ suite("DataFacade", () => {
       assert.ok("test-server" in projects[0].mcpServers);
     });
 
-    test("should handle empty project list", async () => {
+    it("should handle empty project list", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -241,7 +243,7 @@ suite("DataFacade", () => {
       assert.strictEqual(projects.length, 0);
     });
 
-    test("should handle null project list", async () => {
+    it("should handle null project list", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -257,7 +259,7 @@ suite("DataFacade", () => {
       assert.strictEqual(projects.length, 0);
     });
 
-    test("should handle undefined project list", async () => {
+    it("should handle undefined project list", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -273,7 +275,7 @@ suite("DataFacade", () => {
       assert.strictEqual(projects.length, 0);
     });
 
-    test("should skip invalid entries in record format", async () => {
+    it("should skip invalid entries in record format", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -298,8 +300,8 @@ suite("DataFacade", () => {
     });
   });
 
-  suite("BaseDataFacade - getGlobalConfig()", () => {
-    test("should get top-level config value", async () => {
+  describe("BaseDataFacade - getGlobalConfig()", () => {
+    it("should get top-level config value", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -317,7 +319,7 @@ suite("DataFacade", () => {
       assert.ok(typeof value === "object");
     });
 
-    test("should get nested config value with dot notation", async () => {
+    it("should get nested config value with dot notation", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -335,7 +337,7 @@ suite("DataFacade", () => {
       assert.strictEqual(value, "dark");
     });
 
-    test("should return undefined for non-existent key", async () => {
+    it("should return undefined for non-existent key", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -351,7 +353,7 @@ suite("DataFacade", () => {
       assert.strictEqual(value, undefined);
     });
 
-    test("should return undefined for non-existent nested key", async () => {
+    it("should return undefined for non-existent nested key", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -370,8 +372,8 @@ suite("DataFacade", () => {
     });
   });
 
-  suite("BaseDataFacade - getProjectContextFiles()", () => {
-    test("should return context file suggestions for existing project", async () => {
+  describe("BaseDataFacade - getProjectContextFiles()", () => {
+    it("should return context file suggestions for existing project", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -388,7 +390,7 @@ suite("DataFacade", () => {
       assert.ok(Array.isArray(files));
     });
 
-    test("should return empty array for non-existent project", async () => {
+    it("should return empty array for non-existent project", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",
@@ -405,8 +407,8 @@ suite("DataFacade", () => {
     });
   });
 
-  suite("BaseDataFacade - refresh()", () => {
-    test("should reload config and return updated projects", async () => {
+  describe("BaseDataFacade - refresh()", () => {
+    it("should reload config and return updated projects", async () => {
       const envInfo: EnvironmentInfo = {
         type: EnvironmentType.Linux,
         configPath: "/home/test/.claude.json",

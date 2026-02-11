@@ -6,12 +6,17 @@
  * - Provides environment switching functionality
  * - Notifies subscribers when environment changes
  * - Defaults to native facade (current environment)
+ *
+ * Architecture:
+ * - Business logic completely decoupled from VS Code
+ * - UI interactions injected via UserInteraction interface
+ * - Can be unit tested with mock implementations
  */
 
-import * as vscode from "vscode";
 import * as events from "node:events";
 import type { ClaudeDataFacade } from "./dataFacade.js";
 import type { ConfigSearch } from "./configSearch.js";
+import type { UserInteraction, QuickPickItem } from "../adapters/ui.js";
 
 /**
  * Environment selection event data
@@ -28,10 +33,12 @@ export interface EnvironmentChangeEvent {
 export class EnvironmentManager extends events.EventEmitter {
   private configSearch: ConfigSearch;
   private currentFacade: ClaudeDataFacade | null = null;
+  private userInteraction: UserInteraction;
 
-  constructor(configSearch: ConfigSearch) {
+  constructor(configSearch: ConfigSearch, userInteraction: UserInteraction) {
     super();
     this.configSearch = configSearch;
+    this.userInteraction = userInteraction;
 
     // Default to native facade (first facade, which should be native)
     this.selectDefaultEnvironment();
@@ -142,16 +149,19 @@ export class EnvironmentManager extends events.EventEmitter {
 
   /**
    * Show quick pick to switch environment
+   *
+   * Uses injected UserInteraction for UI operations
+   * Returns selected facade index or -1 if cancelled
    */
-  async showEnvironmentQuickPick(): Promise<void> {
+  async showEnvironmentQuickPick(): Promise<number> {
     const facades = this.getAllFacades();
 
     if (facades.length === 0) {
-      await vscode.window.showInformationMessage("No environments found.");
-      return;
+      await this.userInteraction.showInformationMessage("No environments found.");
+      return -1;
     }
 
-    const items = facades.map((facade, index) => {
+    const items: QuickPickItem<number>[] = facades.map((facade, index) => {
       const info = facade.getEnvironmentInfo();
       const displayName = this.getEnvironmentDisplayName(info.type, info.instanceName);
       const isCurrent = facade === this.currentFacade;
@@ -159,19 +169,22 @@ export class EnvironmentManager extends events.EventEmitter {
       return {
         label: displayName,
         description: isCurrent ? "$(check) Current" : "",
-        index,
+        data: index,
       };
     });
 
-    const selected = await vscode.window.showQuickPick(items, {
+    const selected = await this.userInteraction.showQuickPick(items, {
       title: "Select Environment",
       placeHolder: "Choose an environment to display",
     });
 
-    if (selected !== undefined) {
-      this.setFacadeByIndex(selected.index);
-      await vscode.env.clipboard.writeText(selected.label);
+    if (selected !== undefined && selected.data !== undefined) {
+      this.setFacadeByIndex(selected.data);
+      await this.userInteraction.writeText(selected.label);
+      return selected.data;
     }
+
+    return -1;
   }
 
   /**
@@ -195,12 +208,40 @@ export class EnvironmentManager extends events.EventEmitter {
 
   /**
    * Update the config search (e.g., after refresh)
+   * Preserves the current environment selection by matching environment info
    */
   updateConfigSearch(configSearch: ConfigSearch): void {
+    // Save current environment info BEFORE updating configSearch
+    let previousEnvInfo: { type: import("./dataFacade.js").EnvironmentType; instanceName: string | undefined } | null = null;
+
+    if (this.currentFacade !== null) {
+      const info = this.currentFacade.getEnvironmentInfo();
+      previousEnvInfo = {
+        type: info.type,
+        instanceName: info.instanceName,
+      };
+    }
+
     this.configSearch = configSearch;
 
-    // If current facade is no longer available, select default
+    // Try to restore the previous environment by matching environment info
     const facades = this.configSearch.getAllFacades();
+
+    if (previousEnvInfo !== null) {
+      // Find facade with matching environment info
+      const matchingFacade = facades.find((f) => {
+        const info = f.getEnvironmentInfo();
+        return info.type === previousEnvInfo.type && info.instanceName === previousEnvInfo.instanceName;
+      });
+
+      if (matchingFacade !== undefined) {
+        // Restore the matching facade (same environment, different object reference)
+        this.currentFacade = matchingFacade;
+        return;
+      }
+    }
+
+    // If no match found or no previous environment, select default
     if (this.currentFacade === null || !facades.includes(this.currentFacade)) {
       this.selectDefaultEnvironment();
     }
