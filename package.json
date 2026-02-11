@@ -112,7 +112,7 @@
       {
         "command": "contextEditor.exportConfig",
         "title": "导出配置",
-        "icon": "$(export-file)",
+        "icon": "$(export)",
         "category": "Context Editor"
       },
       {

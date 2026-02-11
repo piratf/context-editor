@@ -22,6 +22,9 @@ import type { DeleteService } from "../services/deleteService.js";
 import type { OpenVscodeService } from "../services/openVscodeService.js";
 import type { NodeService } from "../services/nodeService.js";
 import type { FileCreationService } from "../services/fileCreationService.js";
+import type { NodeCollector } from "../services/nodeCollector.js";
+import type { BulkCopier } from "../services/bulkCopier.js";
+import type { ExportImportService } from "../services/exportImportService.js";
 import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { ConfigurationService } from "../adapters/configuration.js";
@@ -54,6 +57,9 @@ export const ServiceTokens = {
   OpenVscodeService: new ServiceToken<OpenVscodeService>("OpenVscodeService"),
   NodeService: new ServiceToken<NodeService>("NodeService"),
   FileCreationService: new ServiceToken<FileCreationService>("FileCreationService"),
+  NodeCollector: new ServiceToken<NodeCollector>("NodeCollector"),
+  BulkCopier: new ServiceToken<BulkCopier>("BulkCopier"),
+  ExportImportService: new ServiceToken<ExportImportService>("ExportImportService"),
 
   // Menu and Factory
   ContextMenuRegistry: new ServiceToken<ContextMenuRegistry>("ContextMenuRegistry"),

@@ -1,205 +1,184 @@
 /**
  * Export/Import Service
  *
- * Handles export and import of Claude configuration files.
- * Organizes exported files by environment type (windows, wsl, macos, linux).
+ * Handles export and import of Claude configuration files using
+ * node tree traversal instead of JSON serialization.
+ *
+ * Export directory structure:
+ * <export-dir>/
+ *   global/                # Global configuration files
+ *     .claude.json
+ *     .claude/
+ *       settings.json
+ *       ...
+ *   projects/              # Project files
+ *     [project-name]/
+ *       .claude/
+ *       CLAUDE.md
+ *       ...
  */
 
 import * as path from "node:path";
-import type { ClaudeDataFacade } from "./dataFacade.js";
-import type { FileSystemOperations } from "../adapters/fileSystem.js";
+import type { NodeData } from "../types/nodeData.js";
 import type { Progress } from "../adapters/progress.js";
-import type { SimpleUri } from "../adapters/vscode.js";
+import type { FileNode } from "./nodeCollector.js";
+import { NodeCollector } from "./nodeCollector.js";
+import { BulkCopier } from "./bulkCopier.js";
+import type { FileAccessService } from "./fileAccessService.js";
 import type {
   ExportOptions,
   ImportOptions,
   ExportResult,
   ImportResult,
 } from "../types/configSchema.js";
-import {
-  getEnvironmentDirectoryName,
-  joinPathParts,
-  detectPathFormat,
-  normalizePathSeparators,
-  PathFormat,
-} from "../types/configSchema.js";
 
 /**
- * Export/Import service
+ * Export/Import service using node tree traversal
  */
 export class ExportImportService {
-  constructor(private readonly fileSystem: FileSystemOperations) {}
+  constructor(
+    private readonly fileAccessService: FileAccessService,
+    private readonly nodeCollector: NodeCollector,
+    private readonly bulkCopier: BulkCopier
+  ) {}
 
   /**
-   * Get environment display name
-   */
-  private getEnvironmentDisplayName(envInfo: { type: string }): string {
-    const type = envInfo.type.toLowerCase();
-    const typeNames: Record<string, string> = {
-      windows: "Windows",
-      wsl: "WSL",
-      macos: "macOS",
-      darwin: "macOS",
-      linux: "Linux",
-    };
-    return typeNames[type] ?? type;
-  }
-
-  /**
-   * Export configuration to target directory
+   * Export configuration to target directory using node tree traversal
    *
-   * @param facade - Data facade for current environment
+   * @param rootNodes - Root nodes from the tree view
    * @param options - Export options
    * @param progress - Progress reporter
    * @returns Export result
    */
   async export(
-    facade: ClaudeDataFacade,
+    rootNodes: readonly NodeData[],
     options: ExportOptions,
     progress?: Progress
   ): Promise<ExportResult> {
-    const exportedFiles: string[] = [];
     const targetDir = options.targetDirectory;
 
-    // Get environment info
-    const envInfo = facade.getEnvironmentInfo();
-    const envDirName = getEnvironmentDirectoryName(envInfo.type);
-    const envDisplayName = this.getEnvironmentDisplayName(envInfo);
+    progress?.report("准备导出配置...");
 
-    progress?.report(`准备导出 ${envDisplayName} 配置...`);
+    // Collect all file nodes from the tree
+    const collectionResult = await this.nodeCollector.collectFromRoots(rootNodes);
 
-    // Create environment-specific directory
-    const envDir = joinPathParts([targetDir, envDirName], this.useWindowsSeparators(targetDir));
-    await this.ensureDirectoryExists(envDir);
-
-    progress?.report(`正在导出配置文件...`);
-
-    // Get all file paths from the facade
-    const filePaths = await this.collectAllFilePaths(facade);
+    progress?.report(
+      `找到 ${String(collectionResult.files.length)} 个文件 ` +
+        `(全局: ${String(collectionResult.counts.global)}, ` +
+        `项目: ${String(collectionResult.counts.projects)})`
+    );
 
     // Copy files to export directory
-    let fileCount = 0;
-    for (const filePath of filePaths) {
-      // Apply filter if provided
-      if (options.filter) {
-        const filterContext = {
-          path: filePath,
-          name: path.basename(filePath),
-          parentPath: path.dirname(filePath),
-          isDirectory: false,
-          pathSep: path.sep,
-        };
-        const result = await options.filter.evaluate(filterContext);
-        if (!result.include) {
-          continue; // Skip filtered files
-        }
-      }
-
-      // Calculate relative path from config root
-      const configPath = envInfo.configPath;
-      const relativePath = this.getRelativePath(filePath, configPath);
-
-      // Create target path
-      const targetFilePath = joinPathParts(
-        [envDir, relativePath],
-        this.useWindowsSeparators(targetDir)
-      );
-
-      // Copy file
-      const success = await this.copyFile(filePath, targetFilePath);
-      if (success) {
-        exportedFiles.push(targetFilePath);
-        fileCount++;
-      }
-
-      progress?.report(`已导出 ${String(fileCount)} 个文件...`, fileCount);
-    }
+    const copyResult = await this.bulkCopier.copyFiles(
+      collectionResult.files,
+      targetDir,
+      options.filter
+        ? {
+            overwrite: false,
+            filter: (file: FileNode) => {
+              // Apply the filter from config
+              const filterContext = {
+                path: file.path,
+                name: file.label,
+                parentPath: file.parentPath,
+                isDirectory: false,
+                pathSep: path.sep,
+              };
+              const filter = options.filter;
+              if (!filter) {
+                return true;
+              }
+              const result = filter.evaluate(filterContext);
+              // Handle both sync and async filters
+              return result instanceof Promise ? false : result.include;
+            },
+          }
+        : {
+            overwrite: false,
+          },
+      progress
+    );
 
     // Create .gitignore if requested
     if (options.createGitignore) {
-      await this.createGitignore(envDir);
+      await this.bulkCopier.createGitignore(targetDir);
     }
 
-    progress?.report(`导出完成！共 ${String(fileCount)} 个文件。`);
+    progress?.report(
+      `导出完成！成功 ${String(copyResult.successCount)} 个` +
+        (copyResult.failCount > 0 ? `，失败 ${String(copyResult.failCount)} 个` : "")
+    );
 
     return {
-      fileCount,
+      fileCount: copyResult.successCount,
       exportPath: targetDir,
-      exportedFiles,
+      exportedFiles: copyResult.copied,
     };
   }
 
   /**
    * Import configuration from source directory
    *
-   * @param facade - Data facade for current environment
+   * Reads exported files and copies them back to their original locations.
+   *
+   * @param rootNodes - Root nodes from the tree view (for context)
    * @param options - Import options
    * @param progress - Progress reporter
    * @returns Import result
    */
   async import(
-    facade: ClaudeDataFacade,
+    rootNodes: readonly NodeData[],
     options: ImportOptions,
     progress?: Progress
   ): Promise<ImportResult> {
-    const importedFiles: string[] = [];
-    const skippedFiles: string[] = [];
+    const sourceDir = options.sourceDirectory;
 
-    // Get environment info
-    const envInfo = facade.getEnvironmentInfo();
-    const envDirName = getEnvironmentDirectoryName(envInfo.type);
-    const envDisplayName = this.getEnvironmentDisplayName(envInfo);
+    progress?.report("准备导入配置...");
 
-    progress?.report(`准备从 ${options.sourceDirectory} 导入 ${envDisplayName} 配置...`);
+    // Collect file nodes to understand what should be imported
+    const collectionResult = await this.nodeCollector.collectFromRoots(rootNodes);
 
-    // Get environment-specific source directory
-    const sourceEnvDir = joinPathParts(
-      [options.sourceDirectory, envDirName],
-      this.useWindowsSeparators(options.sourceDirectory)
-    );
+    progress?.report(`检测到 ${String(collectionResult.files.length)} 个配置文件`);
 
-    // Check if source directory exists
-    const sourceUri = { path: sourceEnvDir };
-    const sourceExists = await this.fileSystem.exists(sourceUri);
+    // Map exported files back to their original locations
+    const importFiles = await this.mapImportFiles(collectionResult.files, sourceDir);
 
-    if (!sourceExists) {
-      throw new Error(`源目录不存在: ${sourceEnvDir}`);
-    }
+    // Filter out files that don't exist in export
+    const filesToImport = importFiles.filter((f) => f.exportExists);
 
-    // Collect all files from source directory
-    const sourceFiles = await this.collectSourceFiles(sourceEnvDir);
-
-    progress?.report(`找到 ${String(sourceFiles.length)} 个文件待导入...`);
+    progress?.report(`找到 ${String(filesToImport.length)} 个文件待导入`);
 
     let importCount = 0;
     let skipCount = 0;
+    const importedFiles: string[] = [];
+    const skippedFiles: string[] = [];
 
-    for (const sourceFile of sourceFiles) {
-      // Calculate target path (relative to config root)
-      const relativePath = this.getRelativePath(sourceFile, sourceEnvDir);
-      const targetPath = path.join(envInfo.configPath, relativePath);
-
+    // Import files
+    for (const importFile of filesToImport) {
       // Check if target exists
-      const targetUri = { path: targetPath };
-      const targetExists = await this.fileSystem.exists(targetUri);
+      const targetExists = await this.fileAccessService.fileExists(importFile.targetPath);
 
       if (targetExists && options.overwrite !== true) {
-        skippedFiles.push(sourceFile);
+        skippedFiles.push(importFile.targetPath);
         skipCount++;
         continue;
       }
 
-      // Copy file
-      const success = await this.copyFile(sourceFile, targetPath);
+      // Perform copy
+      const success = await this.copyFile(importFile.exportPath, importFile.targetPath);
+
       if (success) {
-        importedFiles.push(targetPath);
+        importedFiles.push(importFile.targetPath);
         importCount++;
       }
 
-      progress?.report(`已导入 ${String(importCount)} 个文件...`, importCount);
+      progress?.report(`已导入 ${String(importCount)}/${String(filesToImport.length)} 个文件...`);
     }
 
-    progress?.report(`导入完成！成功 ${String(importCount)} 个，跳过 ${String(skipCount)} 个。`);
+    progress?.report(
+      `导入完成！成功 ${String(importCount)} 个` +
+        (skipCount > 0 ? `，跳过 ${String(skipCount)} 个` : "")
+    );
 
     return {
       fileCount: importCount,
@@ -210,70 +189,41 @@ export class ExportImportService {
   }
 
   /**
-   * Determine if target directory uses Windows path separators
+   * Map exported files back to their original locations
    */
-  private useWindowsSeparators(targetPath: string): boolean {
-    const format = detectPathFormat(targetPath);
-    return format === PathFormat.Windows || format === PathFormat.Unc;
+  private async mapImportFiles(
+    files: readonly FileNode[],
+    exportDir: string
+  ): Promise<
+    readonly {
+      readonly file: FileNode;
+      readonly exportPath: string;
+      readonly targetPath: string;
+      readonly exportExists: boolean;
+    }[]
+  > {
+    const bulkCopier = new BulkCopier(this.fileAccessService);
+
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const pathMapping = bulkCopier.calculatePathMapping(file, exportDir);
+        const exportPath = pathMapping.destPath;
+        const exportExists = await this.fileAccessService.fileExists(exportPath);
+
+        return {
+          file,
+          exportPath,
+          targetPath: file.path,
+          exportExists,
+        };
+      })
+    );
+
+    return results;
   }
 
   /**
-   * Ensure directory exists, create if not
-   */
-  private async ensureDirectoryExists(dirPath: string): Promise<void> {
-    const uri = { path: dirPath };
-    const exists = await this.fileSystem.exists(uri);
-
-    if (!exists) {
-      await this.fileSystem.createDirectory(uri);
-    }
-  }
-
-  /**
-   * Collect all file paths from the facade
-   */
-  private async collectAllFilePaths(facade: ClaudeDataFacade): Promise<string[]> {
-    const filePaths: string[] = [];
-
-    // Get config file path
-    const envInfo = facade.getEnvironmentInfo();
-    filePaths.push(envInfo.configPath);
-
-    // Get projects from facade
-    const projects = await facade.getProjects();
-    for (const project of projects) {
-      // Add project path itself
-      filePaths.push(project.path);
-    }
-
-    return filePaths;
-  }
-
-  /**
-   * Collect all files from source directory recursively
-   */
-  private async collectSourceFiles(sourceDir: string): Promise<string[]> {
-    const files: string[] = [];
-    const sourceUri = { path: sourceDir };
-
-    const entries = await this.fileSystem.readDirectory(sourceUri);
-
-    for (const entry of entries) {
-      const entryPath = path.join(sourceDir, entry.name);
-
-      if (entry.isDirectory) {
-        const subFiles = await this.collectSourceFiles(entryPath);
-        files.push(...subFiles);
-      } else {
-        files.push(entryPath);
-      }
-    }
-
-    return files;
-  }
-
-  /**
-   * Copy a file from source to destination
+   * Copy a single file from source to destination
    */
   private async copyFile(sourcePath: string, targetPath: string): Promise<boolean> {
     try {
@@ -281,57 +231,59 @@ export class ExportImportService {
       const targetDir = path.dirname(targetPath);
       await this.ensureDirectoryExists(targetDir);
 
-      // Copy file
-      const sourceUri: SimpleUri = { path: sourcePath };
-      const targetUri: SimpleUri = { path: targetPath };
+      // Read and write file
+      const content = await this.fileAccessService.readFile(sourcePath, "utf-8");
+      await this.writeFile(targetPath, content);
 
-      await this.fileSystem.copyFile(sourceUri, targetUri);
       return true;
     } catch {
-      // Log error but continue
       return false;
     }
   }
 
   /**
-   * Get relative path from base
+   * Ensure directory exists, create if not
    */
-  private getRelativePath(filePath: string, basePath: string): string {
-    // Normalize paths
-    const normalizedBase = normalizePathSeparators(basePath, false);
-    const normalizedFile = normalizePathSeparators(filePath, false);
-
-    if (normalizedFile.startsWith(normalizedBase)) {
-      let relativePath = normalizedFile.slice(normalizedBase.length);
-      // Remove leading separator
-      if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
-        relativePath = relativePath.slice(1);
-      }
-      return relativePath;
+  private async ensureDirectoryExists(dirPath: string): Promise<void> {
+    const exists = await this.fileAccessService.directoryExists(dirPath);
+    if (!exists) {
+      await this.createDirectoryRecursive(dirPath);
     }
-
-    // Fallback: return filename only
-    return path.basename(filePath);
   }
 
   /**
-   * Create .gitignore file in export directory
+   * Create directory recursively
    */
-  private async createGitignore(dirPath: string): Promise<void> {
-    const gitignorePath = path.join(dirPath, ".gitignore");
-    const gitignoreUri: SimpleUri = { path: gitignorePath };
+  private async createDirectoryRecursive(dirPath: string): Promise<void> {
+    const parts = dirPath.split(/[/\\]/);
+    let currentPath = "";
 
-    // Check if .gitignore already exists
-    const exists = await this.fileSystem.exists(gitignoreUri);
-    if (exists) {
-      return; // Don't overwrite existing .gitignore
+    for (const part of parts) {
+      if (part === "") continue;
+
+      currentPath = currentPath === "" ? part : path.join(currentPath, part);
+
+      const exists = await this.fileAccessService.directoryExists(currentPath);
+      if (!exists) {
+        await this.makeDirectory(currentPath);
+      }
     }
+  }
 
-    const content = new TextEncoder().encode(
-      "# Ignore Claude local settings\n.settings.local.yaml\n"
-    );
+  /**
+   * Create a single directory
+   */
+  private async makeDirectory(dirPath: string): Promise<void> {
+    const fs = await import("node:fs/promises");
+    await fs.mkdir(dirPath, { recursive: true });
+  }
 
-    await this.fileSystem.writeFile(gitignoreUri, content);
+  /**
+   * Write file content
+   */
+  private async writeFile(filePath: string, content: string): Promise<void> {
+    const fs = await import("node:fs/promises");
+    await fs.writeFile(filePath, content, "utf-8");
   }
 }
 
@@ -339,7 +291,8 @@ export class ExportImportService {
  * Factory for creating export/import service instances
  */
 export const ExportImportServiceFactory = {
-  create(fileSystem: FileSystemOperations): ExportImportService {
-    return new ExportImportService(fileSystem);
+  create(fileAccessService: FileAccessService, nodeCollector: NodeCollector): ExportImportService {
+    const bulkCopier = new BulkCopier(fileAccessService);
+    return new ExportImportService(fileAccessService, nodeCollector, bulkCopier);
   },
 } as const;

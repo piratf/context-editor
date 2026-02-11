@@ -204,12 +204,7 @@ function registerCommands(
     "contextEditor.exportConfig",
     async () => {
       logger.debug("Export config command triggered");
-      const currentFacade = envManager.getCurrentFacade();
-      if (!currentFacade) {
-        vscode.window.showErrorMessage("无法获取当前环境信息");
-        return;
-      }
-      await executeExportCommand(container, { facade: currentFacade });
+      await executeExportCommand(container, { unifiedProvider });
     }
   );
   context.subscriptions.push(exportConfigCommand);
@@ -219,12 +214,7 @@ function registerCommands(
     "contextEditor.importConfig",
     async () => {
       logger.debug("Import config command triggered");
-      const currentFacade = envManager.getCurrentFacade();
-      if (!currentFacade) {
-        vscode.window.showErrorMessage("无法获取当前环境信息");
-        return;
-      }
-      await executeImportCommand(container, { facade: currentFacade });
+      await executeImportCommand(container, { unifiedProvider });
     }
   );
   context.subscriptions.push(importConfigCommand);
