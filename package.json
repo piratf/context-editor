@@ -30,6 +30,32 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Context Editor",
+      "properties": {
+        "contextEditor.export.directory": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "导出配置的目标目录路径。支持 **Unix** (`/home/user/export`)、**Windows** (`C:\\Users\\user\\export`) 和 **UNC** (`\\\\server\\share`) 格式的绝对路径。",
+          "pattern": "^(|[/\\\\].*|[A-Za-z]:\\\\.*|\\\\\\\\[^\\\\]+\\\\.*)$",
+          "patternErrorMessage": "必须是绝对路径（Unix: /path/to/dir, Windows: C:\\path\\to\\dir 或 \\\\server\\share）或为空"
+        },
+        "contextEditor.export.filters": {
+          "type": "array",
+          "default": [],
+          "description": "导出时过滤文件的正则表达式模式（空数组表示全部导出）",
+          "items": {
+            "type": "string",
+            "description": "正则表达式模式"
+          }
+        },
+        "contextEditor.export.createGitignore": {
+          "type": "boolean",
+          "default": true,
+          "description": "导出时自动创建 .gitignore 文件（排除 .settings.local.yaml）"
+        }
+      }
+    },
     "commands": [
       {
         "command": "contextEditor.refresh",
@@ -82,6 +108,23 @@
         "command": "contextEditor.createFolder",
         "title": "Create Folder",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.exportConfig",
+        "title": "导出配置",
+        "icon": "$(export-file)",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.importConfig",
+        "title": "导入配置",
+        "icon": "$(download)",
+        "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.selectExportDirectory",
+        "title": "选择导出目录",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -113,6 +156,16 @@
           "command": "contextEditor.titleEnvironmentSwitch",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
+        },
+        {
+          "command": "contextEditor.exportConfig",
+          "when": "view == contextEditorUnified",
+          "group": "navigation@3"
+        },
+        {
+          "command": "contextEditor.importConfig",
+          "when": "view == contextEditorUnified",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

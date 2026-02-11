@@ -19,6 +19,11 @@ import { VsCodeUserInteraction } from "./adapters/ui.js";
 import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
 import { ServiceTokens } from "./di/tokens.js";
+import {
+  executeExportCommand,
+  executeImportCommand,
+  executeSelectExportDirectoryCommand,
+} from "./commands/exportImportCommands.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -188,13 +193,51 @@ function registerCommands(
       } catch (error) {
         const errorObj = error instanceof Error ? error : new Error(String(error));
         logger.error("Failed to open file", errorObj);
-        vscode.window.showErrorMessage(
-          `Failed to open file: ${errorObj.message}`
-        );
+        vscode.window.showErrorMessage(`Failed to open file: ${errorObj.message}`);
       }
     }
   );
   context.subscriptions.push(openFileCommand);
+
+  // Export configuration command
+  const exportConfigCommand = vscode.commands.registerCommand(
+    "contextEditor.exportConfig",
+    async () => {
+      logger.debug("Export config command triggered");
+      const currentFacade = envManager.getCurrentFacade();
+      if (!currentFacade) {
+        vscode.window.showErrorMessage("无法获取当前环境信息");
+        return;
+      }
+      await executeExportCommand(container, { facade: currentFacade });
+    }
+  );
+  context.subscriptions.push(exportConfigCommand);
+
+  // Import configuration command
+  const importConfigCommand = vscode.commands.registerCommand(
+    "contextEditor.importConfig",
+    async () => {
+      logger.debug("Import config command triggered");
+      const currentFacade = envManager.getCurrentFacade();
+      if (!currentFacade) {
+        vscode.window.showErrorMessage("无法获取当前环境信息");
+        return;
+      }
+      await executeImportCommand(container, { facade: currentFacade });
+    }
+  );
+  context.subscriptions.push(importConfigCommand);
+
+  // Select export directory command
+  const selectExportDirectoryCommand = vscode.commands.registerCommand(
+    "contextEditor.selectExportDirectory",
+    async () => {
+      logger.debug("Select export directory command triggered");
+      await executeSelectExportDirectoryCommand(container);
+    }
+  );
+  context.subscriptions.push(selectExportDirectoryCommand);
 
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);

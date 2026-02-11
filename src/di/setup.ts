@@ -19,6 +19,10 @@ import {
   VsCodeFileCreator,
   VsCodeInputService,
 } from "../adapters/vscode.js";
+import { createConfigurationService } from "../adapters/configuration.js";
+import { VsCodeDirectorySelector } from "../adapters/directorySelector.js";
+import { VsCodeFileSystemOperations } from "../adapters/fileSystem.js";
+import { VsCodeProgressService } from "../adapters/progress.js";
 import { CopyService } from "../services/copyService.js";
 import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
@@ -45,40 +49,36 @@ export function createContainer(): SimpleDIContainer {
   const container = new SimpleDIContainer();
 
   // Register singleton Adapters (VS Code API wrappers)
-  container.registerSingleton(
-    ServiceTokens.ClipboardService,
-    () => new VsCodeClipboardService()
-  );
+  container.registerSingleton(ServiceTokens.ClipboardService, () => new VsCodeClipboardService());
+
+  container.registerSingleton(ServiceTokens.FileDeleter, () => new VsCodeFileDeleter());
+
+  container.registerSingleton(ServiceTokens.DialogService, () => new VsCodeDialogService());
+
+  container.registerSingleton(ServiceTokens.FolderOpener, () => new VsCodeFolderOpener());
+
+  container.registerSingleton(ServiceTokens.UserInteraction, () => new VsCodeUserInteraction());
+
+  container.registerSingleton(ServiceTokens.FileCreator, () => new VsCodeFileCreator());
+
+  container.registerSingleton(ServiceTokens.InputService, () => new VsCodeInputService());
+
+  // Register Export/Import adapters
+  container.registerSingleton(ServiceTokens.ConfigurationService, () => {
+    return createConfigurationService(async () => {
+      const vscode = await import("vscode");
+      return vscode.workspace.getConfiguration("contextEditor");
+    });
+  });
+
+  container.registerSingleton(ServiceTokens.DirectorySelector, () => new VsCodeDirectorySelector());
 
   container.registerSingleton(
-    ServiceTokens.FileDeleter,
-    () => new VsCodeFileDeleter()
+    ServiceTokens.FileSystemOperations,
+    () => new VsCodeFileSystemOperations()
   );
 
-  container.registerSingleton(
-    ServiceTokens.DialogService,
-    () => new VsCodeDialogService()
-  );
-
-  container.registerSingleton(
-    ServiceTokens.FolderOpener,
-    () => new VsCodeFolderOpener()
-  );
-
-  container.registerSingleton(
-    ServiceTokens.UserInteraction,
-    () => new VsCodeUserInteraction()
-  );
-
-  container.registerSingleton(
-    ServiceTokens.FileCreator,
-    () => new VsCodeFileCreator()
-  );
-
-  container.registerSingleton(
-    ServiceTokens.InputService,
-    () => new VsCodeInputService()
-  );
+  container.registerSingleton(ServiceTokens.ProgressService, () => new VsCodeProgressService());
 
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.CopyService, () => {
