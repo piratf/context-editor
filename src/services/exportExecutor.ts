@@ -63,6 +63,20 @@ export class FsExportExecutor implements ExportExecutor {
     let directoriesCopiedCount = 0;
     let filesCopiedCount = 0;
 
+    // 计算总操作数，用于增量进度
+    const totalOperations =
+      plan.directoriesToCreate.length + plan.directoriesToCopy.length + plan.filesToCopy.length;
+
+    let currentOperation = 0;
+    const reportProgress = (message: string): void => {
+      currentOperation++;
+      const increment = totalOperations > 0 ? (1 / totalOperations) * 100 : 0;
+      progress?.report(
+        `${message} (${String(currentOperation)}/${String(totalOperations)})`,
+        increment
+      );
+    };
+
     // 阶段 1: 创建所有空目录
     for (const dir of plan.directoriesToCreate) {
       const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
@@ -71,12 +85,14 @@ export class FsExportExecutor implements ExportExecutor {
       if (dir.srcAbsPath === "" && dir.dstRelativePath === dir.category.valueOf()) {
         // 这是 VIRTUAL 节点的占位目录，不需要创建
         directoriesCreatedCount++;
+        reportProgress("创建目录结构...");
         continue;
       }
 
       try {
         await this.createDirectory(dstAbsPath);
         directoriesCreatedCount++;
+        reportProgress("创建目录结构...");
       } catch (error) {
         failures.push({
           srcAbsPath: dir.srcAbsPath,
@@ -89,8 +105,7 @@ export class FsExportExecutor implements ExportExecutor {
     // 阶段 2: 递归复制所有目录
     for (const dir of plan.directoriesToCopy) {
       const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
-      // 报告目录进度
-      progress?.report(`正在复制目录：${dir.label}`);
+      reportProgress(`正在复制目录：${dir.label}`);
       try {
         await this.copyDirectory(dir.srcAbsPath, dstAbsPath);
         directoriesCopiedCount++;
@@ -106,9 +121,8 @@ export class FsExportExecutor implements ExportExecutor {
     // 阶段 3: 复制所有文件
     for (const file of plan.filesToCopy) {
       const dstAbsPath = path.join(dstAbsDir, file.dstRelativePath);
-      // 报告文件进度
       const fileName = path.basename(file.srcAbsPath);
-      progress?.report(`正在复制文件：${fileName}`);
+      reportProgress(`正在复制文件：${fileName}`);
       try {
         // 确保父目录存在
         const parentDir = path.dirname(dstAbsPath);

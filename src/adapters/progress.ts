@@ -53,10 +53,16 @@ export enum ProgressLocation {
  * VS Code progress implementation
  */
 export class VsCodeProgress implements Progress {
-  constructor(private readonly progress: { report(value: { message?: string }): void }) {}
+  constructor(
+    private readonly progress: { report(value: { message?: string; increment?: number }): void }
+  ) {}
 
-  report(message: string, _increment?: number): void {
-    this.progress.report({ message });
+  report(message: string, increment?: number): void {
+    if (increment !== undefined) {
+      this.progress.report({ message, increment });
+    } else {
+      this.progress.report({ message });
+    }
   }
 }
 
