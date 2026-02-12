@@ -24,6 +24,7 @@ import type { Progress } from "../adapters/progress.js";
 import type { ExportFile } from "../types/export.js";
 import type { NodeService } from "../services/nodeService.js";
 import type { ConfigurationService } from "../adapters/configuration.js";
+import type { DialogService } from "../adapters/vscode.js";
 import { ExportPathCalculator } from "./exportPathCalculator.js";
 import { ExportScanner, type NodeChildrenProvider } from "./exportScanner.js";
 import { FsExportExecutor } from "./exportExecutor.js";
@@ -59,6 +60,7 @@ export class ExportImportService {
     private readonly fileAccessService: FileAccessService,
     nodeService: NodeService,
     private readonly configService: ConfigurationService,
+    private readonly dialog: DialogService,
     childrenProvider?: NodeChildrenProvider
   ) {
     this.pathCalculator = new ExportPathCalculator();
@@ -238,11 +240,41 @@ export class ExportImportService {
   private async createGitignore(exportDir: string): Promise<void> {
     const gitignorePath = path.join(exportDir, ".gitignore");
     const exists = await this.fileExists(gitignorePath);
+
     if (!exists) {
-      // 运行时读取最新配置
+      // 文件不存在，直接创建
       const exportConfig = this.configService.getExportConfig();
       await this.writeFile(gitignorePath, exportConfig.gitignoreContent);
+      return;
     }
+
+    // 文件已存在，读取现有内容
+    const currentContent = await this.readFile(gitignorePath);
+    const exportConfig = this.configService.getExportConfig();
+    const configContent = exportConfig.gitignoreContent;
+
+    // 比较内容是否相同
+    if (currentContent === configContent) {
+      // 内容相同，无需操作
+      return;
+    }
+
+    // 内容不同，显示两边内容供用户选择
+    const choice = await this.dialog.showWarningMessage(
+      `.gitignore 文件已存在且内容与配置不同。\n\n` +
+        `--- 现有文件内容 ---\n${currentContent}\n` +
+        `--- 配置中的内容 ---\n${configContent}\n\n` +
+        `请选择如何处理：`,
+      { modal: true },
+      "使用配置内容覆盖",
+      "保留现有文件",
+      "取消"
+    );
+
+    if (choice === "使用配置内容覆盖") {
+      await this.writeFile(gitignorePath, configContent);
+    }
+    // "保留现有文件" 和 "取消" 都不做任何操作
   }
 
   /**
@@ -251,5 +283,13 @@ export class ExportImportService {
   private async writeFile(filePath: string, content: string): Promise<void> {
     const fs = await import("node:fs/promises");
     await fs.writeFile(filePath, content, "utf-8");
+  }
+
+  /**
+   * 读取文件
+   */
+  private async readFile(filePath: string): Promise<string> {
+    const fs = await import("node:fs/promises");
+    return await fs.readFile(filePath, "utf-8");
   }
 }

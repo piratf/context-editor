@@ -156,7 +156,8 @@ export function createContainer(vscodeModule: typeof vscode): SimpleDIContainer 
     const fileAccessService = container.get(ServiceTokens.FileAccessService);
     const nodeService = container.get(ServiceTokens.NodeService);
     const configService = container.get(ServiceTokens.ConfigurationService);
-    return new ExportImportService(fileAccessService, nodeService, configService);
+    const dialog = container.get(ServiceTokens.DialogService);
+    return new ExportImportService(fileAccessService, nodeService, configService, dialog);
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)
