@@ -112,7 +112,7 @@ export const openVscodeCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Directories with a non-empty path can be opened
-    return isDirectoryData(node) && node.path.length > 0;
+    return isDirectoryData(node) && (node.path?.length ?? 0) > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
@@ -141,7 +141,7 @@ export const createFileCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Can only create files in directories with a non-empty path
-    return isDirectoryData(node) && node.path.length > 0;
+    return isDirectoryData(node) && (node.path?.length ?? 0) > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
@@ -160,7 +160,10 @@ export const createFileCommand: ContextMenuCommand = {
       } else if (result.reason === "noPath") {
         userInteraction.showError("Cannot create file", "Directory path is missing.");
       } else {
-        userInteraction.showError("Failed to create file", result.error?.message ?? "Unknown error");
+        userInteraction.showError(
+          "Failed to create file",
+          result.error?.message ?? "Unknown error"
+        );
       }
     }
   },
@@ -174,7 +177,7 @@ export const createFolderCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Can only create folders in directories with a non-empty path
-    return isDirectoryData(node) && node.path.length > 0;
+    return isDirectoryData(node) && (node.path?.length ?? 0) > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
@@ -193,7 +196,10 @@ export const createFolderCommand: ContextMenuCommand = {
       } else if (result.reason === "noPath") {
         userInteraction.showError("Cannot create folder", "Directory path is missing.");
       } else {
-        userInteraction.showError("Failed to create folder", result.error?.message ?? "Unknown error");
+        userInteraction.showError(
+          "Failed to create folder",
+          result.error?.message ?? "Unknown error"
+        );
       }
     }
   },

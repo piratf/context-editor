@@ -2,16 +2,16 @@
  * Export/Import Service
  *
  * Handles export and import of Claude configuration files using
- * node tree traversal instead of JSON serialization.
+ * new export components (ExportScanner, ExportExecutor).
  *
  * Export directory structure:
  * <export-dir>/
- *   global/                # Global configuration files
+ *   global/                # NodeCategory.GLOBAL
  *     .claude.json
  *     .claude/
  *       settings.json
  *       ...
- *   projects/              # Project files
+ *   projects/              # NodeCategory.PROJECTS
  *     [project-name]/
  *       .claude/
  *       CLAUDE.md
@@ -21,131 +21,122 @@
 import * as path from "node:path";
 import type { NodeData } from "../types/nodeData.js";
 import type { Progress } from "../adapters/progress.js";
-import type { FileNode } from "./nodeCollector.js";
-import { NodeCollector } from "./nodeCollector.js";
-import { BulkCopier } from "./bulkCopier.js";
+import type { ExportFile } from "../types/export.js";
+import type { NodeService } from "../services/nodeService.js";
+import { ExportPathCalculator } from "./exportPathCalculator.js";
+import { ExportScanner, type NodeChildrenProvider } from "./exportScanner.js";
+import { FsExportExecutor } from "./exportExecutor.js";
 import type { FileAccessService } from "./fileAccessService.js";
 import type {
   ExportOptions,
   ImportOptions,
-  ExportResult,
-  ImportResult,
+  ExportResult as ConfigExportResult,
+  ImportResult as ConfigImportResult,
 } from "../types/configSchema.js";
 
 /**
- * Export/Import service using node tree traversal
+ * 导入文件映射
+ */
+interface ImportFileMapping {
+  /** 导出目录中的文件路径 */
+  readonly exportAbsPath: string;
+  /** 目标文件路径 */
+  readonly targetAbsPath: string;
+  /** 文件是否存在 */
+  readonly exists: boolean;
+}
+
+/**
+ * Export/Import service using new export components
  */
 export class ExportImportService {
+  private readonly pathCalculator: ExportPathCalculator;
+  private readonly scanner: ExportScanner;
+  private readonly executor: FsExportExecutor;
+
   constructor(
     private readonly fileAccessService: FileAccessService,
-    private readonly nodeCollector: NodeCollector,
-    private readonly bulkCopier: BulkCopier
-  ) {}
+    nodeService: NodeService,
+    childrenProvider?: NodeChildrenProvider
+  ) {
+    this.pathCalculator = new ExportPathCalculator();
+    this.scanner = new ExportScanner(nodeService, this.pathCalculator, childrenProvider);
+    this.executor = new FsExportExecutor(fileAccessService);
+  }
 
   /**
    * Export configuration to target directory using node tree traversal
    *
-   * @param rootNodes - Root nodes from the tree view
+   * @param rootNodes - Root nodes to export
    * @param options - Export options
-   * @param progress - Progress reporter
-   * @returns Export result
+   * @param progress - Optional progress reporter
+   * @param childrenProvider - Optional provider for handling VIRTUAL nodes' children
    */
   async export(
     rootNodes: readonly NodeData[],
     options: ExportOptions,
-    progress?: Progress
-  ): Promise<ExportResult> {
+    progress?: Progress,
+    childrenProvider?: NodeChildrenProvider
+  ): Promise<ConfigExportResult> {
     const targetDir = options.targetDirectory;
 
     progress?.report("准备导出配置...");
 
-    // Collect all file nodes from the tree
-    const collectionResult = await this.nodeCollector.collectFromRoots(rootNodes);
+    // 扫描节点树生成导出计划
+    const plan = await this.scanner.scan(rootNodes, childrenProvider);
 
     progress?.report(
-      `找到 ${String(collectionResult.files.length)} 个文件 ` +
-        `(全局: ${String(collectionResult.counts.global)}, ` +
-        `项目: ${String(collectionResult.counts.projects)})`
+      `找到 ${String(plan.filesToCopy.length)} 个文件，` +
+        `${String(plan.directoriesToCreate.length)} 个目录`
     );
 
-    // Copy files to export directory
-    const copyResult = await this.bulkCopier.copyFiles(
-      collectionResult.files,
-      targetDir,
-      options.filter
-        ? {
-            overwrite: false,
-            filter: (file: FileNode) => {
-              // Apply the filter from config
-              const filterContext = {
-                path: file.path,
-                name: file.label,
-                parentPath: file.parentPath,
-                isDirectory: false,
-                pathSep: path.sep,
-              };
-              const filter = options.filter;
-              if (!filter) {
-                return true;
-              }
-              const result = filter.evaluate(filterContext);
-              // Handle both sync and async filters
-              return result instanceof Promise ? false : result.include;
-            },
-          }
-        : {
-            overwrite: false,
-          },
-      progress
-    );
+    // 执行导出计划（创建目录 + 复制文件）
+    const result = await this.executor.execute(plan, targetDir);
 
-    // Create .gitignore if requested
+    // 创建 .gitignore 如果请求
     if (options.createGitignore) {
-      await this.bulkCopier.createGitignore(targetDir);
+      await this.createGitignore(targetDir);
     }
 
+    const failureCount = result.failures.length;
     progress?.report(
-      `导出完成！成功 ${String(copyResult.successCount)} 个` +
-        (copyResult.failCount > 0 ? `，失败 ${String(copyResult.failCount)} 个` : "")
+      `导出完成！成功 ${String(result.filesCopiedCount)} 个文件` +
+        (failureCount > 0 ? `，失败 ${String(failureCount)} 个` : "")
     );
 
     return {
-      fileCount: copyResult.successCount,
+      fileCount: result.filesCopiedCount,
       exportPath: targetDir,
-      exportedFiles: copyResult.copied,
+      exportedFiles: plan.filesToCopy.map((f) => f.dstRelativePath),
     };
   }
 
   /**
    * Import configuration from source directory
    *
-   * Reads exported files and copies them back to their original locations.
-   *
-   * @param rootNodes - Root nodes from the tree view (for context)
+   * @param rootNodes - Root nodes to import
    * @param options - Import options
-   * @param progress - Progress reporter
-   * @returns Import result
+   * @param progress - Optional progress reporter
+   * @param childrenProvider - Optional provider for handling VIRTUAL nodes' children
    */
   async import(
     rootNodes: readonly NodeData[],
     options: ImportOptions,
-    progress?: Progress
-  ): Promise<ImportResult> {
+    progress?: Progress,
+    childrenProvider?: NodeChildrenProvider
+  ): Promise<ConfigImportResult> {
     const sourceDir = options.sourceDirectory;
 
     progress?.report("准备导入配置...");
 
-    // Collect file nodes to understand what should be imported
-    const collectionResult = await this.nodeCollector.collectFromRoots(rootNodes);
+    // 扫描节点树了解应该导入什么
+    const plan = await this.scanner.scan(rootNodes, childrenProvider);
 
-    progress?.report(`检测到 ${String(collectionResult.files.length)} 个配置文件`);
+    // 映射导出文件到源位置
+    const importFiles = await this.mapImportFiles(plan.filesToCopy, sourceDir);
 
-    // Map exported files back to their original locations
-    const importFiles = await this.mapImportFiles(collectionResult.files, sourceDir);
-
-    // Filter out files that don't exist in export
-    const filesToImport = importFiles.filter((f) => f.exportExists);
-
+    // 过滤掉不存在的文件
+    const filesToImport = importFiles.filter((f) => f.exists);
     progress?.report(`找到 ${String(filesToImport.length)} 个文件待导入`);
 
     let importCount = 0;
@@ -153,26 +144,24 @@ export class ExportImportService {
     const importedFiles: string[] = [];
     const skippedFiles: string[] = [];
 
-    // Import files
+    // 导入文件
     for (const importFile of filesToImport) {
-      // Check if target exists
-      const targetExists = await this.fileAccessService.fileExists(importFile.targetPath);
+      const shouldImport =
+        options.overwrite === true || !(await this.targetFileExists(importFile.targetAbsPath));
 
-      if (targetExists && options.overwrite !== true) {
-        skippedFiles.push(importFile.targetPath);
+      if (!shouldImport) {
         skipCount++;
+        skippedFiles.push(importFile.targetAbsPath);
         continue;
       }
 
-      // Perform copy
-      const success = await this.copyFile(importFile.exportPath, importFile.targetPath);
-
-      if (success) {
-        importedFiles.push(importFile.targetPath);
+      try {
+        await this.copyFile(importFile.exportAbsPath, importFile.targetAbsPath);
         importCount++;
+        importedFiles.push(importFile.targetAbsPath);
+      } catch {
+        // 记录错误但继续
       }
-
-      progress?.report(`已导入 ${String(importCount)}/${String(filesToImport.length)} 个文件...`);
     }
 
     progress?.report(
@@ -182,117 +171,81 @@ export class ExportImportService {
 
     return {
       fileCount: importCount,
-      skippedCount: skipCount,
       importedFiles,
+      skippedCount: skipCount,
       skippedFiles,
     };
   }
 
   /**
-   * Map exported files back to their original locations
+   * 映射导出文件到源位置
    */
   private async mapImportFiles(
-    files: readonly FileNode[],
+    files: readonly ExportFile[],
     exportDir: string
-  ): Promise<
-    readonly {
-      readonly file: FileNode;
-      readonly exportPath: string;
-      readonly targetPath: string;
-      readonly exportExists: boolean;
-    }[]
-  > {
-    const bulkCopier = new BulkCopier(this.fileAccessService);
-
+  ): Promise<ImportFileMapping[]> {
     const results = await Promise.all(
       files.map(async (file) => {
-        const pathMapping = bulkCopier.calculatePathMapping(file, exportDir);
-        const exportPath = pathMapping.destPath;
-        const exportExists = await this.fileAccessService.fileExists(exportPath);
-
+        const exportAbsPath = path.join(exportDir, file.dstRelativePath);
+        const targetAbsPath = file.srcAbsPath;
+        const exists = await this.fileExists(exportAbsPath);
         return {
-          file,
-          exportPath,
-          targetPath: file.path,
-          exportExists,
+          exportAbsPath,
+          targetAbsPath,
+          exists,
         };
       })
     );
-
     return results;
   }
 
   /**
-   * Copy a single file from source to destination
+   * 检查目标文件是否存在
    */
-  private async copyFile(sourcePath: string, targetPath: string): Promise<boolean> {
+  private async targetFileExists(filePath: string): Promise<boolean> {
     try {
-      // Ensure target directory exists
-      const targetDir = path.dirname(targetPath);
-      await this.ensureDirectoryExists(targetDir);
-
-      // Read and write file
-      const content = await this.fileAccessService.readFile(sourcePath, "utf-8");
-      await this.writeFile(targetPath, content);
-
-      return true;
+      return await this.fileAccessService.fileExists(filePath);
     } catch {
       return false;
     }
   }
 
   /**
-   * Ensure directory exists, create if not
+   * 检查文件是否存在
    */
-  private async ensureDirectoryExists(dirPath: string): Promise<void> {
-    const exists = await this.fileAccessService.directoryExists(dirPath);
-    if (!exists) {
-      await this.createDirectoryRecursive(dirPath);
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      return await this.fileAccessService.fileExists(filePath);
+    } catch {
+      return false;
     }
   }
 
   /**
-   * Create directory recursively
+   * 复制文件
    */
-  private async createDirectoryRecursive(dirPath: string): Promise<void> {
-    const parts = dirPath.split(/[/\\]/);
-    let currentPath = "";
-
-    for (const part of parts) {
-      if (part === "") continue;
-
-      currentPath = currentPath === "" ? part : path.join(currentPath, part);
-
-      const exists = await this.fileAccessService.directoryExists(currentPath);
-      if (!exists) {
-        await this.makeDirectory(currentPath);
-      }
-    }
-  }
-
-  /**
-   * Create a single directory
-   */
-  private async makeDirectory(dirPath: string): Promise<void> {
+  private async copyFile(srcAbsPath: string, dstAbsPath: string): Promise<void> {
     const fs = await import("node:fs/promises");
-    await fs.mkdir(dirPath, { recursive: true });
+    await fs.copyFile(srcAbsPath, dstAbsPath);
   }
 
   /**
-   * Write file content
+   * 创建 .gitignore 文件
+   */
+  private async createGitignore(exportDir: string): Promise<void> {
+    const gitignorePath = path.join(exportDir, ".gitignore");
+    const exists = await this.fileExists(gitignorePath);
+    if (!exists) {
+      const content = "# Ignore Claude local settings\nsettings.local.yaml\n";
+      await this.writeFile(gitignorePath, content);
+    }
+  }
+
+  /**
+   * 写入文件
    */
   private async writeFile(filePath: string, content: string): Promise<void> {
     const fs = await import("node:fs/promises");
     await fs.writeFile(filePath, content, "utf-8");
   }
 }
-
-/**
- * Factory for creating export/import service instances
- */
-export const ExportImportServiceFactory = {
-  create(fileAccessService: FileAccessService, nodeCollector: NodeCollector): ExportImportService {
-    const bulkCopier = new BulkCopier(fileAccessService);
-    return new ExportImportService(fileAccessService, nodeCollector, bulkCopier);
-  },
-} as const;

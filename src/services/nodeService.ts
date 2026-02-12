@@ -12,7 +12,7 @@
  */
 
 import * as path from "node:path";
-import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
+import type { NodeData } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
 import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
@@ -90,7 +90,7 @@ function getFileIcon(filename: string): string {
  */
 export type GetChildrenResult =
   | { readonly success: true; readonly children: readonly NodeData[] }
-  | { readonly success: false; readonly error: ErrorDataNode };
+  | { readonly success: false; readonly error: NodeData };
 
 /**
  * Service for tree node operations
@@ -125,12 +125,12 @@ export class NodeService {
   /**
    * Get children for a directory node
    *
-   * @param node - Directory node data
+   * @param node - Directory node data (NodeData with DIRECTORY or PROJECT type)
    * @returns Array of child node data, or error node if failed
    */
-  async getChildren(node: DirectoryData): Promise<GetChildrenResult> {
+  async getChildrenForDirectoryNode(node: NodeData): Promise<GetChildrenResult> {
     // Validate node has path
-    if (!node.path) {
+    if (node.path === undefined) {
       return {
         success: false,
         error: NodeDataFactory.createError("Error: No path", {
@@ -140,9 +140,11 @@ export class NodeService {
       };
     }
 
+    const nodePath = node.path;
+
     try {
       // Read directory entries
-      const entries = await this.fileSystem.readDirectory(node.path);
+      const entries = await this.fileSystem.readDirectory(nodePath);
 
       // Sort: directories first, then files, both alphabetically
       const sortedEntries = this.sortEntries(entries);
@@ -150,8 +152,8 @@ export class NodeService {
       // Create child nodes
       const children: NodeData[] = [];
       for (const entry of sortedEntries) {
-        if (this.shouldInclude(entry, node.path)) {
-          const childNode = this.createChildNode(entry, node.path);
+        if (this.shouldInclude(entry, nodePath)) {
+          const childNode = this.createChildNode(entry, nodePath);
           children.push(childNode);
         }
       }
@@ -232,7 +234,9 @@ export class NodeService {
   /**
    * Convert error to ErrorData
    */
-  private toErrorData(error: unknown): { name: string; message: string; stack?: string | undefined } | undefined {
+  private toErrorData(
+    error: unknown
+  ): { name: string; message: string; stack?: string | undefined } | undefined {
     if (error instanceof Error) {
       return {
         name: error.name,
@@ -247,9 +251,9 @@ export class NodeService {
       const e = error as Record<string, unknown>;
       if ("message" in e && typeof e.message === "string") {
         return {
-          name: ("name" in e && typeof e.name === "string") ? e.name : "Error",
+          name: "name" in e && typeof e.name === "string" ? e.name : "Error",
           message: e.message,
-          stack: ("stack" in e && typeof e.stack === "string") ? e.stack : undefined,
+          stack: "stack" in e && typeof e.stack === "string" ? e.stack : undefined,
         };
       }
     }

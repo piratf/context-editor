@@ -11,7 +11,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { BaseProvider, type TreeNode } from "./baseProvider.js";
-import { NodeType } from "../types/nodeData.js";
+import { NodeType, NodeTypeGuard, NodeCategory } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { EnvironmentManager } from "../services/environmentManager.js";
 import { Logger } from "../utils/logger.js";
@@ -62,18 +62,27 @@ export class UnifiedProvider extends BaseProvider {
       const facade = this.environmentManager.getCurrentFacade();
 
       if (facade === null) {
-        this.rootNodes.push(this.createInfoNode("No environment selected", "Select an environment using the dropdown menu"));
+        this.rootNodes.push(
+          this.createInfoNode(
+            "No environment selected",
+            "Select an environment using the dropdown menu"
+          )
+        );
         return;
       }
 
       const info = facade.getEnvironmentInfo();
-      this.logger.debug("Current environment", { type: info.type, configPath: info.configPath } as Record<string, unknown>);
+      this.logger.debug("Current environment", {
+        type: info.type,
+        configPath: info.configPath,
+      } as Record<string, unknown>);
 
       // Create Global Configuration root node (VIRTUAL - no path, no menu)
       this.rootNodes.push(
         NodeDataFactory.createVirtualNode("Global Configuration", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Global Claude configuration files",
+          category: NodeCategory.GLOBAL,
         })
       );
 
@@ -82,6 +91,7 @@ export class UnifiedProvider extends BaseProvider {
         NodeDataFactory.createVirtualNode("Projects", {
           collapsibleState: 1, // Collapsed by default
           tooltip: "Registered Claude projects",
+          category: NodeCategory.PROJECTS,
         })
       );
 
@@ -103,7 +113,10 @@ export class UnifiedProvider extends BaseProvider {
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${labelToString(element.label)}" (${element.type})`,
+      element:
+        element === undefined
+          ? "root"
+          : `"${labelToString(element.label)}" (${String(element.type)})`,
     });
 
     // Return error node if loading failed
@@ -119,7 +132,7 @@ export class UnifiedProvider extends BaseProvider {
 
     // Handle virtual root nodes - load actual content by index
     // Root nodes don't have contextValue anymore, they're identified by their label
-    if (element.type === NodeType.ROOT) {
+    if (NodeTypeGuard.isVirtual(element.type)) {
       if (element.label === "Global Configuration") {
         return this.getGlobalChildren();
       }
@@ -175,7 +188,10 @@ export class UnifiedProvider extends BaseProvider {
       // If nothing found, show empty message
       if (children.length === 0) {
         children.push(
-          this.createInfoNode("(no configuration found)", "No ~/.claude.json or ~/.claude/ directory found")
+          this.createInfoNode(
+            "(no configuration found)",
+            "No ~/.claude.json or ~/.claude/ directory found"
+          )
         );
       }
 
@@ -209,7 +225,10 @@ export class UnifiedProvider extends BaseProvider {
       }
 
       const info = facade.getEnvironmentInfo();
-      this.logger.debug("Current facade for projects", { type: info.type, configPath: info.configPath });
+      this.logger.debug("Current facade for projects", {
+        type: info.type,
+        configPath: info.configPath,
+      });
 
       // Get projects for current environment
       const projects = await facade.getProjects();
@@ -217,18 +236,20 @@ export class UnifiedProvider extends BaseProvider {
       this.logger.debug(`Found ${String(projects.length)} projects`);
 
       if (projects.length === 0) {
-        children.push(this.createInfoNode("(no projects found)", "No projects found in this environment"));
+        children.push(
+          this.createInfoNode("(no projects found)", "No projects found in this environment")
+        );
         return children;
       }
 
-      // Create directory nodes for each project
-      // Project directories are REAL file system nodes - they have paths and can be opened
+      // Create PROJECT nodes for each project (using createProject, not createDirectory!)
+      // PROJECT nodes are independent from DIRECTORY - they get filtered children
       for (const project of projects) {
         const projectName = this.getProjectName(project.path);
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
 
         children.push(
-          NodeDataFactory.createDirectory(projectName, project.path, {
+          NodeDataFactory.createProject(projectName, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
             // Don't set contextValue - let the command system generate it dynamically
@@ -240,9 +261,7 @@ export class UnifiedProvider extends BaseProvider {
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
       this.logger.error("Error in getProjectsChildren", errorObj);
-      children.push(
-        this.createErrorNode("Error loading projects", errorObj.message, errorObj)
-      );
+      children.push(this.createErrorNode("Error loading projects", errorObj.message, errorObj));
     }
 
     return children;

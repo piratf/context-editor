@@ -10,7 +10,7 @@
 
 import * as vscode from "vscode";
 import type { NodeData } from "../types/nodeData.js";
-import { NodeType, isDirectoryData } from "../types/nodeData.js";
+import { NodeType, NodeTypeGuard } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
@@ -63,7 +63,9 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
     // Debug: log contextValue to verify menu markers
     const contextValueStr = treeItem.contextValue ?? "";
-    this.logger.debug(`[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`);
+    this.logger.debug(
+      `[Menu Debug] Node: "${element.label}" (${String(element.type)}), contextValue: "${contextValueStr}"`
+    );
 
     return treeItem;
   }
@@ -75,7 +77,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
    */
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${element.label}" (${element.type})`,
+      element: element === undefined ? "root" : `"${element.label}" (${String(element.type)})`,
     });
 
     // Return error node if loading failed
@@ -89,14 +91,18 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
       return this.rootNodes;
     }
 
-    // Only directories have children
-    if (!isDirectoryData(element)) {
+    // Only VIRTUAL, PROJECT, and DIRECTORY nodes can have children
+    if (
+      !NodeTypeGuard.isVirtual(element.type) &&
+      !NodeTypeGuard.isProject(element.type) &&
+      !NodeTypeGuard.isDirectory(element.type)
+    ) {
       return [];
     }
 
     // Get NodeService from DI container (already configured)
     const nodeService = this.container.get(ServiceTokens.NodeService);
-    const result = await nodeService.getChildren(element);
+    const result = await nodeService.getChildrenForDirectoryNode(element);
 
     if (result.success) {
       this.logger.logChildrenRetrieved(element.label, result.children.length);
@@ -116,7 +122,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
    * Set command for clickable nodes - can be overridden by subclass
    */
   protected setNodeCommand(treeItem: vscode.TreeItem, element: TreeNode): void {
-    const isClickable = element.type === NodeType.FILE || element.type === NodeType.CLAUDE_JSON;
+    const isClickable = NodeTypeGuard.isFile(element.type);
     if (isClickable && element.path !== undefined) {
       treeItem.command = {
         command: "contextEditor.openFile",
@@ -129,11 +135,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   /**
    * Create an error node with standardized format
    */
-  protected createErrorNode(
-    label: string,
-    tooltip: string,
-    error?: Error
-  ): TreeNode {
+  protected createErrorNode(label: string, tooltip: string, error?: Error): TreeNode {
     this.logger.error(label, error);
 
     // Create as NodeData (new architecture)
@@ -147,11 +149,7 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   /**
    * Create an info node with standardized format
    */
-  protected createInfoNode(
-    label: string,
-    tooltip: string,
-    contextValue = "empty"
-  ): TreeNode {
+  protected createInfoNode(label: string, tooltip: string, contextValue = "empty"): TreeNode {
     // Create as NodeData (new architecture)
     return NodeDataFactory.createInfo(label, {
       tooltip,

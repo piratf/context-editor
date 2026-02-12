@@ -1,11 +1,11 @@
 /**
  * DI Container Setup
  *
- * Creates and configures the dependency injection container with all services.
+ * Creates and configures dependency injection container with all services.
  * Called once during extension activation.
  */
-
 import * as path from "node:path";
+import type * as vscode from "vscode";
 import { SimpleDIContainer } from "./container.js";
 import { ServiceTokens } from "./tokens.js";
 import {
@@ -23,22 +23,24 @@ import { createConfigurationService } from "../adapters/configuration.js";
 import { VsCodeDirectorySelector } from "../adapters/directorySelector.js";
 import { VsCodeFileSystemOperations } from "../adapters/fileSystem.js";
 import { VsCodeProgressService } from "../adapters/progress.js";
+import { VsCodeCommandService } from "../services/commandService.js";
 import { CopyService } from "../services/copyService.js";
 import { DeleteService } from "../services/deleteService.js";
 import { OpenVscodeService } from "../services/openVscodeService.js";
 import { NodeService } from "../services/nodeService.js";
 import { FileCreationService } from "../services/fileCreationService.js";
-import { NodeCollector } from "../services/nodeCollector.js";
-import { BulkCopier } from "../services/bulkCopier.js";
-import { ExportImportService } from "../services/exportImportService.js";
 import { FileAccessService } from "../services/fileAccessService.js";
 import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
+import { ExportPathCalculator } from "../services/exportPathCalculator.js";
+import { ExportScanner } from "../services/exportScanner.js";
+import { FsExportExecutor } from "../services/exportExecutor.js";
+import { ExportImportService } from "../services/exportImportService.js";
 
 /**
- * Create and configure the dependency injection container
+ * Create and configure dependency injection container
  *
  * All services are registered as singletons since:
  * - Adapters wrap VS Code APIs (should be single instances)
@@ -69,9 +71,10 @@ export function createContainer(): SimpleDIContainer {
 
   // Register Export/Import adapters
   container.registerSingleton(ServiceTokens.ConfigurationService, () => {
-    return createConfigurationService(async () => {
-      const vscode = await import("vscode");
-      return vscode.workspace.getConfiguration("contextEditor");
+    return createConfigurationService(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const vscodeModule = require("vscode") as typeof vscode;
+      return vscodeModule.workspace.getConfiguration("contextEditor");
     });
   });
 
@@ -83,6 +86,11 @@ export function createContainer(): SimpleDIContainer {
   );
 
   container.registerSingleton(ServiceTokens.ProgressService, () => new VsCodeProgressService());
+
+  // Register cross-platform services
+  container.registerSingleton(ServiceTokens.FileAccessService, () => new FileAccessService());
+
+  container.registerSingleton(ServiceTokens.CommandService, () => new VsCodeCommandService());
 
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.CopyService, () => {
@@ -128,24 +136,27 @@ export function createContainer(): SimpleDIContainer {
     return new FileCreationService(fileCreator, inputService);
   });
 
-  // Register NodeCollector (depends on NodeService)
-  container.registerSingleton(ServiceTokens.NodeCollector, () => {
+  // Register new export services
+  container.registerSingleton(ServiceTokens.ExportPathCalculator, () => {
+    return new ExportPathCalculator();
+  });
+
+  container.registerSingleton(ServiceTokens.ExportScanner, () => {
     const nodeService = container.get(ServiceTokens.NodeService);
-    return new NodeCollector(nodeService);
+    const pathCalculator = container.get(ServiceTokens.ExportPathCalculator);
+    return new ExportScanner(nodeService, pathCalculator);
   });
 
-  // Register BulkCopier (depends on FileAccessService)
-  container.registerSingleton(ServiceTokens.BulkCopier, () => {
-    // FileAccessService is created directly, not from container
-    return new BulkCopier(new FileAccessService());
+  container.registerSingleton(ServiceTokens.ExportExecutor, () => {
+    const fileAccess = container.get(ServiceTokens.FileAccessService);
+    return new FsExportExecutor(fileAccess);
   });
 
-  // Register ExportImportService (depends on FileAccessService, NodeCollector, BulkCopier)
+  // Register ExportImportService (using new export components)
   container.registerSingleton(ServiceTokens.ExportImportService, () => {
-    const fileAccessService = new FileAccessService();
-    const nodeCollector = container.get(ServiceTokens.NodeCollector);
-    const bulkCopier = container.get(ServiceTokens.BulkCopier);
-    return new ExportImportService(fileAccessService, nodeCollector, bulkCopier);
+    const fileAccessService = container.get(ServiceTokens.FileAccessService);
+    const nodeService = container.get(ServiceTokens.NodeService);
+    return new ExportImportService(fileAccessService, nodeService);
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)

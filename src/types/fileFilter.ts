@@ -189,7 +189,7 @@ export class OrFilter extends BaseFilter implements SyncFileFilter {
 
   constructor(private readonly filters: FileFilter[]) {
     super();
-    this.description = `OR(${this.filters.map((f) => f.description !== undefined ? f.description : "unknown").join(", ")})`;
+    this.description = `OR(${this.filters.map((f) => (f.description !== undefined ? f.description : "unknown")).join(", ")})`;
   }
 
   evaluate(context: FilterContext): FilterResult {
@@ -267,7 +267,12 @@ export class NamePatternFilter extends BaseFilter implements SyncFileFilter {
 
   evaluate(context: FilterContext): FilterResult {
     const { name, isDirectory } = context;
-    const { applyToDirectories = true, applyToFiles = true, includePatterns, excludePatterns } = this.config;
+    const {
+      applyToDirectories = true,
+      applyToFiles = true,
+      includePatterns,
+      excludePatterns,
+    } = this.config;
 
     // Check if filter applies to this entry type
     if (isDirectory && !applyToDirectories) {
@@ -494,6 +499,25 @@ export const FilterFactory = {
     return filters[0] ?? new AllowAllFilter();
   },
 } as const;
+
+/**
+ * Filter for project node children during export
+ *
+ * Extends ProjectClaudeFileFilter to maintain consistency.
+ * During export, project nodes should only export Claude-related
+ * files (not the entire project directory).
+ */
+export class ProjectNodeFilter extends ProjectClaudeFileFilter {
+  override readonly description: string = "Project node export filter";
+
+  /**
+   * Evaluate filter for project directory contents
+   * Uses parent filter logic for Claude files.
+   */
+  override evaluate(context: FilterContext): FilterResult {
+    return super.evaluate(context);
+  }
+}
 
 /**
  * Helper function to create filter context from path info

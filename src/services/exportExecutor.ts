@@ -1,0 +1,115 @@
+/**
+ * ExportExecutor - 执行导出计划
+ *
+ * 执行导出计划：创建目录 + 复制文件。
+ * 不了解节点树结构，只执行计划。
+ *
+ * 职责：
+ * - 创建目录结构
+ * - 复制文件
+ * - 报告执行结果
+ */
+
+import * as path from "node:path";
+import type { ExportPlan, ExportResult, ExportFailure } from "../types/export.js";
+import type { FileAccessService } from "./fileAccessService.js";
+
+/**
+ * 导出执行器接口
+ *
+ * 执行导出计划：创建目录 + 复制文件
+ */
+export interface ExportExecutor {
+  /**
+   * 执行导出计划
+   *
+   * @param plan - 导出计划
+   * @param dstAbsDir - 目标导出目录（绝对路径）
+   * @returns 执行结果
+   */
+  execute(plan: ExportPlan, dstAbsDir: string): Promise<ExportResult>;
+}
+
+/**
+ * 文件系统导出执行器
+ *
+ * 使用 node:fs/promises 直接执行文件操作。
+ */
+export class FsExportExecutor implements ExportExecutor {
+  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
+  constructor(_fileAccess: FileAccessService) {
+    // Parameter accepted for API compatibility but intentionally unused
+    // FsExportExecutor uses node:fs/promises directly
+  }
+
+  /**
+   * 执行导出计划
+   *
+   * 分两个阶段：
+   * 1. 创建所有目录
+   * 2. 复制所有文件
+   *
+   * @param plan - 导出计划
+   * @param dstAbsDir - 目标导出目录（绝对路径）
+   * @returns 执行结果
+   */
+  async execute(plan: ExportPlan, dstAbsDir: string): Promise<ExportResult> {
+    const failures: ExportFailure[] = [];
+    let directoriesCreatedCount = 0;
+    let filesCopiedCount = 0;
+
+    // 阶段 1: 创建所有目录
+    for (const dir of plan.directoriesToCreate) {
+      const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
+
+      // 跳过 VIRTUAL 节点的空路径
+      if (dir.srcAbsPath === "" && dir.dstRelativePath === dir.category.valueOf()) {
+        // 这是 VIRTUAL 节点的占位目录，不需要创建
+        directoriesCreatedCount++;
+        continue;
+      }
+
+      try {
+        await this.createDirectory(dstAbsPath);
+        directoriesCreatedCount++;
+      } catch (error) {
+        failures.push({
+          srcAbsPath: dir.srcAbsPath,
+          dstAbsPath,
+          error: String(error),
+        });
+      }
+    }
+
+    // 阶段 2: 复制所有文件
+    for (const file of plan.filesToCopy) {
+      const dstAbsPath = path.join(dstAbsDir, file.dstRelativePath);
+      try {
+        // 确保父目录存在
+        const parentDir = path.dirname(dstAbsPath);
+        await this.createDirectory(parentDir);
+
+        // 复制文件
+        const fs = await import("node:fs/promises");
+        await fs.copyFile(file.srcAbsPath, dstAbsPath);
+        filesCopiedCount++;
+      } catch (error) {
+        failures.push({
+          srcAbsPath: file.srcAbsPath,
+          dstAbsPath,
+          error: String(error),
+        });
+      }
+    }
+
+    return { directoriesCreatedCount, filesCopiedCount, failures };
+  }
+
+  /**
+   * 创建目录
+   */
+  async createDirectory(dirPath: string): Promise<void> {
+    const fs = await import("node:fs/promises");
+    await fs.mkdir(dirPath, { recursive: true });
+  }
+}

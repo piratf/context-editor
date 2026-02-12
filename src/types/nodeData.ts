@@ -14,6 +14,12 @@
  * - Uses Symbol as runtime type marker for efficient type checking
  * - All NodeData instances created by NodeDataFactory include the marker
  * - isNodeData() provides a fast, single-check type guard
+ *
+ * Node Type System (Bitwise):
+ * - Uses bitwise flags to represent node types
+ * - Multiple flags can be combined using bitwise OR
+ * - Example: FILE | CLAUDE_JSON represents a Claude JSON file
+ * - PROJECT and DIRECTORY are completely separate types (not hierarchical)
  */
 
 /**
@@ -26,15 +32,91 @@
 export const NodeDataMarker = Symbol("NodeData");
 
 /**
- * Tree node types - unified across all providers
+ * Node category for VIRTUAL nodes
+ *
+ * 定义虚拟节点的类别，用于导出时确定目录结构
  */
-export enum NodeType {
-  ROOT = "root",
-  DIRECTORY = "directory",
-  FILE = "file",
-  CLAUDE_JSON = "claudeJson",
-  ERROR = "error",
+export const enum NodeCategory {
+  /** Global configuration category */
+  GLOBAL = "global",
+  /** Projects category */
+  PROJECTS = "projects",
 }
+
+/**
+ * Node type flags (bitwise)
+ *
+ * Multiple flags can be combined using bitwise OR.
+ * Example: FILE | CLAUDE_JSON = 1 | 4 = 5
+ *
+ * Type storage: The `type` field in NodeData stores these bitwise values directly.
+ * No separate `flags` field is needed.
+ *
+ * PROJECT vs DIRECTORY:
+ * - PROJECT is a completely independent type from DIRECTORY
+ * - PROJECT nodes are registered project roots (special handling)
+ * - DIRECTORY nodes are regular directories
+ * - A node cannot be both PROJECT and DIRECTORY simultaneously
+ */
+export const enum NodeType {
+  /** File node (has content) */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  FILE = 1 << 0, // 1
+  /** Directory node (can have children) */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  DIRECTORY = 1 << 1, // 2
+  /** Claude JSON file (special config file) */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  CLAUDE_JSON = 1 << 2, // 4
+  /** Project root directory (registered Claude project) */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  PROJECT = 1 << 3, // 8
+  /** Virtual node (no file system path) */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  VIRTUAL = 1 << 4, // 16
+  /** Error node */
+  // eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member -- Bitwise operations are intentional for type flags
+  ERROR = 1 << 5, // 32
+}
+
+/**
+ * Type guard helpers for NodeType
+ *
+ * Provides type-safe checking for bitwise node types.
+ * Use these helpers instead of direct bitwise operations.
+ */
+export const NodeTypeGuard = {
+  /**
+   * Check if node has FILE flag
+   */
+  isFile: (type: NodeType): boolean => (type & NodeType.FILE) !== 0,
+
+  /**
+   * Check if node has DIRECTORY flag (and NOT PROJECT)
+   */
+  isDirectory: (type: NodeType): boolean =>
+    (type & NodeType.DIRECTORY) !== 0 && (type & NodeType.PROJECT) === 0,
+
+  /**
+   * Check if node has CLAUDE_JSON flag
+   */
+  isClaudeJson: (type: NodeType): boolean => (type & NodeType.CLAUDE_JSON) !== 0,
+
+  /**
+   * Check if node has PROJECT flag
+   */
+  isProject: (type: NodeType): boolean => (type & NodeType.PROJECT) !== 0,
+
+  /**
+   * Check if node has VIRTUAL flag
+   */
+  isVirtual: (type: NodeType): boolean => (type & NodeType.VIRTUAL) !== 0,
+
+  /**
+   * Check if node has ERROR flag
+   */
+  isError: (type: NodeType): boolean => (type & NodeType.ERROR) !== 0,
+};
 
 /**
  * Collapsible state enum (0=none, 1=collapsed, 2=expanded)
@@ -53,18 +135,24 @@ export type IconId = string;
  *
  * The NodeDataMarker symbol provides runtime type identification.
  * All NodeData instances created by NodeDataFactory include this marker.
+ *
+ * Type field: Stores bitwise NodeType flags.
+ * Can be a single type (e.g., NodeType.FILE = 1)
+ * Or combined types (e.g., NodeType.FILE | NodeType.CLAUDE_JSON = 5)
  */
 export interface NodeData {
   /** Runtime type marker - ensures only factory-created objects pass type checks */
   readonly [NodeDataMarker]: true;
   /** Unique identifier for this node */
   readonly id: string;
-  /** Type of the node */
+  /** Bitwise type flags (can be combined) - stores NodeType flags directly */
   readonly type: NodeType;
   /** Display label */
   readonly label: string;
   /** File system path (if applicable) */
   readonly path?: string;
+  /** Category for VIRTUAL nodes (用于导出时确定目录结构） */
+  readonly category?: NodeCategory;
   /** Collapsible state */
   readonly collapsibleState: CollapsibleState;
   /** Icon identifier (for VS Code ThemeIcon) */
@@ -107,9 +195,9 @@ export function toErrorData(error: Error | string | object): ErrorData | undefin
   const errorObj = error as Record<string, unknown> | null;
   if (errorObj !== null && "message" in errorObj && typeof errorObj.message === "string") {
     return {
-      name: ("name" in errorObj && typeof errorObj.name === "string") ? errorObj.name : "Error",
+      name: "name" in errorObj && typeof errorObj.name === "string" ? errorObj.name : "Error",
       message: errorObj.message,
-      stack: ("stack" in errorObj && typeof errorObj.stack === "string") ? errorObj.stack : undefined,
+      stack: "stack" in errorObj && typeof errorObj.stack === "string" ? errorObj.stack : undefined,
     };
   }
   return undefined;
@@ -120,45 +208,6 @@ export function toErrorDataSafe(error: Error | string | object | undefined): Err
     return undefined;
   }
   return toErrorData(error);
-}
-
-/**
- * Directory node data
- */
-export interface DirectoryData extends NodeData {
-  readonly type: NodeType.DIRECTORY;
-  readonly path: string;
-}
-
-/**
- * File node data
- */
-export interface FileData extends NodeData {
-  readonly type: NodeType.FILE;
-  readonly path: string;
-}
-
-/**
- * Claude JSON config file node data
- */
-export interface ClaudeJsonData extends NodeData {
-  readonly type: NodeType.CLAUDE_JSON;
-  readonly path: string;
-}
-
-/**
- * Error node data
- */
-export interface ErrorDataNode extends NodeData {
-  readonly type: NodeType.ERROR;
-  readonly error?: ErrorData;
-}
-
-/**
- * Root node data
- */
-export interface RootData extends NodeData {
-  readonly type: NodeType.ROOT;
 }
 
 /**
@@ -186,78 +235,85 @@ export function isNodeData(node: unknown): node is NodeData {
 }
 
 /**
- * Type guard for DirectoryData
+ * Type guard for directory nodes (including PROJECT nodes)
+ *
+ * Note: This checks if the node has a path and is a directory-like node.
+ * For strict DIRECTORY (non-PROJECT) checking, use NodeTypeGuard.isDirectory()
  */
-export function isDirectoryData(data: NodeData): data is DirectoryData {
-  return data.type === NodeType.DIRECTORY && data.path !== undefined;
+export function isDirectoryData(data: NodeData): data is NodeData {
+  return (
+    (NodeTypeGuard.isDirectory(data.type) || NodeTypeGuard.isProject(data.type)) &&
+    data.path !== undefined
+  );
 }
 
 /**
- * Type guard for FileData
+ * Type guard for file nodes (including CLAUDE_JSON)
  */
-export function isFileData(data: NodeData): data is FileData {
-  return data.type === NodeType.FILE && data.path !== undefined;
+export function isFileData(data: NodeData): data is NodeData {
+  return NodeTypeGuard.isFile(data.type) && data.path !== undefined;
 }
 
 /**
- * Type guard for ClaudeJsonData
+ * Type guard for Claude JSON nodes
  */
-export function isClaudeJsonData(data: NodeData): data is ClaudeJsonData {
-  return data.type === NodeType.CLAUDE_JSON && data.path !== undefined;
+export function isClaudeJsonData(data: NodeData): data is NodeData {
+  return NodeTypeGuard.isClaudeJson(data.type) && data.path !== undefined;
 }
 
 /**
- * Type guard for ErrorDataNode
+ * Type guard for project nodes
  */
-export function isErrorDataNode(data: NodeData): data is ErrorDataNode {
-  return data.type === NodeType.ERROR;
+export function isProjectData(data: NodeData): data is NodeData {
+  return NodeTypeGuard.isProject(data.type) && data.path !== undefined;
 }
 
 /**
- * Type guard for RootData
+ * Type guard for error nodes
  */
-export function isRootData(data: NodeData): data is RootData {
-  return data.type === NodeType.ROOT;
+export function isErrorDataNode(data: NodeData): data is NodeData {
+  return NodeTypeGuard.isError(data.type);
+}
+
+/**
+ * Get the name of a NodeType value
+ * Helper for generating consistent IDs from enum values
+ */
+function getNodeTypeName(type: NodeType): string {
+  switch (type) {
+    case NodeType.FILE:
+      return "FILE";
+    case NodeType.DIRECTORY:
+      return "DIRECTORY";
+    case NodeType.CLAUDE_JSON:
+      return "CLAUDE_JSON";
+    case NodeType.PROJECT:
+      return "PROJECT";
+    case NodeType.VIRTUAL:
+      return "VIRTUAL";
+    case NodeType.ERROR:
+      return "ERROR";
+    default:
+      return `UNKNOWN_${String(type)}`;
+  }
 }
 
 /**
  * Factory for creating node data objects
+ *
+ * Creates NodeData objects with proper type flags.
+ * Uses bitwise OR for combining flags (e.g., FILE | CLAUDE_JSON).
  */
 export const NodeDataFactory = {
   /**
    * Generate unique ID for a node
    */
   generateId(type: NodeType, path?: string): string {
+    const typeKey = getNodeTypeName(type);
     if (path !== undefined && path !== "") {
-      return `${type}:${path}`;
+      return `${typeKey}:${path}`;
     }
-    return `${type}:${String(Date.now())}:${Math.random().toString(36).slice(2)}`;
-  },
-
-  /**
-   * Create directory data
-   */
-  createDirectory(
-    label: string,
-    dirPath: string,
-    options: {
-      collapsibleState?: CollapsibleState;
-      tooltip?: string;
-      contextValue?: string;
-    } = {}
-  ): DirectoryData {
-    const { collapsibleState = 1, tooltip, contextValue } = options;
-
-    return {
-      [NodeDataMarker]: true,
-      id: this.generateId(NodeType.DIRECTORY, dirPath),
-      type: NodeType.DIRECTORY,
-      label,
-      path: dirPath,
-      collapsibleState,
-      tooltip: tooltip ?? dirPath,
-      contextValue: contextValue ?? "",
-    };
+    return `${typeKey}:${String(Date.now())}:${Math.random().toString(36).slice(2)}`;
   },
 
   /**
@@ -271,7 +327,7 @@ export const NodeDataFactory = {
       contextValue?: string;
       iconId?: IconId;
     } = {}
-  ): FileData {
+  ): NodeData {
     const { tooltip, contextValue, iconId = "file" } = options;
 
     return {
@@ -288,7 +344,7 @@ export const NodeDataFactory = {
   },
 
   /**
-   * Create Claude JSON data
+   * Create Claude JSON file data (FILE | CLAUDE_JSON)
    */
   createClaudeJson(
     label: string,
@@ -297,18 +353,74 @@ export const NodeDataFactory = {
       tooltip?: string;
       contextValue?: string;
     } = {}
-  ): ClaudeJsonData {
+  ): NodeData {
     const { tooltip, contextValue } = options;
 
     return {
       [NodeDataMarker]: true,
       id: this.generateId(NodeType.CLAUDE_JSON, filePath),
-      type: NodeType.CLAUDE_JSON,
+      type: NodeType.FILE | NodeType.CLAUDE_JSON,
       label,
       path: filePath,
       collapsibleState: 0,
       iconId: "settings-gear",
       tooltip: tooltip ?? filePath,
+      contextValue: contextValue ?? "",
+    };
+  },
+
+  /**
+   * Create directory data (pure DIRECTORY type, not PROJECT)
+   */
+  createDirectory(
+    label: string,
+    dirPath: string,
+    options: {
+      collapsibleState?: CollapsibleState;
+      tooltip?: string;
+      contextValue?: string;
+    } = {}
+  ): NodeData {
+    const { collapsibleState = 1, tooltip, contextValue } = options;
+
+    return {
+      [NodeDataMarker]: true,
+      id: this.generateId(NodeType.DIRECTORY, dirPath),
+      type: NodeType.DIRECTORY,
+      label,
+      path: dirPath,
+      collapsibleState,
+      tooltip: tooltip ?? dirPath,
+      contextValue: contextValue ?? "",
+    };
+  },
+
+  /**
+   * Create project data (PROJECT type - independent from DIRECTORY)
+   *
+   * IMPORTANT: PROJECT is NOT a DIRECTORY subtype!
+   * - PROJECT nodes get filtered children (ProjectClaudeFileFilter)
+   * - DIRECTORY nodes get all children (no filter)
+   */
+  createProject(
+    label: string,
+    projectPath: string,
+    options: {
+      collapsibleState?: CollapsibleState;
+      tooltip?: string;
+      contextValue?: string;
+    } = {}
+  ): NodeData {
+    const { collapsibleState = 1, tooltip, contextValue } = options;
+
+    return {
+      [NodeDataMarker]: true,
+      id: this.generateId(NodeType.PROJECT, projectPath),
+      type: NodeType.PROJECT,
+      label,
+      path: projectPath,
+      collapsibleState,
+      tooltip: tooltip ?? projectPath,
       contextValue: contextValue ?? "",
     };
   },
@@ -324,7 +436,7 @@ export const NodeDataFactory = {
       error?: Error | string | object | undefined;
       iconId?: IconId;
     } = {}
-  ): ErrorDataNode {
+  ): NodeData {
     const { tooltip, contextValue = "error", error, iconId = "error" } = options;
     const errorData = toErrorDataSafe(error);
 
@@ -383,20 +495,23 @@ export const NodeDataFactory = {
     options: {
       collapsibleState?: CollapsibleState;
       tooltip?: string;
+      category?: NodeCategory;
     } = {}
   ): NodeData {
-    const { collapsibleState = 1, tooltip } = options;
+    const { collapsibleState = 1, tooltip, category } = options;
 
     // Omit path property entirely - this makes virtual nodes distinct from file system nodes
-    return {
+    const node: NodeData = {
       [NodeDataMarker]: true,
-      id: this.generateId(NodeType.ROOT, label),
-      type: NodeType.ROOT,
+      id: this.generateId(NodeType.VIRTUAL, label),
+      type: NodeType.VIRTUAL,
       label,
       // No path property - virtual nodes don't represent file system items
       collapsibleState,
       tooltip: tooltip ?? label,
+      ...(category !== undefined ? { category } : {}),
       // contextValue will be generated dynamically by the command system
     };
+    return node;
   },
 } as const;

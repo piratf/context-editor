@@ -5,7 +5,6 @@
  * Follows the command-driven architecture pattern used in contextMenu.ts.
  */
 
-import * as vscode from "vscode";
 import type { UnifiedProvider } from "../views/unifiedProvider.js";
 import type { SimpleDIContainer } from "../di/container.js";
 import type { ConfigurationService } from "../adapters/configuration.js";
@@ -92,7 +91,7 @@ async function performExport(context: CommandContext, targetDirectory?: string):
     exportDir = selected.path;
 
     // Save to configuration for future use
-    await config.updateConfig("contextEditor.export.directory", exportDir);
+    await config.updateConfig("export.directory", exportDir);
   }
 
   // Build export options
@@ -105,7 +104,7 @@ async function performExport(context: CommandContext, targetDirectory?: string):
   // Validate export configuration
   const validation = validateExportConfig(exportConfig);
   if (!validation.valid) {
-    ui.showError("验证失败", validation.error ?? "配置验证失败");
+    ui.showError("验证失败", validation.error ?? "导出配置验证失败");
     return;
   }
 
@@ -126,7 +125,8 @@ async function performExport(context: CommandContext, targetDirectory?: string):
           filter,
           createGitignore: exportConfig.createGitignore,
         },
-        progress
+        progress,
+        unifiedProvider // 传入 unifiedProvider 作为 NodeChildrenProvider
       );
     });
 
@@ -218,7 +218,8 @@ async function performImport(context: CommandContext, sourceDirectory?: string):
           sourceDirectory: importDir,
           overwrite: true,
         },
-        progress
+        progress,
+        unifiedProvider // 传入 unifiedProvider 作为 NodeChildrenProvider
       );
     });
 
@@ -229,8 +230,9 @@ async function performImport(context: CommandContext, sourceDirectory?: string):
 
     ui.showInfo(message);
 
-    // Trigger refresh of the tree view
-    await vscode.commands.executeCommand("contextEditor.refresh");
+    // Trigger refresh of the tree view using CommandService
+    const commandService = container.get(ServiceTokens.CommandService);
+    await commandService.executeCommand("contextEditor.refresh");
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     ui.showError("导入失败", errorMsg);
@@ -259,6 +261,6 @@ export async function executeSelectExportDirectoryCommand(
     return;
   }
 
-  await config.updateConfig("contextEditor.export.directory", selected.path);
+  await config.updateConfig("export.directory", selected.path);
   ui.showInfo(`导出目录已设置为: ${selected.path}`);
 }

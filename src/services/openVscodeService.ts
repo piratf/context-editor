@@ -57,16 +57,19 @@ export class OpenVscodeService {
       };
     }
 
-    // Validate path exists
-    if (!data.path) {
+    // Validate path exists (handle undefined and empty string cases)
+    if (data.path === undefined || data.path === "") {
       return {
         success: false,
         reason: "noPath",
       };
     }
 
+    // We now know data.path is defined and non-empty
+    const dataPath = data.path;
+
     try {
-      await this.vsCodeOpener.openFolderInNewWindow(data.path);
+      await this.vsCodeOpener.openFolderInNewWindow(dataPath);
       return { success: true };
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));

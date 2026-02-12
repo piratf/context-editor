@@ -6,6 +6,7 @@
  */
 
 import type * as vscode from "vscode";
+import * as os from "node:os";
 
 /**
  * Directory selector options
@@ -66,6 +67,7 @@ export class VsCodeDirectorySelector implements DirectorySelector {
           canSelectFiles: options.canSelectFiles ?? false,
           canSelectFolders: options.canSelectFolders ?? true,
           canSelectMany: options.canSelectMany ?? false,
+          defaultUri: vscode.Uri.file(os.homedir()),
         };
         if (options.openLabel !== undefined) {
           dialogOptions.openLabel = options.openLabel;

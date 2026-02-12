@@ -102,9 +102,27 @@ export interface ExportConfigData {
 
 /**
  * VS Code configuration service implementation
+ *
+ * IMPORTANT: Holds a getConfiguration function to fetch fresh config on each read.
+ * This ensures we always read the latest values after updates.
  */
 export class VsCodeConfigurationService implements ConfigurationService {
-  constructor(private readonly config: WorkspaceConfiguration) {}
+  private readonly getConfiguration: () => WorkspaceConfiguration;
+
+  constructor(getConfiguration: () => WorkspaceConfiguration | Promise<WorkspaceConfiguration>) {
+    // Handle both sync and async getConfiguration functions
+    this.getConfiguration = () => {
+      const result = getConfiguration();
+      if (result instanceof Promise) {
+        throw new Error("Async getConfiguration not supported in VsCodeConfigurationService");
+      }
+      return result;
+    };
+  }
+
+  private getWsConfig(): WorkspaceConfiguration {
+    return this.getConfiguration();
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   getConfig<T>(section: string): T | undefined;
@@ -112,10 +130,11 @@ export class VsCodeConfigurationService implements ConfigurationService {
   getConfig<T>(section: string, defaultValue: T): T;
 
   getConfig<T>(section: string, defaultValue?: T): T | undefined {
+    const config = this.getWsConfig();
     if (arguments.length === 1) {
-      return this.config.get<T>(section);
+      return config.get<T>(section);
     }
-    return this.config.get<T>(section, defaultValue as T);
+    return config.get<T>(section, defaultValue as T);
   }
 
   updateConfig(
@@ -123,14 +142,15 @@ export class VsCodeConfigurationService implements ConfigurationService {
     value: unknown,
     target: ConfigurationTarget = ConfigurationTarget.Global
   ): Thenable<void> {
-    return this.config.update(section, value, target);
+    const config = this.getWsConfig();
+    return config.update(section, value, target);
   }
 
   getExportConfig(): ExportConfigData {
     return {
-      directory: this.getConfig<string>("contextEditor.export.directory", ""),
-      filters: this.getConfig<string[]>("contextEditor.export.filters", []),
-      createGitignore: this.getConfig<boolean>("contextEditor.export.createGitignore", true),
+      directory: this.getConfig<string>("export.directory", ""),
+      filters: this.getConfig<string[]>("export.filters", []),
+      createGitignore: this.getConfig<boolean>("export.createGitignore", true),
     };
   }
 }
@@ -140,15 +160,16 @@ export class VsCodeConfigurationService implements ConfigurationService {
  *
  * @param getConfiguration - VS Code getConfiguration function (can be async)
  * @returns Configuration service instance
+ *
+ * NOTE: The getConfiguration function is stored so that config is fetched fresh
+ * on each read. This ensures we always get the latest values after updates.
  */
 export function createConfigurationService(
   getConfiguration: () => WorkspaceConfiguration | Promise<WorkspaceConfiguration>
 ): ConfigurationService | Promise<ConfigurationService> {
-  const configOrPromise = getConfiguration();
-  if (configOrPromise instanceof Promise) {
-    return configOrPromise.then((c) => new VsCodeConfigurationService(c));
-  }
-  return new VsCodeConfigurationService(configOrPromise);
+  // Pass the getConfiguration function directly to VsCodeConfigurationService
+  // It will be called on each config read to get fresh values
+  return new VsCodeConfigurationService(getConfiguration);
 }
 
 /**
@@ -185,9 +206,9 @@ export class MockConfigurationService implements ConfigurationService {
 
   getExportConfig(): ExportConfigData {
     return {
-      directory: this.getConfig<string>("contextEditor.export.directory", ""),
-      filters: this.getConfig<string[]>("contextEditor.export.filters", []),
-      createGitignore: this.getConfig<boolean>("contextEditor.export.createGitignore", true),
+      directory: this.getConfig<string>("export.directory", ""),
+      filters: this.getConfig<string[]>("export.filters", []),
+      createGitignore: this.getConfig<boolean>("export.createGitignore", true),
     };
   }
 }

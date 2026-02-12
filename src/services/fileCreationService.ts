@@ -36,7 +36,7 @@ export class FileCreationService {
   ) {}
 
   /**
-   * Create a new file in the given directory node
+   * Create a new file in given directory node
    *
    * @param node - Directory node where file should be created
    * @returns Result indicating success/failure
@@ -51,14 +51,17 @@ export class FileCreationService {
       };
     }
 
-    // Check if node has a path (DirectoryData has non-optional path, but check for empty)
-    if (node.path.length === 0) {
+    // Check if node has a path
+    if (node.path === undefined || node.path.length === 0) {
       return {
         success: false,
         reason: "noPath",
         error: new Error("Cannot create file - node has no path"),
       };
     }
+
+    // We now know node.path is defined and non-empty
+    const nodePath = node.path;
 
     // Ask user for file name
     const fileName = await this.inputService.showInputBox({
@@ -82,7 +85,7 @@ export class FileCreationService {
     }
 
     const trimmedFileName = fileName.trim();
-    const newFilePath = `${node.path}/${node.path.endsWith("/") ? "" : "/"}${trimmedFileName}`;
+    const newFilePath = `${nodePath}/${nodePath.endsWith("/") ? "" : "/"}${trimmedFileName}`;
 
     try {
       const uri: SimpleUri = { path: newFilePath };
@@ -101,7 +104,7 @@ export class FileCreationService {
   }
 
   /**
-   * Create a new folder in the given directory node
+   * Create a new folder in given directory node
    *
    * @param node - Directory node where folder should be created
    * @returns Result indicating success/failure
@@ -116,14 +119,17 @@ export class FileCreationService {
       };
     }
 
-    // Check if node has a path (DirectoryData has non-optional path, but check for empty)
-    if (node.path.length === 0) {
+    // Check if node has a path
+    if (node.path === undefined || node.path.length === 0) {
       return {
         success: false,
         reason: "noPath",
         error: new Error("Cannot create folder - node has no path"),
       };
     }
+
+    // We now know node.path is defined and non-empty
+    const nodePath = node.path;
 
     // Ask user for folder name
     const folderName = await this.inputService.showInputBox({
@@ -147,7 +153,7 @@ export class FileCreationService {
     }
 
     const trimmedFolderName = folderName.trim();
-    const newFolderPath = `${node.path}/${node.path.endsWith("/") ? "" : "/"}${trimmedFolderName}`;
+    const newFolderPath = `${nodePath}/${nodePath.endsWith("/") ? "" : "/"}${trimmedFolderName}`;
 
     try {
       const uri: SimpleUri = { path: newFolderPath };
