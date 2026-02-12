@@ -98,6 +98,8 @@ export interface ExportConfigData {
   filters: readonly string[];
   /** Whether to create .gitignore */
   createGitignore: boolean;
+  /** .gitignore 文件内容 */
+  gitignoreContent: string;
 }
 
 /**
@@ -151,6 +153,10 @@ export class VsCodeConfigurationService implements ConfigurationService {
       directory: this.getConfig<string>("export.directory", ""),
       filters: this.getConfig<string[]>("export.filters", []),
       createGitignore: this.getConfig<boolean>("export.createGitignore", true),
+      gitignoreContent: this.getConfig<string>(
+        "export.gitignoreContent",
+        "# Ignore Claude local settings\nsettings.local.yaml\n"
+      ),
     };
   }
 }
@@ -209,6 +215,10 @@ export class MockConfigurationService implements ConfigurationService {
       directory: this.getConfig<string>("export.directory", ""),
       filters: this.getConfig<string[]>("export.filters", []),
       createGitignore: this.getConfig<boolean>("export.createGitignore", true),
+      gitignoreContent: this.getConfig<string>(
+        "export.gitignoreContent",
+        "# Ignore Claude local settings\nsettings.local.yaml\n"
+      ),
     };
   }
 }

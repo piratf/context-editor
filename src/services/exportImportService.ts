@@ -23,6 +23,7 @@ import type { NodeData } from "../types/nodeData.js";
 import type { Progress } from "../adapters/progress.js";
 import type { ExportFile } from "../types/export.js";
 import type { NodeService } from "../services/nodeService.js";
+import type { ConfigurationService } from "../adapters/configuration.js";
 import { ExportPathCalculator } from "./exportPathCalculator.js";
 import { ExportScanner, type NodeChildrenProvider } from "./exportScanner.js";
 import { FsExportExecutor } from "./exportExecutor.js";
@@ -57,6 +58,7 @@ export class ExportImportService {
   constructor(
     private readonly fileAccessService: FileAccessService,
     nodeService: NodeService,
+    private readonly configService: ConfigurationService,
     childrenProvider?: NodeChildrenProvider
   ) {
     this.pathCalculator = new ExportPathCalculator();
@@ -231,38 +233,15 @@ export class ExportImportService {
   }
 
   /**
-   * 读取 .gitignore 模板文件内容
-   */
-  private async readGitignoreTemplate(): Promise<string> {
-    const fs = await import("node:fs/promises");
-    const { fileURLToPath } = await import("node:url");
-
-    // 获取当前模块文件的实际路径
-    const currentModulePath = fileURLToPath(import.meta.url);
-
-    // 解析模板文件路径：从当前文件所在目录上两级，然后进入 resources
-    // 当前文件: out/services/exportImportService.js
-    // 模板文件: out/resources/gitignore.template
-    const templatePath = path.join(
-      path.dirname(currentModulePath),
-      "..",
-      "resources",
-      "gitignore.template"
-    );
-
-    return await fs.readFile(templatePath, "utf-8");
-  }
-
-  /**
    * 创建 .gitignore 文件
    */
   private async createGitignore(exportDir: string): Promise<void> {
     const gitignorePath = path.join(exportDir, ".gitignore");
     const exists = await this.fileExists(gitignorePath);
     if (!exists) {
-      // 从模板文件读取内容
-      const templateContent = await this.readGitignoreTemplate();
-      await this.writeFile(gitignorePath, templateContent);
+      // 运行时读取最新配置
+      const exportConfig = this.configService.getExportConfig();
+      await this.writeFile(gitignorePath, exportConfig.gitignoreContent);
     }
   }
 

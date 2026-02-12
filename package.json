@@ -54,6 +54,12 @@
           "type": "boolean",
           "default": true,
           "description": "导出时自动创建 .gitignore 文件（排除 .settings.local.yaml）"
+        },
+        "contextEditor.export.gitignoreContent": {
+          "type": "string",
+          "default": "# Ignore Claude local settings\nsettings.local.yaml\n",
+          "markdownDescription": "导出时创建的 `.gitignore` 文件内容。支持多行文本。",
+          "editPresentation": "multilineText"
         }
       }
     },

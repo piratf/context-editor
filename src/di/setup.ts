@@ -156,7 +156,8 @@ export function createContainer(): SimpleDIContainer {
   container.registerSingleton(ServiceTokens.ExportImportService, () => {
     const fileAccessService = container.get(ServiceTokens.FileAccessService);
     const nodeService = container.get(ServiceTokens.NodeService);
-    return new ExportImportService(fileAccessService, nodeService);
+    const configService = container.get(ServiceTokens.ConfigurationService);
+    return new ExportImportService(fileAccessService, nodeService, configService);
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)
