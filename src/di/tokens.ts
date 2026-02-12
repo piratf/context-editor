@@ -16,6 +16,7 @@ import type {
   VsCodeDialogService,
   FileCreator,
   InputService,
+  DiffService,
 } from "../adapters/vscode.js";
 import type { CopyService } from "../services/copyService.js";
 import type { DeleteService } from "../services/deleteService.js";
@@ -53,6 +54,7 @@ export const ServiceTokens = {
   DirectorySelector: new ServiceToken<DirectorySelector>("DirectorySelector"),
   FileSystemOperations: new ServiceToken<FileSystemOperations>("FileSystemOperations"),
   ProgressService: new ServiceToken<ProgressService>("ProgressService"),
+  DiffService: new ServiceToken<DiffService>("DiffService"),
 
   // Cross-platform services (singleton)
   FileAccessService: new ServiceToken<FileAccessService>("FileAccessService"),

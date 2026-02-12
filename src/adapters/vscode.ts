@@ -149,3 +149,27 @@ export class VsCodeInputService implements InputService {
     });
   }
 }
+
+/**
+ * Diff service interface
+ */
+export interface DiffService {
+  /**
+   * Open diff view to compare two files
+   * @param leftPath - Left side file (existing)
+   * @param rightPath - Right side file (config)
+   * @param title - Diff view title
+   */
+  openDiff(leftPath: string, rightPath: string, title: string): Promise<void>;
+}
+
+/**
+ * VS Code diff service implementation
+ */
+export class VsCodeDiffService implements DiffService {
+  async openDiff(leftPath: string, rightPath: string, title: string): Promise<void> {
+    const leftUri = vscode.Uri.file(leftPath);
+    const rightUri = vscode.Uri.file(rightPath);
+    await vscode.commands.executeCommand("vscode.diff", leftUri, rightUri, title);
+  }
+}

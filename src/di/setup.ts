@@ -18,6 +18,7 @@ import {
   VsCodeDialogService,
   VsCodeFileCreator,
   VsCodeInputService,
+  VsCodeDiffService,
 } from "../adapters/vscode.js";
 import { createConfigurationService } from "../adapters/configuration.js";
 import { VsCodeDirectorySelector } from "../adapters/directorySelector.js";
@@ -85,6 +86,8 @@ export function createContainer(vscodeModule: typeof vscode): SimpleDIContainer 
   );
 
   container.registerSingleton(ServiceTokens.ProgressService, () => new VsCodeProgressService());
+
+  container.registerSingleton(ServiceTokens.DiffService, () => new VsCodeDiffService());
 
   // Register cross-platform services
   container.registerSingleton(ServiceTokens.FileAccessService, () => new FileAccessService());
@@ -157,7 +160,14 @@ export function createContainer(vscodeModule: typeof vscode): SimpleDIContainer 
     const nodeService = container.get(ServiceTokens.NodeService);
     const configService = container.get(ServiceTokens.ConfigurationService);
     const dialog = container.get(ServiceTokens.DialogService);
-    return new ExportImportService(fileAccessService, nodeService, configService, dialog);
+    const diffService = container.get(ServiceTokens.DiffService);
+    return new ExportImportService(
+      fileAccessService,
+      nodeService,
+      configService,
+      dialog,
+      diffService
+    );
   });
 
   // Register ContextMenuRegistry (depends on container for accessing services)

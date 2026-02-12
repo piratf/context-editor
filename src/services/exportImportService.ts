@@ -24,7 +24,7 @@ import type { Progress } from "../adapters/progress.js";
 import type { ExportFile } from "../types/export.js";
 import type { NodeService } from "../services/nodeService.js";
 import type { ConfigurationService } from "../adapters/configuration.js";
-import type { DialogService } from "../adapters/vscode.js";
+import type { DialogService, DiffService } from "../adapters/vscode.js";
 import { ExportPathCalculator } from "./exportPathCalculator.js";
 import { ExportScanner, type NodeChildrenProvider } from "./exportScanner.js";
 import { FsExportExecutor } from "./exportExecutor.js";
@@ -61,6 +61,7 @@ export class ExportImportService {
     nodeService: NodeService,
     private readonly configService: ConfigurationService,
     private readonly dialog: DialogService,
+    private readonly diffService: DiffService,
     childrenProvider?: NodeChildrenProvider
   ) {
     this.pathCalculator = new ExportPathCalculator();
@@ -259,19 +260,33 @@ export class ExportImportService {
       return;
     }
 
-    // 内容不同，显示两边内容供用户选择
+    // 内容不同，提供选项让用户选择
     const choice = await this.dialog.showWarningMessage(
-      `.gitignore 文件已存在且内容与配置不同。\n\n` +
-        `--- 现有文件内容 ---\n${currentContent}\n` +
-        `--- 配置中的内容 ---\n${configContent}\n\n` +
-        `请选择如何处理：`,
+      `.gitignore 文件已存在且内容与当前配置不同。请选择如何处理：`,
       { modal: true },
-      "使用配置内容覆盖",
+      "打开 Diff 比较",
+      "使用配置覆盖",
       "保留现有文件",
       "取消"
     );
 
-    if (choice === "使用配置内容覆盖") {
+    if (choice === "打开 Diff 比较") {
+      // 创建临时文件存储配置内容
+      const tempConfigPath = path.join(exportDir, `.gitignore.config-${String(Date.now())}`);
+      await this.writeFile(tempConfigPath, configContent);
+
+      // 打开 diff 视图
+      await this.diffService.openDiff(
+        gitignorePath,
+        tempConfigPath,
+        ".gitignore: 现有文件 ↔ 配置内容"
+      );
+
+      // 不做写入操作，让用户在 diff 视图中决定
+      return;
+    }
+
+    if (choice === "使用配置覆盖") {
       await this.writeFile(gitignorePath, configContent);
     }
     // "保留现有文件" 和 "取消" 都不做任何操作
