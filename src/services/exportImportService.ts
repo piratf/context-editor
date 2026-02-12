@@ -264,15 +264,16 @@ export class ExportImportService {
     const choice = await this.dialog.showWarningMessage(
       `.gitignore 文件已存在且内容与当前配置不同。请选择如何处理：`,
       { modal: true },
-      "打开 Diff 比较",
+      "取消本地导出并比较差异",
       "使用配置覆盖",
       "保留现有文件",
       "取消"
     );
 
-    if (choice === "打开 Diff 比较") {
-      // 创建临时文件存储配置内容
-      const tempConfigPath = path.join(exportDir, `.gitignore.config-${String(Date.now())}`);
+    if (choice === "取消本地导出并比较差异") {
+      // 创建临时文件存储配置内容（放在系统临时目录，避免污染导出目录）
+      const tmpDir = (await import("node:os")).tmpdir();
+      const tempConfigPath = path.join(tmpDir, `.gitignore.config-${String(Date.now())}`);
       await this.writeFile(tempConfigPath, configContent);
 
       // 打开 diff 视图
