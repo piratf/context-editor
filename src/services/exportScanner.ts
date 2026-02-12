@@ -11,7 +11,7 @@
  * 导出规则：
  * - VIRTUAL 节点 → 创建固定目录（global/projects）+ 遍历子节点
  * - PROJECT 节点 → 创建目录 + 遍历过滤后的子节点
- * - DIRECTORY 节点 → 添加目录条目 + 停止递归（批量复制）
+ * - DIRECTORY 节点 → 递归遍历所有子文件并添加到复制列表
  * - FILE 节点 → 添加文件条目 + 停止递归
  */
 
@@ -92,7 +92,7 @@ export class ExportScanner {
    * 规则：
    * - VIRTUAL 节点 → 创建固定目录 + 遍历子节点
    * - PROJECT 节点 → 创建目录 + 遍历过滤后的子节点
-   * - DIRECTORY 节点 → 添加目录条目 + 停止递归
+   * - DIRECTORY 节点 → 递归遍历所有子文件并添加到复制列表
    * - FILE 节点 → 添加文件条目 + 停止递归
    *
    * @param node - 要扫描的节点
@@ -169,12 +169,20 @@ export class ExportScanner {
       return;
     }
 
-    // 规则 3: DIRECTORY 节点 - 添加目录条目，停止递归
+    // 规则 3: DIRECTORY 节点 - 递归遍历所有子文件
     if (NodeTypeGuard.isDirectory(node.type)) {
       if (node.path !== undefined) {
         directories.push(this.createDirectoryEntry(node, category, projectName));
+
+        // 递归遍历目录内容
+        const result = await this.nodeService.getChildrenForDirectoryNode(node);
+        if (result.success) {
+          for (const child of result.children) {
+            await this.scanNode(child, directories, files, category, projectName, provider);
+          }
+        }
       }
-      return; // 停止递归 - ExportExecutor 会批量复制整个目录
+      return;
     }
 
     // 规则 4: FILE 节点 - 添加文件条目，停止递归
