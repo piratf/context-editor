@@ -1,5 +1,6 @@
 {
   "name": "context-editor",
+  "type": "module",
   "displayName": "Context Editor",
   "description": "Dedicated visual editor for Claude Code. Orchestrate nested CLAUDE.md trees, MCP servers, and global project settings in a unified VS Code sidebar.",
   "version": "0.1.2",

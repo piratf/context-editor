@@ -129,15 +129,16 @@ export class ExportPathCalculator {
     const claudeIndex = parts.findIndex((p) => p === ".claude");
     const claudeMdIndex = parts.findIndex((p) => p === "CLAUDE.md");
 
-    let startIndex = Math.max(claudeIndex, claudeMdIndex);
-
-    if (startIndex < 0) {
-      // 没有找到项目标记，使用最后一级目录
-      startIndex = parts.length - 1;
-    }
+    const startIndex = Math.max(claudeIndex, claudeMdIndex);
 
     // 从找到的标记开始的路径
-    const rest = parts.slice(startIndex);
+    const rest = startIndex < 0 ? parts.slice(parts.length - 1) : parts.slice(startIndex);
+
+    // 特殊处理：当没有找到标记且只有一个元素时，检查是否是项目根目录本身
+    // 只有当 rest[0] 就是项目名时，才说明是项目根目录（避免重复拼接项目名）
+    if (startIndex < 0 && rest.length === 1 && rest[0] === projectNameNormalized) {
+      return path.join("projects", projectNameNormalized);
+    }
 
     return path.join("projects", projectNameNormalized, ...rest);
   }

@@ -13,6 +13,7 @@
 import * as path from "node:path";
 import type { ExportPlan, ExportResult, ExportFailure } from "../types/export.js";
 import type { FileAccessService } from "./fileAccessService.js";
+import type { Progress } from "../adapters/progress.js";
 
 /**
  * 导出执行器接口
@@ -25,9 +26,10 @@ export interface ExportExecutor {
    *
    * @param plan - 导出计划
    * @param dstAbsDir - 目标导出目录（绝对路径）
+   * @param progress - 可选的进度报告器
    * @returns 执行结果
    */
-  execute(plan: ExportPlan, dstAbsDir: string): Promise<ExportResult>;
+  execute(plan: ExportPlan, dstAbsDir: string, progress?: Progress): Promise<ExportResult>;
 }
 
 /**
@@ -52,9 +54,10 @@ export class FsExportExecutor implements ExportExecutor {
    *
    * @param plan - 导出计划
    * @param dstAbsDir - 目标导出目录（绝对路径）
+   * @param progress - 可选的进度报告器
    * @returns 执行结果
    */
-  async execute(plan: ExportPlan, dstAbsDir: string): Promise<ExportResult> {
+  async execute(plan: ExportPlan, dstAbsDir: string, progress?: Progress): Promise<ExportResult> {
     const failures: ExportFailure[] = [];
     let directoriesCreatedCount = 0;
     let directoriesCopiedCount = 0;
@@ -86,6 +89,8 @@ export class FsExportExecutor implements ExportExecutor {
     // 阶段 2: 递归复制所有目录
     for (const dir of plan.directoriesToCopy) {
       const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
+      // 报告目录进度
+      progress?.report(`正在复制目录：${dir.label}`);
       try {
         await this.copyDirectory(dir.srcAbsPath, dstAbsPath);
         directoriesCopiedCount++;
@@ -101,6 +106,9 @@ export class FsExportExecutor implements ExportExecutor {
     // 阶段 3: 复制所有文件
     for (const file of plan.filesToCopy) {
       const dstAbsPath = path.join(dstAbsDir, file.dstRelativePath);
+      // 报告文件进度
+      const fileName = path.basename(file.srcAbsPath);
+      progress?.report(`正在复制文件：${fileName}`);
       try {
         // 确保父目录存在
         const parentDir = path.dirname(dstAbsPath);
