@@ -76,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   logger.info(`Current environment: ${currentEnvName}`);
 
   // Create DI container for service management
-  container = createContainer();
+  container = createContainer(vscode);
   context.subscriptions.push(container);
 
   // Register views with environment manager and container

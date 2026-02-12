@@ -49,9 +49,10 @@ import { ExportImportService } from "../services/exportImportService.js";
  *
  * Service configuration is centralized here - all options are set during registration.
  *
+ * @param vscodeModule - VS Code module (passed in to avoid require in ESM)
  * @returns Configured DI container instance
  */
-export function createContainer(): SimpleDIContainer {
+export function createContainer(vscodeModule: typeof vscode): SimpleDIContainer {
   const container = new SimpleDIContainer();
 
   // Register singleton Adapters (VS Code API wrappers)
@@ -72,8 +73,6 @@ export function createContainer(): SimpleDIContainer {
   // Register Export/Import adapters
   container.registerSingleton(ServiceTokens.ConfigurationService, () => {
     return createConfigurationService(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const vscodeModule = require("vscode") as typeof vscode;
       return vscodeModule.workspace.getConfiguration("contextEditor");
     });
   });
