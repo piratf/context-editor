@@ -17,7 +17,12 @@
 
 import type { NodeData } from "../types/nodeData.js";
 import { NodeTypeGuard, NodeCategory } from "../types/nodeData.js";
-import type { ExportPlan, ExportDirectory, ExportFile } from "../types/export.js";
+import type {
+  ExportPlan,
+  ExportDirectory,
+  ExportFile,
+  ExportDirectoryToCopy,
+} from "../types/export.js";
 import type { NodeService } from "./nodeService.js";
 import { ExportPathCalculator } from "./exportPathCalculator.js";
 
@@ -63,12 +68,14 @@ export class ExportScanner {
    */
   async scan(rootNodes: readonly NodeData[], provider?: NodeChildrenProvider): Promise<ExportPlan> {
     const directoriesToCreate: ExportDirectory[] = [];
+    const directoriesToCopy: ExportDirectoryToCopy[] = [];
     const filesToCopy: ExportFile[] = [];
 
     for (const rootNode of rootNodes) {
       await this.scanNode(
         rootNode,
         directoriesToCreate,
+        directoriesToCopy,
         filesToCopy,
         rootNode.category ?? NodeCategory.GLOBAL,
         "",
@@ -78,6 +85,7 @@ export class ExportScanner {
 
     return {
       directoriesToCreate,
+      directoriesToCopy,
       filesToCopy,
       metadata: {
         timestamp: Date.now(),
@@ -92,11 +100,12 @@ export class ExportScanner {
    * 规则：
    * - VIRTUAL 节点 → 创建固定目录 + 遍历子节点
    * - PROJECT 节点 → 创建目录 + 遍历过滤后的子节点
-   * - DIRECTORY 节点 → 递归遍历所有子文件并添加到复制列表
-   * - FILE 节点 → 添加文件条目 + 停止递归
+   * - DIRECTORY 节点 → 添加到递归复制列表（整个目录将被复制）
+   * - FILE 节点 → 添加文件条目
    *
    * @param node - 要扫描的节点
-   * @param directories - 目录列表（累积）
+   * @param directoriesToCreate - 空目录列表（累积）
+   * @param directoriesToCopy - 递归复制目录列表（累积）
    * @param files - 文件列表（累积）
    * @param category - 当前类别
    * @param projectName - 当前项目名称
@@ -104,7 +113,8 @@ export class ExportScanner {
    */
   private async scanNode(
     node: NodeData,
-    directories: ExportDirectory[],
+    directoriesToCreate: ExportDirectory[],
+    directoriesToCopy: ExportDirectoryToCopy[],
     files: ExportFile[],
     category: NodeCategory,
     projectName: string,
@@ -116,7 +126,7 @@ export class ExportScanner {
       const virtualCategory = node.category ?? category;
 
       // 为 VIRTUAL 节点创建目录条目
-      directories.push({
+      directoriesToCreate.push({
         srcAbsPath: "", // VIRTUAL 节点无源路径
         dstRelativePath: virtualCategory, // 从节点获取类别名
         label: virtualCategory,
@@ -142,7 +152,15 @@ export class ExportScanner {
       }
 
       for (const child of children) {
-        await this.scanNode(child, directories, files, virtualCategory, projectName, provider);
+        await this.scanNode(
+          child,
+          directoriesToCreate,
+          directoriesToCopy,
+          files,
+          virtualCategory,
+          projectName,
+          provider
+        );
       }
       return;
     }
@@ -150,7 +168,7 @@ export class ExportScanner {
     // 规则 2: PROJECT 节点 - 创建目录 + 遍历过滤后的子节点
     if (NodeTypeGuard.isProject(node.type)) {
       if (node.path !== undefined) {
-        directories.push(this.createDirectoryEntry(node, category, node.label));
+        directoriesToCreate.push(this.createDirectoryEntry(node, category, node.label));
       }
 
       const result = await this.nodeService.getChildrenForDirectoryNode(node);
@@ -158,7 +176,8 @@ export class ExportScanner {
         for (const child of result.children) {
           await this.scanNode(
             child,
-            directories,
+            directoriesToCreate,
+            directoriesToCopy,
             files,
             NodeCategory.PROJECTS,
             node.label,
@@ -169,36 +188,51 @@ export class ExportScanner {
       return;
     }
 
-    // 规则 3: DIRECTORY 节点 - 递归遍历所有子文件
+    // 规则 3: DIRECTORY 节点 - 添加到递归复制列表（整个目录将被复制）
     if (NodeTypeGuard.isDirectory(node.type)) {
       if (node.path !== undefined) {
-        directories.push(this.createDirectoryEntry(node, category, projectName));
-
-        // 递归遍历目录内容
-        const result = await this.nodeService.getChildrenForDirectoryNode(node);
-        if (result.success) {
-          for (const child of result.children) {
-            await this.scanNode(child, directories, files, category, projectName, provider);
-          }
-        }
+        directoriesToCopy.push(this.createDirectoryCopyEntry(node, category, projectName));
       }
       return;
     }
 
-    // 规则 4: FILE 节点 - 添加文件条目，停止递归
+    // 规则 4: FILE 节点 - 添加文件条目
     if (NodeTypeGuard.isFile(node.type) && node.path !== undefined) {
       files.push(this.createFileEntry(node, category, projectName));
     }
   }
 
   /**
-   * 创建目录条目
+   * 创建目录条目（空目录）
    */
   private createDirectoryEntry(
     node: NodeData,
     category: NodeCategory,
     projectName: string
   ): ExportDirectory {
+    const nodePath = node.path;
+    if (nodePath === undefined) {
+      throw new Error(`Directory node "${node.label}" has no path`);
+    }
+    const dstRelativePath = this.pathCalculator.calculateFromNode(node, category, projectName);
+
+    return {
+      srcAbsPath: nodePath,
+      dstRelativePath,
+      label: node.label,
+      category,
+      projectName,
+    };
+  }
+
+  /**
+   * 创建目录复制条目（递归复制整个目录）
+   */
+  private createDirectoryCopyEntry(
+    node: NodeData,
+    category: NodeCategory,
+    projectName: string
+  ): ExportDirectoryToCopy {
     const nodePath = node.path;
     if (nodePath === undefined) {
       throw new Error(`Directory node "${node.label}" has no path`);

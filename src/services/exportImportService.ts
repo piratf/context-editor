@@ -87,7 +87,8 @@ export class ExportImportService {
 
     progress?.report(
       `找到 ${String(plan.filesToCopy.length)} 个文件，` +
-        `${String(plan.directoriesToCreate.length)} 个目录`
+        `${String(plan.directoriesToCopy.length)} 个目录，` +
+        `${String(plan.directoriesToCreate.length)} 个空目录`
     );
 
     // 执行导出计划（创建目录 + 复制文件）

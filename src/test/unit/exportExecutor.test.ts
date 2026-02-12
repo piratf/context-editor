@@ -51,6 +51,7 @@ void describe("FsExportExecutor", () => {
           projectName: "",
         },
       ],
+      directoriesToCopy: [],
       filesToCopy: [
         {
           srcAbsPath: srcFile,
@@ -72,6 +73,7 @@ void describe("FsExportExecutor", () => {
     const result = await executor.execute(plan, testDir);
 
     assert.equal(result.directoriesCreatedCount, 1);
+    assert.equal(result.directoriesCopiedCount, 0);
     assert.equal(result.filesCopiedCount, 1);
     assert.equal(result.failures.length, 0);
 
@@ -94,6 +96,7 @@ void describe("FsExportExecutor", () => {
           projectName: "",
         },
       ],
+      directoriesToCopy: [],
       filesToCopy: [],
       metadata: {
         timestamp: Date.now(),
@@ -105,6 +108,7 @@ void describe("FsExportExecutor", () => {
     const result = await executor.execute(plan, testDir);
 
     assert.equal(result.directoriesCreatedCount, 1);
+    assert.equal(result.directoriesCopiedCount, 0);
   });
 
   void test("execute should create parent directories for files", async () => {
@@ -117,6 +121,7 @@ void describe("FsExportExecutor", () => {
 
     const plan: ExportPlan = {
       directoriesToCreate: [],
+      directoriesToCopy: [],
       filesToCopy: [
         {
           srcAbsPath: srcFile,
@@ -137,6 +142,7 @@ void describe("FsExportExecutor", () => {
     const executor = new FsExportExecutor(mockFileAccess);
     const result = await executor.execute(plan, testDir);
 
+    assert.equal(result.directoriesCopiedCount, 0);
     assert.equal(result.filesCopiedCount, 1);
     assert.ok((await fs.stat(`${testDir}/projects/test-project/file.txt`)).isFile());
   });
@@ -148,6 +154,7 @@ void describe("FsExportExecutor", () => {
     // Create a file that will fail to copy (source doesn't exist)
     const plan: ExportPlan = {
       directoriesToCreate: [],
+      directoriesToCopy: [],
       filesToCopy: [
         {
           srcAbsPath: `${testDir}/nonexistent.txt`,
@@ -168,8 +175,50 @@ void describe("FsExportExecutor", () => {
     const executor = new FsExportExecutor(mockFileAccess);
     const result = await executor.execute(plan, testDir);
 
+    assert.equal(result.directoriesCopiedCount, 0);
     assert.equal(result.filesCopiedCount, 0);
     assert.equal(result.failures.length, 1);
+  });
+
+  void test("execute should recursively copy directories", async () => {
+    const testDir = `${tempDir}/test5`;
+    await fs.mkdir(testDir, { recursive: true });
+
+    // Create source directory with nested files
+    const srcDir = `${testDir}/source-dir`;
+    await fs.mkdir(`${srcDir}/nested`, { recursive: true });
+    await fs.writeFile(`${srcDir}/file1.txt`, "content1");
+    await fs.writeFile(`${srcDir}/nested/file2.txt`, "content2");
+
+    const plan: ExportPlan = {
+      directoriesToCreate: [],
+      directoriesToCopy: [
+        {
+          srcAbsPath: srcDir,
+          dstRelativePath: "global/source-dir",
+          label: "source-dir",
+          category: NodeCategory.GLOBAL,
+          projectName: "",
+        },
+      ],
+      filesToCopy: [],
+      metadata: {
+        timestamp: Date.now(),
+        sourceRoots: [],
+      },
+    };
+
+    const executor = new FsExportExecutor(mockFileAccess);
+    const result = await executor.execute(plan, testDir);
+
+    assert.equal(result.directoriesCreatedCount, 0);
+    assert.equal(result.directoriesCopiedCount, 1);
+    assert.equal(result.filesCopiedCount, 0);
+    assert.equal(result.failures.length, 0);
+
+    // Verify results - entire directory should be copied
+    assert.ok((await fs.stat(`${testDir}/global/source-dir/file1.txt`)).isFile());
+    assert.ok((await fs.stat(`${testDir}/global/source-dir/nested/file2.txt`)).isFile());
   });
 });
 

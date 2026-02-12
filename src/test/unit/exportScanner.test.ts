@@ -92,10 +92,11 @@ void describe("ExportScanner", () => {
 
     const plan = await scanner.scan([dirNode]);
 
-    // 应该添加目录条目，但不会递归
-    assert.equal(plan.directoriesToCreate.length, 1);
+    // DIRECTORY 节点应该被添加到 directoriesToCopy（整个目录将被递归复制）
+    assert.equal(plan.directoriesToCopy.length, 1);
+    assert.equal(plan.directoriesToCreate.length, 0);
     assert.equal(plan.filesToCopy.length, 0);
-    assert.equal(plan.directoriesToCreate[0]?.label, ".claude");
+    assert.equal(plan.directoriesToCopy[0]?.label, ".claude");
   });
 
   void test("scan should process FILE nodes", async () => {

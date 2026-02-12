@@ -16,8 +16,10 @@ import { NodeCategory } from "./nodeData.js";
  * 它由 ExportScanner 生成，由 ExportExecutor 执行。
  */
 export interface ExportPlan {
-  /** 要创建的目录列表 */
+  /** 要创建的空目录列表 */
   readonly directoriesToCreate: readonly ExportDirectory[];
+  /** 要递归复制的目录列表（包括所有子文件和子目录） */
+  readonly directoriesToCopy: readonly ExportDirectoryToCopy[];
   /** 要复制的文件列表 */
   readonly filesToCopy: readonly ExportFile[];
   /** 元数据 */
@@ -51,6 +53,22 @@ export interface ExportDirectory {
 }
 
 /**
+ * 要递归复制的导出目录
+ */
+export interface ExportDirectoryToCopy {
+  /** 源目录绝对路径 */
+  readonly srcAbsPath: string;
+  /** 目标目录相对路径（相对于导出根目录） */
+  readonly dstRelativePath: string;
+  /** 目录标签（用于显示） */
+  readonly label: string;
+  /** 类别（从 NodeData.category 获取） */
+  readonly category: NodeCategory;
+  /** 项目名称 */
+  readonly projectName: string;
+}
+
+/**
  * 要复制的导出文件
  */
 export interface ExportFile {
@@ -74,6 +92,8 @@ export interface ExportFile {
 export interface ExportResult {
   /** 成功创建的目录数 */
   readonly directoriesCreatedCount: number;
+  /** 成功递归复制的目录数 */
+  readonly directoriesCopiedCount: number;
   /** 成功复制的文件数 */
   readonly filesCopiedCount: number;
   /** 失败的操作 */

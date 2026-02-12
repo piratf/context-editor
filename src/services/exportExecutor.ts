@@ -45,9 +45,10 @@ export class FsExportExecutor implements ExportExecutor {
   /**
    * 执行导出计划
    *
-   * 分两个阶段：
-   * 1. 创建所有目录
-   * 2. 复制所有文件
+   * 分三个阶段：
+   * 1. 创建所有空目录
+   * 2. 递归复制所有目录
+   * 3. 复制所有文件
    *
    * @param plan - 导出计划
    * @param dstAbsDir - 目标导出目录（绝对路径）
@@ -56,9 +57,10 @@ export class FsExportExecutor implements ExportExecutor {
   async execute(plan: ExportPlan, dstAbsDir: string): Promise<ExportResult> {
     const failures: ExportFailure[] = [];
     let directoriesCreatedCount = 0;
+    let directoriesCopiedCount = 0;
     let filesCopiedCount = 0;
 
-    // 阶段 1: 创建所有目录
+    // 阶段 1: 创建所有空目录
     for (const dir of plan.directoriesToCreate) {
       const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
 
@@ -81,7 +83,22 @@ export class FsExportExecutor implements ExportExecutor {
       }
     }
 
-    // 阶段 2: 复制所有文件
+    // 阶段 2: 递归复制所有目录
+    for (const dir of plan.directoriesToCopy) {
+      const dstAbsPath = path.join(dstAbsDir, dir.dstRelativePath);
+      try {
+        await this.copyDirectory(dir.srcAbsPath, dstAbsPath);
+        directoriesCopiedCount++;
+      } catch (error) {
+        failures.push({
+          srcAbsPath: dir.srcAbsPath,
+          dstAbsPath,
+          error: String(error),
+        });
+      }
+    }
+
+    // 阶段 3: 复制所有文件
     for (const file of plan.filesToCopy) {
       const dstAbsPath = path.join(dstAbsDir, file.dstRelativePath);
       try {
@@ -102,7 +119,7 @@ export class FsExportExecutor implements ExportExecutor {
       }
     }
 
-    return { directoriesCreatedCount, filesCopiedCount, failures };
+    return { directoriesCreatedCount, directoriesCopiedCount, filesCopiedCount, failures };
   }
 
   /**
@@ -111,5 +128,19 @@ export class FsExportExecutor implements ExportExecutor {
   async createDirectory(dirPath: string): Promise<void> {
     const fs = await import("node:fs/promises");
     await fs.mkdir(dirPath, { recursive: true });
+  }
+
+  /**
+   * 递归复制目录
+   *
+   * 使用 fs.cp 递归复制整个目录（包括所有子文件和子目录）
+   */
+  async copyDirectory(srcAbsPath: string, dstAbsPath: string): Promise<void> {
+    const fs = await import("node:fs/promises");
+    // 确保父目录存在
+    const parentDir = path.dirname(dstAbsPath);
+    await this.createDirectory(parentDir);
+    // 递归复制目录
+    await fs.cp(srcAbsPath, dstAbsPath, { recursive: true });
   }
 }
