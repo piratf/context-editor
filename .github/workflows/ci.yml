@@ -1,14 +1,14 @@
 name: CI
 
 on:
-  push:
-    branches: ["main", "dev"]
   pull_request:
-    branches: ["main", "dev"]
+    branches:
+      - main
 
 jobs:
   build:
     name: Build and Test
+    if: "!contains(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
 
     strategy:
@@ -35,11 +35,12 @@ jobs:
         run: npm run compile
 
       - name: Run tests
-        run: xvfb-run -a npm test
+        run: npm test
         continue-on-error: false
 
   lint:
     name: Lint Check
+    if: "!contains(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
 
     steps:
