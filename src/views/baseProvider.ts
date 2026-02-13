@@ -10,12 +10,11 @@
 
 import * as vscode from "vscode";
 import type { NodeData } from "../types/nodeData.js";
-import { NodeType, isDirectoryData } from "../types/nodeData.js";
+import { NodeType } from "../types/nodeData.js";
 import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { DIContainer } from "../di/container.js";
-import { ServiceTokens } from "../di/tokens.js";
 
 /**
  * Node type for TreeDataProvider
@@ -31,23 +30,17 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   protected readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  protected readonly logger: Logger;
-  protected rootNodes: TreeNode[] = [];
-
   constructor(
-    logger: Logger,
+    protected readonly logger: Logger,
     protected readonly container: DIContainer,
     protected readonly treeItemFactory: TreeItemFactory
-  ) {
-    this.logger = logger;
-  }
+  ) {}
 
   /**
    * Refresh the tree view - reloads root nodes and fires change event
    */
   refresh(): void {
     this.logger.logEntry("refresh");
-    this.loadRootNodes();
     this._onDidChangeTreeData.fire(undefined);
     this.logger.logExit("refresh");
   }
@@ -63,54 +56,14 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
     // Debug: log contextValue to verify menu markers
     const contextValueStr = treeItem.contextValue ?? "";
-    this.logger.debug(`[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`);
+    this.logger.debug(
+      `[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`
+    );
 
     return treeItem;
   }
 
-  /**
-   * Get children of a given node, or root nodes if no node provided
-   *
-   * Uses NodeService from DI container to get children for directory nodes
-   */
-  async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-    this.logger.debug("getChildren called", {
-      element: element === undefined ? "root" : `"${element.label}" (${element.type})`,
-    });
-
-    // Return error node if loading failed
-    if (this.rootNodes.length === 1 && this.rootNodes[0]?.type === NodeType.ERROR) {
-      return this.rootNodes;
-    }
-
-    // No element = root level
-    if (element === undefined) {
-      this.logger.debug(`Returning ${String(this.rootNodes.length)} root nodes`);
-      return this.rootNodes;
-    }
-
-    // Only directories have children
-    if (!isDirectoryData(element)) {
-      return [];
-    }
-
-    // Get NodeService from DI container (already configured)
-    const nodeService = this.container.get(ServiceTokens.NodeService);
-    const result = await nodeService.getChildren(element);
-
-    if (result.success) {
-      this.logger.logChildrenRetrieved(element.label, result.children.length);
-      return [...result.children];
-    } else {
-      this.logger.error("Error getting children", new Error(result.error.tooltip));
-      return [result.error];
-    }
-  }
-
-  /**
-   * Load root level nodes - must be implemented by subclass
-   */
-  protected abstract loadRootNodes(): void;
+  abstract getChildren(): Promise<TreeNode[]>;
 
   /**
    * Set command for clickable nodes - can be overridden by subclass
@@ -119,55 +72,22 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
     const isClickable = element.type === NodeType.FILE || element.type === NodeType.CLAUDE_JSON;
     if (isClickable && element.path !== undefined) {
       treeItem.command = {
-        command: "contextEditor.openFile",
+        command: "vscode.open",
         title: "Open File",
-        arguments: [element.path],
+        arguments: [vscode.Uri.file(element.path)],
       };
     }
   }
 
   /**
-   * Create an error node with standardized format
-   */
-  protected createErrorNode(
-    label: string,
-    tooltip: string,
-    error?: Error
-  ): TreeNode {
-    this.logger.error(label, error);
-
-    // Create as NodeData (new architecture)
-    return NodeDataFactory.createError(label, {
-      tooltip,
-      contextValue: "error",
-      error,
-    });
-  }
-
-  /**
    * Create an info node with standardized format
    */
-  protected createInfoNode(
-    label: string,
-    tooltip: string,
-    contextValue = "empty"
-  ): TreeNode {
+  protected createInfoNode(label: string, tooltip: string, contextValue = "empty"): TreeNode {
     // Create as NodeData (new architecture)
     return NodeDataFactory.createInfo(label, {
       tooltip,
       contextValue,
       iconId: "info",
     });
-  }
-
-  /**
-   * Create an empty directory node
-   */
-  protected createEmptyNode(isInsideClaudeDir = false): TreeNode {
-    const label = isInsideClaudeDir ? "(empty)" : "(no Claude files)";
-    const tooltip = isInsideClaudeDir
-      ? "This directory is empty"
-      : "No .claude directory or CLAUDE.md file found";
-    return this.createInfoNode(label, tooltip, "empty");
   }
 }

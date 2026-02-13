@@ -29,11 +29,12 @@ export const NodeDataMarker = Symbol("NodeData");
  * Tree node types - unified across all providers
  */
 export enum NodeType {
-  ROOT = "root",
   DIRECTORY = "directory",
   FILE = "file",
   CLAUDE_JSON = "claudeJson",
   ERROR = "error",
+  USER_ROOT = "userRoot",
+  PROJECTS_ROOT = "projectsRoot",
 }
 
 /**
@@ -107,9 +108,9 @@ export function toErrorData(error: Error | string | object): ErrorData | undefin
   const errorObj = error as Record<string, unknown> | null;
   if (errorObj !== null && "message" in errorObj && typeof errorObj.message === "string") {
     return {
-      name: ("name" in errorObj && typeof errorObj.name === "string") ? errorObj.name : "Error",
+      name: "name" in errorObj && typeof errorObj.name === "string" ? errorObj.name : "Error",
       message: errorObj.message,
-      stack: ("stack" in errorObj && typeof errorObj.stack === "string") ? errorObj.stack : undefined,
+      stack: "stack" in errorObj && typeof errorObj.stack === "string" ? errorObj.stack : undefined,
     };
   }
   return undefined;
@@ -155,13 +156,6 @@ export interface ErrorDataNode extends NodeData {
 }
 
 /**
- * Root node data
- */
-export interface RootData extends NodeData {
-  readonly type: NodeType.ROOT;
-}
-
-/**
  * Type guard for NodeData using Symbol marker
  *
  * This is the preferred method for runtime type checking of NodeData instances.
@@ -186,39 +180,16 @@ export function isNodeData(node: unknown): node is NodeData {
 }
 
 /**
- * Type guard for DirectoryData
+ * NodeTypeGuard - Collection of type guard functions
  */
-export function isDirectoryData(data: NodeData): data is DirectoryData {
-  return data.type === NodeType.DIRECTORY && data.path !== undefined;
-}
+export const NodeTypeGuard = {
+  isDirectoryData: (data: NodeData): data is DirectoryData =>
+    data.type === NodeType.DIRECTORY && data.path !== undefined,
 
-/**
- * Type guard for FileData
- */
-export function isFileData(data: NodeData): data is FileData {
-  return data.type === NodeType.FILE && data.path !== undefined;
-}
+  isUserRoot: (type: NodeType): boolean => type === NodeType.USER_ROOT,
 
-/**
- * Type guard for ClaudeJsonData
- */
-export function isClaudeJsonData(data: NodeData): data is ClaudeJsonData {
-  return data.type === NodeType.CLAUDE_JSON && data.path !== undefined;
-}
-
-/**
- * Type guard for ErrorDataNode
- */
-export function isErrorDataNode(data: NodeData): data is ErrorDataNode {
-  return data.type === NodeType.ERROR;
-}
-
-/**
- * Type guard for RootData
- */
-export function isRootData(data: NodeData): data is RootData {
-  return data.type === NodeType.ROOT;
-}
+  isProjectsRoot: (type: NodeType): boolean => type === NodeType.PROJECTS_ROOT,
+} as const;
 
 /**
  * Factory for creating node data objects
@@ -375,11 +346,13 @@ export const NodeDataFactory = {
    * Examples: "Global Configuration", "Projects" root nodes
    *
    * @param label - Display label
+   * @param type - NodeType
    * @param options - Optional configuration
    * @returns Virtual node data
    */
   createVirtualNode(
     label: string,
+    type: NodeType,
     options: {
       collapsibleState?: CollapsibleState;
       tooltip?: string;
@@ -390,8 +363,8 @@ export const NodeDataFactory = {
     // Omit path property entirely - this makes virtual nodes distinct from file system nodes
     return {
       [NodeDataMarker]: true,
-      id: this.generateId(NodeType.ROOT, label),
-      type: NodeType.ROOT,
+      id: this.generateId(type, label),
+      type: type,
       label,
       // No path property - virtual nodes don't represent file system items
       collapsibleState,

@@ -43,12 +43,6 @@
         "category": "Context Editor"
       },
       {
-        "command": "contextEditor.titleEnvironmentSwitch",
-        "title": "Switch Environment",
-        "icon": "$(server-environment)",
-        "category": "Context Editor"
-      },
-      {
         "command": "contextEditor.showDebugOutput",
         "title": "Show Debug Output",
         "category": "Context Editor"
@@ -110,7 +104,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "contextEditor.titleEnvironmentSwitch",
+          "command": "contextEditor.switchEnvironment",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
         }

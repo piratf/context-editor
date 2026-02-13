@@ -13,16 +13,16 @@
 import * as vscode from "vscode";
 import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
-import { EnvironmentManager, type EnvironmentChangeEvent } from "./services/environmentManager.js";
+import { type EnvironmentChangeEvent } from "./services/environmentManagerService";
 import { Logger } from "./utils/logger.js";
 import { VsCodeUserInteraction } from "./adapters/ui.js";
 import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
 import { ServiceTokens } from "./di/tokens.js";
+import { IEnvironmentManagerService } from "./services/environmentManagerService";
 
 // Global state
 let configSearch: ConfigSearch;
-let environmentManager: EnvironmentManager;
 let unifiedProvider: UnifiedProvider;
 let treeView: vscode.TreeView<unknown> | undefined;
 let logger: Logger;
@@ -64,15 +64,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Initialize user interaction adapter
   const userInteraction = new VsCodeUserInteraction();
 
-  // Initialize environment manager (defaults to native facade)
-  environmentManager = new EnvironmentManager(configSearch, userInteraction);
+  // Create DI container for service management
+  container = createContainer(debugOutput, configSearch, userInteraction);
+  context.subscriptions.push(container);
+
+  const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);
   const currentEnvName = environmentManager.getCurrentEnvironmentName();
   updateCurrentEnvironmentContext(currentEnvName);
   logger.info(`Current environment: ${currentEnvName}`);
-
-  // Create DI container for service management
-  container = createContainer();
-  context.subscriptions.push(container);
 
   // Register views with environment manager and container
   registerViews(context, environmentManager, logger, container);
@@ -81,7 +80,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerCommands(context, environmentManager, logger, container);
 
   // Subscribe to environment changes
-  environmentManager.on("environmentChanged", (event: EnvironmentChangeEvent) => {
+  environmentManager.onEnvironmentChanged((event: EnvironmentChangeEvent) => {
     logger.info(`Environment changed: ${event.environmentName}`);
     updateCurrentEnvironmentContext(event.environmentName);
 
@@ -93,7 +92,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Subscribe to data facades changes
   configSearch.on("dataFacadesChanged", (facades) => {
     logger.info(`Data facades changed: ${String(facades.length)} environment(s)`);
-    environmentManager.updateConfigSearch(configSearch);
 
     // Refresh view to show updated data
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -108,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  */
 function registerViews(
   _context: vscode.ExtensionContext,
-  envManager: EnvironmentManager,
+  envManager: IEnvironmentManagerService,
   logger: Logger,
   container: SimpleDIContainer
 ): void {
@@ -118,7 +116,7 @@ function registerViews(
   const treeItemFactory = container.get(ServiceTokens.TreeItemFactory);
 
   // Create unified provider with environment manager, container, and treeItemFactory
-  unifiedProvider = new UnifiedProvider(envManager, logger, container, treeItemFactory);
+  unifiedProvider = new UnifiedProvider(logger, container, treeItemFactory);
 
   // Create the tree view with dynamic title support
   treeView = vscode.window.createTreeView("contextEditorUnified", {
@@ -127,7 +125,7 @@ function registerViews(
 
   // Set the initial title with the current environment name
   const initialEnvName = envManager.getCurrentEnvironmentName();
-  treeView.title = `⚡ ${initialEnvName}`;
+  updateCurrentEnvironmentContext(initialEnvName);
 
   logger.logExit("registerViews");
 }
@@ -137,7 +135,7 @@ function registerViews(
  */
 function registerCommands(
   context: vscode.ExtensionContext,
-  envManager: EnvironmentManager,
+  envManager: IEnvironmentManagerService,
   logger: Logger,
   container: SimpleDIContainer
 ): void {
@@ -157,44 +155,12 @@ function registerCommands(
   );
   context.subscriptions.push(switchEnvironmentCommand);
 
-  // Title environment switcher command - shows quick pick
-  const titleEnvironmentSwitchCommand = vscode.commands.registerCommand(
-    "contextEditor.titleEnvironmentSwitch",
-    async () => {
-      logger.debug("Title environment switch triggered");
-      await envManager.showEnvironmentQuickPick();
-    }
-  );
-  context.subscriptions.push(titleEnvironmentSwitchCommand);
-
   // Refresh command - refreshes view and re-discovers environments
   const refreshCommand = vscode.commands.registerCommand("contextEditor.refresh", async () => {
     logger.debug("Refreshing environments...");
     await configSearch.refresh();
   });
   context.subscriptions.push(refreshCommand);
-
-  // Open file command
-  const openFileCommand = vscode.commands.registerCommand(
-    "contextEditor.openFile",
-    async (filePath: string) => {
-      if (typeof filePath !== "string") {
-        return;
-      }
-
-      try {
-        const uri = vscode.Uri.file(filePath);
-        await vscode.commands.executeCommand("vscode.open", uri);
-      } catch (error) {
-        const errorObj = error instanceof Error ? error : new Error(String(error));
-        logger.error("Failed to open file", errorObj);
-        vscode.window.showErrorMessage(
-          `Failed to open file: ${errorObj.message}`
-        );
-      }
-    }
-  );
-  context.subscriptions.push(openFileCommand);
 
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);

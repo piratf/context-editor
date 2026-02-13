@@ -1,9 +1,15 @@
 /**
- * Unified debug logging utility for Context Editor.
- * Provides consistent formatting and structured logging across all providers.
+ * LoggerService - Pure logging service interface and implementation
+ *
+ * This module provides:
+ * - ILoggerService: Pure logging interface without vscode dependency
+ * - VsCodeLoggerService: VS Code-specific implementation
+ *
+ * Architecture:
+ * - Service layer: Contains logging logic
+ * - No vscode imports in the interface
+ * - Can be fully unit tested without VS Code environment
  */
-
-import * as vscode from "vscode";
 
 /**
  * Log level for filtering debug output
@@ -27,16 +33,54 @@ interface LogEntry {
 }
 
 /**
- * Unified logger for Context Editor extension
+ * Pure logger service interface
+ *
+ * This interface defines logging operations without any dependency on VS Code.
+ * Implementations can use different output channels (VS Code, console, file, etc.).
  */
-export class Logger {
-  private readonly outputChannel: vscode.OutputChannel;
-  private readonly componentName: string;
+export interface ILoggerService {
+  /**
+   * Log a debug message
+   */
+  debug(message: string, details?: Record<string, unknown>): void;
 
-  constructor(outputChannel: vscode.OutputChannel, componentName: string) {
-    this.outputChannel = outputChannel;
-    this.componentName = componentName;
-  }
+  /**
+   * Log an info message
+   */
+  info(message: string, details?: Record<string, unknown>): void;
+
+  /**
+   * Log a warning message
+   */
+  warn(message: string, details?: Record<string, unknown>): void;
+
+  /**
+   * Log an error message
+   */
+  error(message: string, error?: Error, details?: Record<string, unknown>): void;
+
+  /**
+   * Log entry into a method (for debugging)
+   */
+  logEntry(methodName: string, args?: Record<string, unknown>): void;
+
+  /**
+   * Log exit from a method
+   */
+  logExit(methodName: string, result?: Record<string, unknown>): void;
+}
+
+/**
+ * VS Code logger service implementation
+ *
+ * This implementation writes logs to a VS Code output channel.
+ * The output channel is provided as a dependency for testability.
+ */
+export class VsCodeLoggerService implements ILoggerService {
+  constructor(
+    private readonly componentName: string,
+    private readonly outputChannel: { appendLine(value: string): void }
+  ) {}
 
   /**
    * Log a debug message
@@ -71,6 +115,22 @@ export class Logger {
   }
 
   /**
+   * Log entry into a method (for debugging)
+   */
+  logEntry(methodName: string, args?: Record<string, unknown>): void {
+    const message = `${methodName}()`;
+    this.debug(message, args);
+  }
+
+  /**
+   * Log exit from a method
+   */
+  logExit(methodName: string, result?: Record<string, unknown>): void {
+    const message = `${methodName}() completed`;
+    this.debug(message, result);
+  }
+
+  /**
    * Internal log method that formats and writes to output channel
    */
   private log(level: LogLevel, message: string, details?: Record<string, unknown>): void {
@@ -102,28 +162,5 @@ export class Logger {
     }
 
     return output;
-  }
-
-  /**
-   * Log entry into a method (for debugging)
-   */
-  logEntry(methodName: string, args?: Record<string, unknown>): void {
-    const message = `${methodName}()`;
-    this.debug(message, args);
-  }
-
-  /**
-   * Log exit from a method
-   */
-  logExit(methodName: string, result?: Record<string, unknown>): void {
-    const message = `${methodName}() completed`;
-    this.debug(message, result);
-  }
-
-  /**
-   * Show the output channel
-   */
-  show(): void {
-    this.outputChannel.show();
   }
 }
