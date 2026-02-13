@@ -66,6 +66,10 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
 
     const facade = this.environmentManager.getCurrentFacade();
 
+    this.logger.debug("Current facade", {
+      type: facade?.getEnvironmentInfo().type,
+    } as const);
+
     if (facade === null) {
       this.logger.debug("No facade available");
       return { success: true, children: [this.createNoEnvironmentNode()] };
@@ -238,7 +242,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     const parts = projectPath.split(/[/\\]/);
     return parts[parts.length - 1] ?? projectPath;
   }
-  
+
   /**
    * Create an info node
    */

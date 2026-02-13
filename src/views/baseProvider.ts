@@ -30,13 +30,11 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   protected readonly _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-
   constructor(
     protected readonly logger: Logger,
     protected readonly container: DIContainer,
     protected readonly treeItemFactory: TreeItemFactory
-  ) {
-  }
+  ) {}
 
   /**
    * Refresh the tree view - reloads root nodes and fires change event
@@ -58,7 +56,9 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
 
     // Debug: log contextValue to verify menu markers
     const contextValueStr = treeItem.contextValue ?? "";
-    this.logger.debug(`[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`);
+    this.logger.debug(
+      `[Menu Debug] Node: "${element.label}" (${element.type}), contextValue: "${contextValueStr}"`
+    );
 
     return treeItem;
   }
@@ -80,47 +80,14 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
   }
 
   /**
-   * Create an error node with standardized format
-   */
-  protected createErrorNode(
-    label: string,
-    tooltip: string,
-    error?: Error
-  ): TreeNode {
-    this.logger.error(label, error);
-
-    // Create as NodeData (new architecture)
-    return NodeDataFactory.createError(label, {
-      tooltip,
-      contextValue: "error",
-      error,
-    });
-  }
-
-  /**
    * Create an info node with standardized format
    */
-  protected createInfoNode(
-    label: string,
-    tooltip: string,
-    contextValue = "empty"
-  ): TreeNode {
+  protected createInfoNode(label: string, tooltip: string, contextValue = "empty"): TreeNode {
     // Create as NodeData (new architecture)
     return NodeDataFactory.createInfo(label, {
       tooltip,
       contextValue,
       iconId: "info",
     });
-  }
-
-  /**
-   * Create an empty directory node
-   */
-  protected createEmptyNode(isInsideClaudeDir = false): TreeNode {
-    const label = isInsideClaudeDir ? "(empty)" : "(no Claude files)";
-    const tooltip = isInsideClaudeDir
-      ? "This directory is empty"
-      : "No .claude directory or CLAUDE.md file found";
-    return this.createInfoNode(label, tooltip, "empty");
   }
 }
