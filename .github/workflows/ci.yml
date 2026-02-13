@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     name: Build and Test
+    if: "!contains(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
 
     strategy:
@@ -40,6 +41,7 @@ jobs:
 
   lint:
     name: Lint Check
+    if: "!contains(github.event.head_commit.message, 'chore(release):')"
     runs-on: ubuntu-latest
 
     steps:
