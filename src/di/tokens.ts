@@ -26,6 +26,7 @@ import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { ILoggerService } from "../services/loggerService.js";
 import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
+import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 
 /**
  * All service tokens for the DI container
@@ -51,6 +52,9 @@ export const ServiceTokens = {
   LoggerService: new ServiceToken<ILoggerService>("LoggerService"),
   EnvironmentManagerService: new ServiceToken<IEnvironmentManagerService>(
     "EnvironmentManagerService"
+  ),
+  ClaudeCodeRootNodeService: new ServiceToken<ClaudeCodeRootNodeService>(
+    "ClaudeCodeRootNodeService"
   ),
 
   // Menu and Factory

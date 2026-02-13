@@ -30,10 +30,9 @@ import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 import { VsCodeLoggerService } from "../services/loggerService.js";
-import {
-  EnvironmentManagerService,
-  type IDataFacade,
-} from "../services/environmentManagerService.js";
+import { EnvironmentManagerService } from "../services/environmentManagerService.js";
+import type { IDataFacade } from "../services/environmentManagerService.js";
+import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 
 /**
  * Create and configure the dependency injection container
@@ -65,6 +64,13 @@ export function createContainer(
   // Register EnvironmentManagerService
   container.registerSingleton(ServiceTokens.EnvironmentManagerService, () => {
     return new EnvironmentManagerService(configSearch.getAllFacades(), userInteraction);
+  });
+
+  // Register ClaudeCodeRootNodeService
+  container.registerSingleton(ServiceTokens.ClaudeCodeRootNodeService, () => {
+    const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);
+    const logger = container.get(ServiceTokens.LoggerService);
+    return new ClaudeCodeRootNodeService(environmentManager, logger);
   });
 
   // Register singleton Adapters (VS Code API wrappers)
