@@ -34,6 +34,8 @@ export enum NodeType {
   FILE = "file",
   CLAUDE_JSON = "claudeJson",
   ERROR = "error",
+  USER_ROOT = "userRoot",
+  PROJECTS_ROOT = "projectsRoot",
 }
 
 /**
@@ -107,9 +109,9 @@ export function toErrorData(error: Error | string | object): ErrorData | undefin
   const errorObj = error as Record<string, unknown> | null;
   if (errorObj !== null && "message" in errorObj && typeof errorObj.message === "string") {
     return {
-      name: ("name" in errorObj && typeof errorObj.name === "string") ? errorObj.name : "Error",
+      name: "name" in errorObj && typeof errorObj.name === "string" ? errorObj.name : "Error",
       message: errorObj.message,
-      stack: ("stack" in errorObj && typeof errorObj.stack === "string") ? errorObj.stack : undefined,
+      stack: "stack" in errorObj && typeof errorObj.stack === "string" ? errorObj.stack : undefined,
     };
   }
   return undefined;
@@ -219,6 +221,42 @@ export function isErrorDataNode(data: NodeData): data is ErrorDataNode {
 export function isRootData(data: NodeData): data is RootData {
   return data.type === NodeType.ROOT;
 }
+
+/**
+ * Type guard for USER_ROOT node type
+ */
+export function isUserRoot(type: NodeType): boolean {
+  return type === NodeType.USER_ROOT;
+}
+
+/**
+ * Type guard for PROJECTS_ROOT node type
+ */
+export function isProjectsRoot(type: NodeType): boolean {
+  return type === NodeType.PROJECTS_ROOT;
+}
+
+/**
+ * NodeTypeGuard - Collection of type guard functions
+ */
+export const NodeTypeGuard = {
+  isDirectoryData: (data: NodeData): data is DirectoryData =>
+    data.type === NodeType.DIRECTORY && data.path !== undefined,
+
+  isFileData: (data: NodeData): data is FileData =>
+    data.type === NodeType.FILE && data.path !== undefined,
+
+  isClaudeJsonData: (data: NodeData): data is ClaudeJsonData =>
+    data.type === NodeType.CLAUDE_JSON && data.path !== undefined,
+
+  isErrorDataNode: (data: NodeData): data is ErrorDataNode => data.type === NodeType.ERROR,
+
+  isRootData: (data: NodeData): data is RootData => data.type === NodeType.ROOT,
+
+  isUserRoot: (type: NodeType): boolean => type === NodeType.USER_ROOT,
+
+  isProjectsRoot: (type: NodeType): boolean => type === NodeType.PROJECTS_ROOT,
+} as const;
 
 /**
  * Factory for creating node data objects
