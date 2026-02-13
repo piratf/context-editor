@@ -58,8 +58,8 @@ export interface IDataFacade {
  */
 export interface IQuickPickItem<T = unknown> {
   readonly label: string;
-  readonly description: string;
-  readonly data: T;
+  readonly description?: string;
+  readonly data?: T;
 }
 
 /**
@@ -67,12 +67,21 @@ export interface IQuickPickItem<T = unknown> {
  */
 export interface IUserInteraction {
   showInformationMessage(message: string): Promise<void>;
-  showQuickPick(
-    items: readonly IQuickPickItem[],
-    options: { title: string; placeHolder: string }
-  ): Promise<IQuickPickItem | undefined>;
+  showQuickPick<T = unknown>(
+    items: IQuickPickItem<T>[],
+    options?: {
+      readonly title?: string;
+      readonly placeHolder?: string;
+      readonly canPickMany?: boolean;
+    }
+  ): Promise<IQuickPickItem<T> | undefined>;
   writeText(text: string): Promise<void>;
-  onEnvironmentChanged?(callback: (event: EnvironmentChangeEvent) => void): void;
+  showError(title: string, message: string): void;
+  showWarningMessage(
+    message: string,
+    options: { readonly modal?: boolean },
+    ...buttons: string[]
+  ): Promise<string | undefined>;
 }
 
 /**
@@ -128,25 +137,13 @@ export class EnvironmentManagerService implements IEnvironmentManagerService {
   private userInteraction: IUserInteraction;
   private listeners: ((event: EnvironmentChangeEvent) => void)[] = [];
 
-  constructor(
-    facades: readonly IDataFacade[],
-    userInteraction: IUserInteraction & {
-      onEnvironmentChanged(callback: (event: EnvironmentChangeEvent) => void): void;
-    }
-  ) {
+  constructor(facades: readonly IDataFacade[], userInteraction: IUserInteraction) {
     this.facades = facades;
     this.userInteraction = userInteraction;
     this.currentFacade = null;
 
     // Select default environment (native facade)
     this.selectDefaultEnvironment();
-
-    // Subscribe to external events if provided
-    if ("onEnvironmentChanged" in userInteraction) {
-      userInteraction.onEnvironmentChanged((event: EnvironmentChangeEvent) => {
-        this.notifyListeners(event);
-      });
-    }
   }
 
   /**
@@ -270,8 +267,8 @@ export class EnvironmentManagerService implements IEnvironmentManagerService {
       placeHolder: "Choose an environment to display",
     });
 
-    if (selected !== undefined && selected.data !== undefined) {
-      const index = selected.data as number;
+    if (selected?.data !== undefined) {
+      const index = selected.data;
       this.setFacadeByIndex(index);
       await this.userInteraction.writeText(selected.label);
       return index;

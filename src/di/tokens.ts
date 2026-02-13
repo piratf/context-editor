@@ -6,7 +6,11 @@
  */
 
 import { ServiceToken } from "./container.js";
-import type { VsCodeClipboardService, VsCodeFolderOpener, UserInteraction } from "../adapters/ui.js";
+import type {
+  VsCodeClipboardService,
+  VsCodeFolderOpener,
+  UserInteraction,
+} from "../adapters/ui.js";
 import type {
   VsCodeFileDeleter,
   VsCodeDialogService,
@@ -20,6 +24,8 @@ import type { NodeService } from "../services/nodeService.js";
 import type { FileCreationService } from "../services/fileCreationService.js";
 import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
+import type { ILoggerService } from "../services/loggerService.js";
+import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
 
 /**
  * All service tokens for the DI container
@@ -42,6 +48,10 @@ export const ServiceTokens = {
   OpenVscodeService: new ServiceToken<OpenVscodeService>("OpenVscodeService"),
   NodeService: new ServiceToken<NodeService>("NodeService"),
   FileCreationService: new ServiceToken<FileCreationService>("FileCreationService"),
+  LoggerService: new ServiceToken<ILoggerService>("LoggerService"),
+  EnvironmentManagerService: new ServiceToken<IEnvironmentManagerService>(
+    "EnvironmentManagerService"
+  ),
 
   // Menu and Factory
   ContextMenuRegistry: new ServiceToken<ContextMenuRegistry>("ContextMenuRegistry"),

@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import {
   EnvironmentManagerService,
   type IEnvironmentManagerService,
-  type EnvironmentChangeEvent,
+  type IUserInteraction,
 } from "../../services/environmentManagerService.js";
 import type { IDataFacade, IEnvironmentInfo } from "../../services/environmentManagerService.js";
 
@@ -25,15 +25,7 @@ function createMockFacade(info: IEnvironmentInfo): IDataFacade {
 
 void describe("EnvironmentManagerService", () => {
   let mockFacades: IDataFacade[];
-  let mockUserInteraction: {
-    showInformationMessage: (msg: string) => Promise<void>;
-    showQuickPick: (
-      items: readonly { label: string; description: string; data: unknown }[],
-      options: { title: string; placeHolder: string }
-    ) => Promise<{ label: string; description: string; data: unknown } | undefined>;
-    writeText: (text: string) => Promise<void>;
-    onEnvironmentChanged: (cb: (event: EnvironmentChangeEvent) => void) => void;
-  };
+  let mockUserInteraction: IUserInteraction;
   let service: IEnvironmentManagerService;
 
   beforeEach(() => {
@@ -50,7 +42,8 @@ void describe("EnvironmentManagerService", () => {
       showInformationMessage: () => Promise.resolve(),
       showQuickPick: () => Promise.resolve(undefined),
       writeText: () => Promise.resolve(),
-      onEnvironmentChanged: () => {},
+      showError: () => {},
+      showWarningMessage: () => Promise.resolve(undefined),
     };
 
     service = new EnvironmentManagerService(mockFacades, mockUserInteraction);

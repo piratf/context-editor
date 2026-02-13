@@ -71,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   logger.info(`Current environment: ${currentEnvName}`);
 
   // Create DI container for service management
-  container = createContainer();
+  container = createContainer(debugOutput, configSearch, userInteraction);
   context.subscriptions.push(container);
 
   // Register views with environment manager and container
@@ -188,9 +188,7 @@ function registerCommands(
       } catch (error) {
         const errorObj = error instanceof Error ? error : new Error(String(error));
         logger.error("Failed to open file", errorObj);
-        vscode.window.showErrorMessage(
-          `Failed to open file: ${errorObj.message}`
-        );
+        vscode.window.showErrorMessage(`Failed to open file: ${errorObj.message}`);
       }
     }
   );

@@ -12,6 +12,7 @@ import {
   VsCodeClipboardService,
   VsCodeFolderOpener,
   VsCodeUserInteraction,
+  UserInteraction,
 } from "../adapters/ui.js";
 import {
   VsCodeFileDeleter,
@@ -28,6 +29,11 @@ import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { FileSystem } from "../services/nodeService.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
+import { VsCodeLoggerService } from "../services/loggerService.js";
+import {
+  EnvironmentManagerService,
+  type IDataFacade,
+} from "../services/environmentManagerService.js";
 
 /**
  * Create and configure the dependency injection container
@@ -39,46 +45,42 @@ import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
  *
  * Service configuration is centralized here - all options are set during registration.
  *
+ * @param outputChannel - VS Code output channel for logging
+ * @param configSearch - Config search instance with all facades
+ * @param userInteraction - User interaction service
  * @returns Configured DI container instance
  */
-export function createContainer(): SimpleDIContainer {
+export function createContainer(
+  outputChannel: { appendLine(value: string): void },
+  configSearch: { getAllFacades(): readonly IDataFacade[] },
+  userInteraction: UserInteraction
+): SimpleDIContainer {
   const container = new SimpleDIContainer();
 
+  // Register LoggerService
+  container.registerSingleton(ServiceTokens.LoggerService, () => {
+    return new VsCodeLoggerService("ContextEditor", outputChannel);
+  });
+
+  // Register EnvironmentManagerService
+  container.registerSingleton(ServiceTokens.EnvironmentManagerService, () => {
+    return new EnvironmentManagerService(configSearch.getAllFacades(), userInteraction);
+  });
+
   // Register singleton Adapters (VS Code API wrappers)
-  container.registerSingleton(
-    ServiceTokens.ClipboardService,
-    () => new VsCodeClipboardService()
-  );
+  container.registerSingleton(ServiceTokens.ClipboardService, () => new VsCodeClipboardService());
 
-  container.registerSingleton(
-    ServiceTokens.FileDeleter,
-    () => new VsCodeFileDeleter()
-  );
+  container.registerSingleton(ServiceTokens.FileDeleter, () => new VsCodeFileDeleter());
 
-  container.registerSingleton(
-    ServiceTokens.DialogService,
-    () => new VsCodeDialogService()
-  );
+  container.registerSingleton(ServiceTokens.DialogService, () => new VsCodeDialogService());
 
-  container.registerSingleton(
-    ServiceTokens.FolderOpener,
-    () => new VsCodeFolderOpener()
-  );
+  container.registerSingleton(ServiceTokens.FolderOpener, () => new VsCodeFolderOpener());
 
-  container.registerSingleton(
-    ServiceTokens.UserInteraction,
-    () => new VsCodeUserInteraction()
-  );
+  container.registerSingleton(ServiceTokens.UserInteraction, () => new VsCodeUserInteraction());
 
-  container.registerSingleton(
-    ServiceTokens.FileCreator,
-    () => new VsCodeFileCreator()
-  );
+  container.registerSingleton(ServiceTokens.FileCreator, () => new VsCodeFileCreator());
 
-  container.registerSingleton(
-    ServiceTokens.InputService,
-    () => new VsCodeInputService()
-  );
+  container.registerSingleton(ServiceTokens.InputService, () => new VsCodeInputService());
 
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.CopyService, () => {
