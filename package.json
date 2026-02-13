@@ -150,7 +150,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "test": "node --test out/test/unit/**/*.test.js",
+    "test": "node --test --test-reporter=dot out/test/unit/**/*.test.js",
     "prepare": "husky"
   },
   "devDependencies": {
