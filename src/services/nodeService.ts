@@ -13,7 +13,7 @@
 
 import * as path from "node:path";
 import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
-import { NodeDataFactory } from "../types/nodeData.js";
+import { NodeDataFactory, NodeType } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
 import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
 
@@ -232,7 +232,9 @@ export class NodeService {
   /**
    * Convert error to ErrorData
    */
-  private toErrorData(error: unknown): { name: string; message: string; stack?: string | undefined } | undefined {
+  private toErrorData(
+    error: unknown
+  ): { name: string; message: string; stack?: string | undefined } | undefined {
     if (error instanceof Error) {
       return {
         name: error.name,
@@ -247,9 +249,9 @@ export class NodeService {
       const e = error as Record<string, unknown>;
       if ("message" in e && typeof e.message === "string") {
         return {
-          name: ("name" in e && typeof e.name === "string") ? e.name : "Error",
+          name: "name" in e && typeof e.name === "string" ? e.name : "Error",
           message: e.message,
-          stack: ("stack" in e && typeof e.stack === "string") ? e.stack : undefined,
+          stack: "stack" in e && typeof e.stack === "string" ? e.stack : undefined,
         };
       }
     }
@@ -261,5 +263,42 @@ export class NodeService {
    */
   getFilter(): SyncFileFilter {
     return this.filter;
+  }
+
+  /**
+   * Get children by node type (unified entry point)
+   *
+   * Uses switch case to dispatch to appropriate handler based on node type.
+   * This provides a single entry point for all child node retrieval.
+   *
+   * @param node - Parent node data
+   * @returns Array of child node data, or error node if failed
+   */
+  async getChildrenByNodeType(node: NodeData): Promise<readonly NodeData[]> {
+    // Use switch case for type dispatch
+    switch (node.type) {
+      case NodeType.DIRECTORY: {
+        // DIRECTORY type uses existing directory child logic
+        const result = await this.getChildren(node as DirectoryData);
+        if (result.success) {
+          return result.children;
+        }
+        return [result.error];
+      }
+
+      // USER_ROOT and PROJECTS_ROOT are handled by ClaudeCodeRootNodeService
+      // Return empty array for these types
+      case NodeType.USER_ROOT:
+      case NodeType.PROJECTS_ROOT:
+        return [];
+
+      // All other types (FILE, ERROR, ROOT, etc.) have no children
+      case NodeType.FILE:
+      case NodeType.ERROR:
+      case NodeType.ROOT:
+      case NodeType.CLAUDE_JSON:
+      default:
+        return [];
+    }
   }
 }
