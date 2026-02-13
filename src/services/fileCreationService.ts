@@ -13,7 +13,7 @@
 
 import type { SimpleUri, FileCreator, InputService } from "../adapters/vscode.js";
 import type { NodeData } from "../types/nodeData.js";
-import { isDirectoryData } from "../types/nodeData.js";
+import { NodeTypeGuard } from "../types/nodeData.js";
 
 /**
  * Result of a create operation
@@ -43,7 +43,7 @@ export class FileCreationService {
    */
   async createFile(node: NodeData): Promise<CreateResult> {
     // Check if node is a directory
-    if (!isDirectoryData(node)) {
+    if (!NodeTypeGuard.isDirectoryData(node)) {
       return {
         success: false,
         reason: "notDirectory",
@@ -108,7 +108,7 @@ export class FileCreationService {
    */
   async createFolder(node: NodeData): Promise<CreateResult> {
     // Check if node is a directory
-    if (!isDirectoryData(node)) {
+    if (!NodeTypeGuard.isDirectoryData(node)) {
       return {
         success: false,
         reason: "notDirectory",

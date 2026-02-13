@@ -12,7 +12,7 @@
  */
 
 import type { NodeData } from "../types/nodeData.js";
-import { isDirectoryData } from "../types/nodeData.js";
+import { NodeTypeGuard } from "../types/nodeData.js";
 
 /**
  * Result of opening a directory
@@ -50,7 +50,7 @@ export class OpenVscodeService {
    */
   async execute(data: NodeData): Promise<OpenVscodeResult> {
     // Validate that it's a directory
-    if (!isDirectoryData(data)) {
+    if (!NodeTypeGuard.isDirectoryData(data)) {
       return {
         success: false,
         reason: "notDirectory",

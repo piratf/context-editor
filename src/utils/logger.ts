@@ -121,21 +121,6 @@ export class Logger {
   }
 
   /**
-   * Log tree node loading
-   */
-  logNodeLoad(nodeType: string, label: string, path?: string): void {
-    const details = path !== undefined ? { path } : undefined;
-    this.debug(`Loading ${nodeType} node: "${label}"`, details);
-  }
-
-  /**
-   * Log tree node children retrieval
-   */
-  logChildrenRetrieved(parentLabel: string, count: number): void {
-    this.debug(`Retrieved children for "${parentLabel}"`, { count });
-  }
-
-  /**
    * Show the output channel
    */
   show(): void {

@@ -68,11 +68,6 @@ export interface ILoggerService {
    * Log exit from a method
    */
   logExit(methodName: string, result?: Record<string, unknown>): void;
-
-  /**
-   * Log tree node children retrieval
-   */
-  logChildrenRetrieved(parentLabel: string, count: number): void;
 }
 
 /**
@@ -133,13 +128,6 @@ export class VsCodeLoggerService implements ILoggerService {
   logExit(methodName: string, result?: Record<string, unknown>): void {
     const message = `${methodName}() completed`;
     this.debug(message, result);
-  }
-
-  /**
-   * Log tree node children retrieval
-   */
-  logChildrenRetrieved(parentLabel: string, count: number): void {
-    this.debug(`Retrieved children for "${parentLabel}"`, { count });
   }
 
   /**

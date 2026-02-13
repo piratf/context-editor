@@ -15,9 +15,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { ILoggerService } from "./loggerService.js";
-import type { IEnvironmentManagerService, IDataFacade } from "./environmentManagerService.js";
-import { NodeType, type NodeData } from "../types/nodeData.js";
-import { NodeDataFactory } from "../types/nodeData.js";
+import type { IDataFacade, IEnvironmentManagerService } from "./environmentManagerService.js";
+import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
+import { RootNodeService } from "./rootNodeService.js";
+import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
 
 /**
  * Service for managing Claude Code root nodes
@@ -27,7 +28,7 @@ import { NodeDataFactory } from "../types/nodeData.js";
  * - Get children for root nodes
  * - Helper methods for file system operations
  */
-export class ClaudeCodeRootNodeService {
+export class ClaudeCodeRootNodeService implements RootNodeService {
   constructor(
     private readonly environmentManager: IEnvironmentManagerService,
     private readonly logger: ILoggerService
@@ -60,14 +61,14 @@ export class ClaudeCodeRootNodeService {
    *
    * Handles both USER_ROOT and PROJECTS_ROOT node types
    */
-  async getRootNodeChildren(node: NodeData): Promise<readonly NodeData[]> {
+  async getRootNodeChildren(node: NodeData): Promise<GetChildrenResult> {
     this.logger.logEntry("getRootNodeChildren", { nodeLabel: node.label });
 
     const facade = this.environmentManager.getCurrentFacade();
 
     if (facade === null) {
       this.logger.debug("No facade available");
-      return [this.createNoEnvironmentNode()];
+      return { success: true, children: [this.createNoEnvironmentNode()] };
     }
 
     if (node.type === NodeType.USER_ROOT) {
@@ -79,91 +80,77 @@ export class ClaudeCodeRootNodeService {
     }
 
     this.logger.warn("Unknown root node type", { type: node.type });
-    return [];
+    return EMPTY_CHILDREN_RESULT;
   }
 
   /**
    * Get children for Global Configuration node
    */
-  private async getGlobalConfigChildren(facade: IDataFacade): Promise<readonly NodeData[]> {
+  private async getGlobalConfigChildren(facade: IDataFacade): Promise<GetChildrenResult> {
     this.logger.debug("getGlobalConfigChildren called");
 
     const children: NodeData[] = [];
+    const hasConfig = await this.doesConfigExist(facade);
 
-    try {
-      const hasConfig = await this.doesConfigExist(facade);
-
-      // Add ~/.claude.json file
-      if (hasConfig) {
-        const info = facade.getEnvironmentInfo();
-        children.push(
-          NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
-            tooltip: info.configPath,
-          })
-        );
-      }
-
-      // Add ~/.claude/ directory
-      const claudeDir = this.deriveClaudeDir(facade);
-      const hasClaudeDir = await this.directoryExists(claudeDir);
-      if (hasClaudeDir) {
-        children.push(
-          NodeDataFactory.createDirectory("~/.claude", claudeDir, {
-            collapsibleState: 1,
-            tooltip: claudeDir,
-          })
-        );
-      }
-
-      // If nothing found, show empty message
-      if (children.length === 0) {
-        children.push(
-          this.createInfoNode(
-            "(no configuration found)",
-            "No ~/.claude.json or ~/.claude/ directory found"
-          )
-        );
-      }
-
-      this.logger.debug(`getGlobalConfigChildren: returning ${String(children.length)} children`);
-    } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
-      this.logger.error("Error in getGlobalConfigChildren", errorObj);
+    // Add ~/.claude.json file
+    if (hasConfig) {
+      const info = facade.getEnvironmentInfo();
       children.push(
-        this.createErrorNode("Error loading configuration", errorObj.message, errorObj)
+        NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
+          tooltip: info.configPath,
+        })
       );
     }
 
-    return children;
+    // Add ~/.claude/ directory
+    const claudeDir = this.deriveClaudeDir(facade);
+    const hasClaudeDir = await this.directoryExists(claudeDir);
+    if (hasClaudeDir) {
+      children.push(
+        NodeDataFactory.createDirectory("~/.claude", claudeDir, {
+          collapsibleState: 1,
+          tooltip: claudeDir,
+        })
+      );
+    }
+
+    // If nothing found, show empty message
+    if (children.length === 0) {
+      children.push(
+        this.createInfoNode(
+          "(no configuration found)",
+          "No ~/.claude.json or ~/.claude/ directory found"
+        )
+      );
+    }
+
+    this.logger.debug(`getGlobalConfigChildren: returning ${String(children.length)} children`);
+    return { success: true, children };
   }
 
   /**
    * Get children for Projects node
    */
-  private async getProjectsChildren(facade: IDataFacade): Promise<readonly NodeData[]> {
+  private async getProjectsChildren(facade: IDataFacade): Promise<GetChildrenResult> {
     this.logger.debug("getProjectsChildren called");
 
     const children: NodeData[] = [];
+    const info = facade.getEnvironmentInfo();
+    this.logger.debug("Current facade for projects", {
+      type: info.type,
+      configPath: info.configPath,
+    });
 
-    try {
-      const info = facade.getEnvironmentInfo();
-      this.logger.debug("Current facade for projects", {
-        type: info.type,
-        configPath: info.configPath,
-      });
+    // Get projects for current environment
+    const projects = await facade.getProjects();
 
-      // Get projects for current environment
-      const projects = await facade.getProjects();
+    this.logger.debug(`Found ${String(projects.length)} projects`);
 
-      this.logger.debug(`Found ${String(projects.length)} projects`);
-
-      if (projects.length === 0) {
-        children.push(
-          this.createInfoNode("(no projects found)", "No projects found in this environment")
-        );
-        return children;
-      }
-
+    if (projects.length === 0) {
+      children.push(
+        this.createInfoNode("(no projects found)", "No projects found in this environment")
+      );
+    } else {
       // Create directory nodes for each project
       // Project directories are REAL file system nodes - they have paths and can be opened
       for (const project of projects) {
@@ -176,23 +163,17 @@ export class ClaudeCodeRootNodeService {
           })
         );
       }
-
-      this.logger.debug(`getProjectsChildren: returning ${String(children.length)} children`);
-    } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
-      this.logger.error("Error in getProjectsChildren", errorObj);
-      children.push(this.createErrorNode("Error loading projects", errorObj.message, errorObj));
     }
 
-    return children;
+    this.logger.debug(`getProjectsChildren: returning ${String(children.length)} children`);
+    return { success: true, children };
   }
 
   /**
    * Create the "No environment" node
    */
   private createNoEnvironmentNode(): NodeData {
-    return NodeDataFactory.createVirtualNode("No environment selected", {
-      collapsibleState: 0,
+    return NodeDataFactory.createInfo("No environment selected", {
       tooltip: "Select an environment using the dropdown menu",
     });
   }
@@ -201,7 +182,7 @@ export class ClaudeCodeRootNodeService {
    * Create the Global Configuration root node
    */
   private createGlobalConfigNode(): NodeData {
-    return NodeDataFactory.createVirtualNode("Global Configuration", {
+    return NodeDataFactory.createVirtualNode("Global Configuration", NodeType.USER_ROOT, {
       collapsibleState: 1,
       tooltip: "Global Claude configuration files",
     });
@@ -211,7 +192,7 @@ export class ClaudeCodeRootNodeService {
    * Create the Projects root node
    */
   private createProjectsNode(): NodeData {
-    return NodeDataFactory.createVirtualNode("Projects", {
+    return NodeDataFactory.createVirtualNode("Projects", NodeType.PROJECTS_ROOT, {
       collapsibleState: 1,
       tooltip: "Registered Claude projects",
     });
@@ -257,18 +238,7 @@ export class ClaudeCodeRootNodeService {
     const parts = projectPath.split(/[/\\]/);
     return parts[parts.length - 1] ?? projectPath;
   }
-
-  /**
-   * Create an error node
-   */
-  private createErrorNode(label: string, tooltip: string, error?: Error): NodeData {
-    this.logger.error(label, error);
-    return NodeDataFactory.createError(label, {
-      tooltip,
-      error,
-    });
-  }
-
+  
   /**
    * Create an info node
    */

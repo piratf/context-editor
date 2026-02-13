@@ -6,28 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Context Editor is a VS Code extension that provides a visual interface for managing Claude Code configurations across multiple environments (Windows, WSL, macOS, Linux). It displays hierarchical tree views of global configs (`~/.claude.json`, `~/.claude/`) and registered projects from each environment.
 
-## Development Commands
-
-```bash
-# Compile TypeScript
-npm run compile
-
-# Watch mode for development
-npm run watch
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-
-# Fix linting issues
-npm run lint:fix
-
-# Run in Extension Development Host
-# Press F5 in VS Code
-```
-
 ## Architecture
 
 ### Diagram
@@ -119,203 +97,44 @@ npm run lint:fix
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Patterns
-
-1. **Adapter Pattern** - VS Code APIs wrapped in interfaces for testability
-2. **Facade Pattern** - One facade per environment, unified interface
-3. **Strategy Pattern** - Pluggable file filters
-4. **OOP Nodes** - Each node type knows how to load its children
-5. **Interface-based Menus** - Nodes implement interfaces to enable menu items
-6. **Dependency Injection** - Core logic depends on interfaces, not VS Code APIs
-7. **Event-driven** - EventEmitter for environment/config changes
-
-## Type System
-
-All Claude configuration types are in `src/types/claudeConfig.ts`:
-- `ClaudeConfig` - Main `~/.claude.json` structure
-- `ClaudeSettings` - Settings.json contents
-- `McpServers` - MCP server configurations
-- `ContextTreeNode` - Tree view node types
-
-## Testing
-
-Tests are in `src/test/`:
-- Unit tests for individual services
-- Integration tests for facade behaviors
-- Extension tests for VS Code integration
-
-Git hooks run lint-staged (ESLint + Prettier) on pre-commit and tests on pre-push (skippable with `SKIP_TESTS=1`).
-
-### Testing Best Practices
-
-#### Core Principle 1: Dependency Injection
-
-**Separate pure logic from VS Code API dependencies** to enable unit testing without VS Code environment.
-
-```typescript
-// ❌ Avoid: Direct VS Code API usage in business logic
-async function deleteFile(path: string): Promise<void> {
-  const uri = vscode.Uri.file(path);
-  await vscode.workspace.fs.delete(uri, { recursive: true });
-}
-
-// ✅ Preferred: Inject dependencies
-interface FileDeleter {
-  delete(uri: { path: string }, options: { recursive: boolean }): Promise<void>;
-}
-
-async function deleteFile(path: string, deleter: FileDeleter): Promise<void> {
-  await deleter.delete({ path }, { recursive: true });
-}
-
-// Production code in extension.ts
-import * as vscode from "vscode";
-const vscodeDeleter: FileDeleter = {
-  delete: (uri, options) => vscode.workspace.fs.delete(uri, options)
-};
-```
-
-#### Test Execution
-
-- Unit tests: `npm test` (uses `node --test`, fast)
-- Integration/Extension tests: `npm run test:integration` (uses `@vscode/test-electron`)
-
-#### Common Issues & Solutions
-
-**Issue**: TreeView nodes missing right-click menus
-
-**Cause**: TreeNode lacks `contextValue` markers
-
-**Solution**: Add menu interface markers when creating nodes
-
-```typescript
-export const TreeNodeFactory = {
-  createFile(label: string, path: string): TreeNode {
-    return {
-      type: NodeType.FILE,
-      label,
-      path,
-      collapsibleState: 0,
-      contextValue: "file+copyable+deletable"  // ← Required for menus
-    };
-  }
-};
-```
-
-**Issue**: Cannot test async commands
-
-**Solution**: Use `@vscode/test-electron` `executeCommand` API
-
-```typescript
-test("should execute command", async () => {
-  await vscode.commands.executeCommand("contextEditor.refresh");
-  // Verify command effects
-});
-```
-
-### Test Structure
-
-```
-src/test/
-├── unit/                      # Pure logic tests (no VS Code dependency)
-│   ├── claudeConfigReader.test.ts
-│   ├── contextMenu.test.ts
-│   ├── dataFacade.test.ts
-│   ├── deleteWithTrashFallback.test.ts  # Adapter function tests
-│   ├── environment.test.ts
-│   ├── environmentDetector.test.ts
-│   ├── fileFilter.test.ts
-│   ├── nativeDataFacade.test.ts
-│   ├── nodeClasses.test.ts
-│   ├── pathConverter.test.ts
-│   ├── unifiedProvider.test.ts
-│   ├── wslToWindowsDataFacade.test.ts
-│   └── windowsToWslDataFacade.test.ts
-└── integration/               # Integration tests (with VS Code API)
-    └── (VS Code extension tests)
-```
-
-### Adapter Layer Testing
-
-**Key Principle**: Core business logic depends only on interfaces, not VS Code APIs.
-
-```typescript
-// Example: deleteWithTrashFallback function
-// NO vscode types - all dependencies injected via interfaces
-export async function deleteWithTrashFallback(
-  uri: SimpleUri,           // Interface, not vscode.Uri
-  itemName: string,
-  deleter: FileDeleter,     // Interface
-  dialog: DialogService     // Interface
-): Promise<DeleteResult>
-
-// Test uses mock implementations
-class MockFileDeleter implements FileDeleter {
-  deleteCalls: SimpleUri[] = [];
-  async delete(uri: SimpleUri, options: DeleteOptions): Promise<void> {
-    this.deleteCalls.push(uri);
-  }
-}
-
-class MockDialogService implements DialogService {
-  response?: string;
-  async showWarningMessage(...): Thenable<string | undefined> {
-    return Promise.resolve(this.response);
-  }
-}
-```
-
-### Unit Test Examples
-
-**deleteWithTrashFallback.test.ts**: Tests the adapter function with mocks
-- Mock `FileDeleter` to verify delete calls
-- Mock `DialogService` to test user interaction
-- Test trash failure → permanent delete fallback
-- Test user cancellation
-
-**nodeClasses.test.ts**: Tests node class methods
-- Test `DirectoryNode.getChildren()` file reading
-- Test file filtering behavior
-- Test menu interface methods (`getAccessiblePath()`, `canDelete()`)
-
-**unifiedProvider.test.ts**: Tests provider with mock facades
-- Mock `ClaudeDataFacade` for environment testing
-- Test root node loading
-- Test environment switching
-
-**fileFilter.test.ts**: Tests filter combinators
-- Test `AndFilter`, `OrFilter`, `NotFilter`
-- Test `ClaudeCodeFileFilter` patterns
-
-### Testing Constraints
-
+## MUST FOLLOW
 - **禁止使用 Any 类型**
 - **禁止跳过测试或忽略 lint 规则，必须修复所有测试和 lint 问题**
 
-## Environment Detection
+###  BD 任务拆分方案
 
-- `services/environment.ts` - Platform constants (Windows, WSL, macOS, Linux)
-- `services/environmentDetector.ts` - Detects current OS and WSL status
+使用 bd create 拆分重构任务，每个 issue 按照以下流程执行：
 
-Windows users get both Windows and WSL environments (if WSL is installed). WSL users get both WSL and Windows environments. macOS/Linux users only get native.
-
-## Path Filtering
-
-Windows facades filter out non-Windows-accessible paths:
-- **Included**: `C:\`, `D:\`, UNC paths (`\\server\share`)
-- **Filtered out**: `/home/`, `/root/`, `/mnt/c/` (WSL paths that appear in Windows config but are inaccessible)
-
-This is handled by `isWindowsAccessiblePath()` and `shouldIncludeProjectPath()` in `BaseDataFacade`.
-
-## Tree View resourceUri
-
-Tree nodes do NOT set `resourceUri` to avoid triggering VS Code's Git integration:
-- Prevents "potentially unsafe git repository" warnings for cross-platform paths
-- Prevents "too many active changes" warnings
-- File opening still works via the `command` property
-
-## Debugging
-
-Use the "Context Editor: Show Debug Output" command to view logs. The extension logs environment discovery, facade creation, project loading, and all data operations.
-
-`UnifiedProvider` emits debug logs prefixed with `[UnifiedProvider]`.
+- 每个 Issue 的执行流程（TDD 方式）
+    # 1. 创建 issue
+    bd create --title="..." --description="..." --type=feat|refactor --priority=2
+    
+    # 2. 标记为进行中
+    bd update <id> --status=in_progress
+    
+    # 3. 【关键】设计测试用例并编写测试代码
+    # - 根据需求分析测试场景
+    # - 编写/更新测试代码（此时测试会失败 - Red）
+    # - 运行测试验证失败：npm test
+    
+    # 4. 【关键】实现代码让测试通过
+    # - 编写最小实现代码
+    # - 运行测试验证通过：npm test
+    
+    # 5. Lint（测试通过后）
+    npm run lint
+    # 如有错误，运行：
+    npm run lint:fix
+    
+    # 6. 再次确认测试通过
+    npm test
+    
+    # 7. 提交
+    git add <files>
+    git commit -m "..."
+    bd sync
+    
+    # 8. 关闭 issue
+    bd close <id>
+    
+    # 9. 继续下一个 issue

@@ -45,10 +45,7 @@ const mockLogger: ILoggerService = {
   },
   logExit: (methodName: string) => {
     mockLogCalls.push(`[EXIT] ${methodName}`);
-  },
-  logChildrenRetrieved: (parentLabel: string, count: number) => {
-    mockLogCalls.push(`[CHILDREN] parent=${parentLabel} count=${String(count)}`);
-  },
+  }
 };
 
 void describe("ClaudeCodeRootNodeService", () => {
@@ -100,18 +97,18 @@ void describe("ClaudeCodeRootNodeService", () => {
 
   void describe("getRootNodeChildren", () => {
     void it("should return children for Global Configuration node", () => {
-      const rootNode = NodeDataFactory.createVirtualNode("Global Configuration");
+      const rootNode = NodeDataFactory.createVirtualNode("Global Configuration", NodeType.USER_ROOT);
       const modifiedNode = { ...rootNode, type: NodeType.USER_ROOT };
-      const children = service.getRootNodeChildren(modifiedNode);
+      const result = service.getRootNodeChildren(modifiedNode);
 
       // Wait for promise to resolve
-      return children.then((children) => {
-        assert.ok(Array.isArray(children));
+      return result.then((result) => {
+        assert.ok(result.success);
       });
     });
 
     void it("should return children for Projects node", () => {
-      const rootNode = NodeDataFactory.createVirtualNode("Projects");
+      const rootNode = NodeDataFactory.createVirtualNode("Projects", NodeType.USER_ROOT);
       const modifiedNode = { ...rootNode, type: NodeType.PROJECTS_ROOT };
       const children = service.getRootNodeChildren(modifiedNode);
 

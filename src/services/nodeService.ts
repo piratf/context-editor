@@ -13,9 +13,10 @@
 
 import * as path from "node:path";
 import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
-import { NodeDataFactory, NodeType } from "../types/nodeData.js";
+import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
 import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
+import { RootNodeService } from "./rootNodeService";
 
 /**
  * File system entry information
@@ -93,6 +94,11 @@ export type GetChildrenResult =
   | { readonly success: false; readonly error: ErrorDataNode };
 
 /**
+ * Constant representing an empty successful result
+ */
+export const EMPTY_CHILDREN_RESULT: GetChildrenResult = { success: true, children: [] } as const;
+
+/**
  * Service for tree node operations
  *
  * This service handles:
@@ -104,9 +110,11 @@ export type GetChildrenResult =
 export class NodeService {
   private readonly filter: SyncFileFilter;
   private readonly pathSep: string;
+  private readonly rootNodeService: RootNodeService;
 
   constructor(
     private readonly fileSystem: FileSystem,
+    nodeService: RootNodeService,
     options: {
       filter?: SyncFileFilter;
     } = {}
@@ -120,6 +128,8 @@ export class NodeService {
       // Default filter for Claude files
       this.filter = new ClaudeCodeFileFilter();
     }
+
+    this.rootNodeService = nodeService;
   }
 
   /**
@@ -128,7 +138,7 @@ export class NodeService {
    * @param node - Directory node data
    * @returns Array of child node data, or error node if failed
    */
-  async getChildren(node: DirectoryData): Promise<GetChildrenResult> {
+  async getChildrenForDirectoryNode(node: DirectoryData): Promise<GetChildrenResult> {
     // Validate node has path
     if (!node.path) {
       return {
@@ -268,37 +278,24 @@ export class NodeService {
   /**
    * Get children by node type (unified entry point)
    *
-   * Uses switch case to dispatch to appropriate handler based on node type.
+   * Uses type guard functions to dispatch to appropriate handler based on node type.
    * This provides a single entry point for all child node retrieval.
    *
    * @param node - Parent node data
    * @returns Array of child node data, or error node if failed
    */
-  async getChildrenByNodeType(node: NodeData): Promise<readonly NodeData[]> {
-    // Use switch case for type dispatch
-    switch (node.type) {
-      case NodeType.DIRECTORY: {
-        // DIRECTORY type uses existing directory child logic
-        const result = await this.getChildren(node as DirectoryData);
-        if (result.success) {
-          return result.children;
-        }
-        return [result.error];
-      }
-
-      // USER_ROOT and PROJECTS_ROOT are handled by ClaudeCodeRootNodeService
-      // Return empty array for these types
-      case NodeType.USER_ROOT:
-      case NodeType.PROJECTS_ROOT:
-        return [];
-
-      // All other types (FILE, ERROR, ROOT, etc.) have no children
-      case NodeType.FILE:
-      case NodeType.ERROR:
-      case NodeType.ROOT:
-      case NodeType.CLAUDE_JSON:
-      default:
-        return [];
+  async getChildrenByNodeType(node: NodeData): Promise<GetChildrenResult> {
+    // DIRECTORY - has children
+    if (NodeTypeGuard.isDirectoryData(node)) {
+      return await this.getChildrenForDirectoryNode(node);
     }
+
+    // USER_ROOT and PROJECTS_ROOT - have children
+    if (NodeTypeGuard.isUserRoot(node.type) || NodeTypeGuard.isProjectsRoot(node.type)) {
+      return await this.rootNodeService.getRootNodeChildren(node);
+    }
+
+    // All other types (FILE, ERROR, ROOT, CLAUDE_JSON) - no children
+    return EMPTY_CHILDREN_RESULT;
   }
 }

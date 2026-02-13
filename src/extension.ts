@@ -118,7 +118,7 @@ function registerViews(
   const treeItemFactory = container.get(ServiceTokens.TreeItemFactory);
 
   // Create unified provider with environment manager, container, and treeItemFactory
-  unifiedProvider = new UnifiedProvider(envManager, logger, container, treeItemFactory);
+  unifiedProvider = new UnifiedProvider(logger, container, treeItemFactory);
 
   // Create the tree view with dynamic title support
   treeView = vscode.window.createTreeView("contextEditorUnified", {

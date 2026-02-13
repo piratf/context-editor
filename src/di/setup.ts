@@ -123,7 +123,9 @@ export function createContainer(
     // Configuration: use ProjectClaudeFileFilter
     const filter = new ProjectClaudeFileFilter();
 
-    return new NodeService(fileSystem, { filter });
+    const rootNodeService = container.get(ServiceTokens.ClaudeCodeRootNodeService)
+
+    return new NodeService(fileSystem, rootNodeService, { filter });
   });
 
   container.registerSingleton(ServiceTokens.FileCreationService, () => {

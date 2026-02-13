@@ -11,7 +11,7 @@ import { ServiceTokens } from "../di/tokens.js";
 import type { ContextMenuCommand } from "../types/contextMenu.js";
 import { ContextKeys } from "../types/contextMenu.js";
 import type { NodeData } from "../types/nodeData.js";
-import { isDirectoryData } from "../types/nodeData.js";
+import { NodeTypeGuard } from "../types/nodeData.js";
 
 /**
  * Copy Name Command
@@ -112,7 +112,7 @@ export const openVscodeCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Directories with a non-empty path can be opened
-    return isDirectoryData(node) && node.path.length > 0;
+    return NodeTypeGuard.isDirectoryData(node) && node.path.length > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
@@ -141,7 +141,7 @@ export const createFileCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Can only create files in directories with a non-empty path
-    return isDirectoryData(node) && node.path.length > 0;
+    return NodeTypeGuard.isDirectoryData(node) && node.path.length > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
@@ -174,7 +174,7 @@ export const createFolderCommand: ContextMenuCommand = {
 
   canExecute: (node: NodeData): boolean => {
     // Can only create folders in directories with a non-empty path
-    return isDirectoryData(node) && node.path.length > 0;
+    return NodeTypeGuard.isDirectoryData(node) && node.path.length > 0;
   },
 
   execute: async (node: NodeData, container: SimpleDIContainer): Promise<void> => {
