@@ -72,9 +72,9 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
     const isClickable = element.type === NodeType.FILE || element.type === NodeType.CLAUDE_JSON;
     if (isClickable && element.path !== undefined) {
       treeItem.command = {
-        command: "contextEditor.openFile",
+        command: "vscode.open",
         title: "Open File",
-        arguments: [element.path],
+        arguments: [vscode.Uri.file(element.path)],
       };
     }
   }

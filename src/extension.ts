@@ -125,7 +125,7 @@ function registerViews(
 
   // Set the initial title with the current environment name
   const initialEnvName = envManager.getCurrentEnvironmentName();
-  treeView.title = `⚡ ${initialEnvName}`;
+  updateCurrentEnvironmentContext(initialEnvName);
 
   logger.logExit("registerViews");
 }
@@ -161,26 +161,6 @@ function registerCommands(
     await configSearch.refresh();
   });
   context.subscriptions.push(refreshCommand);
-
-  // Open file command
-  const openFileCommand = vscode.commands.registerCommand(
-    "contextEditor.openFile",
-    async (filePath: string) => {
-      if (typeof filePath !== "string") {
-        return;
-      }
-
-      try {
-        const uri = vscode.Uri.file(filePath);
-        await vscode.commands.executeCommand("vscode.open", uri);
-      } catch (error) {
-        const errorObj = error instanceof Error ? error : new Error(String(error));
-        logger.error("Failed to open file", errorObj);
-        vscode.window.showErrorMessage(`Failed to open file: ${errorObj.message}`);
-      }
-    }
-  );
-  context.subscriptions.push(openFileCommand);
 
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
