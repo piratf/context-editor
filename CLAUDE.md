@@ -12,65 +12,116 @@ Context Editor is a VS Code extension that provides a visual interface for manag
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Extension Layer                                │
-│  extension.ts - Entry point, lifecycle, command registration                │
+│                           Extension Layer                                    │
+│  extension.ts - Entry point, lifecycle, DI initialization                    │
+│              - activate(), deactivate()                                      │
+│              - registerViews(), registerCommands()                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                         │
                     ┌───────────────────┴───────────────────┐
                     │                                       │
 ┌───────────────────────────────────────────┐   ┌───────────────────────────────────────────┐
 │            DI Container                   │   │          Command Layer                   │
-│  di/container.ts, tokens.ts, setup.ts     │   │  commands/contextMenu.ts (MenuCommands)  │
-│  - Service registration & resolution       │   │  commands/extension.ts (Extension cmds)   │
-└───────────────────────────────────────────┘   └───────────────────────────────────────────┘
+│  di/container.ts - SimpleDIContainer      │   │  commands/menuCommands.ts -             │
+│  di/tokens.ts - ServiceTokens             │   │    - copyNameCommand                    │
+│  di/setup.ts - setupDI()                  │   │    - copyPathCommand                    │
+│  - Service registration & resolution       │   │    - deleteCommand                     │
+│  - Singleton lifecycle                    │   │    - openVscodeCommand                  │
+│  - Circular dependency detection          │   │    - createFileCommand                  │
+└───────────────────────────────────────────┘   │    - createFolderCommand                │
+                                                 │  commands/contextMenu.ts -              │
+                                                 │    - ContextMenuCommand interface       │
+                                                 └───────────────────────────────────────────┘
                     │
     ┌───────────────┼───────────────┬───────────────┐
     │               │               │               │
 ┌───▼─────────────────────────────────────────────────────────────────────────────────────┐
 │                              View Layer                                                │
 │  views/baseProvider.ts - Abstract TreeDataProvider base class                          │
-│  views/unifiedProvider.ts - Unified tree view (Global + Projects)                      │
+│    - Template Method pattern                                                           │
+│    - Common TreeDataProvider boilerplate                                               │
+│  views/unifiedProvider.ts - Unified tree view implementation                           │
+│    - Single view with two root nodes:                                                  │
+│      1. Global Configuration (~/.claude.json, ~/.claude/)                             │
+│      2. Projects (registered projects)                                                │
+│    - Delegates to NodeService for children                                            │
 └───┬───────────────────────────────────────────────────────────────────────────────────┘
     │
     │ uses
     │
 ┌───▼─────────────────────────────────────────────────────────────────────────────────────┐
 │                            Adapter Layer                                               │
-│  adapters/contextMenuRegistry.ts - Command registry, contextValue generation           │
+│  adapters/contextMenuRegistry.ts - Command registry                                    │
+│    - buildContextValue(node) - Dynamic context value generation                       │
+│    - registerCommands(context) - VS Code command registration                         │
 │  adapters/treeItemFactory.ts - NodeData → vscode.TreeItem conversion                   │
-│  adapters/vscode.ts - VS Code API interfaces (SimpleUri, FileDeleter, DialogService)   │
-│  adapters/ui.ts - UserInteraction interface (showInfo, showError, showWarningMessage)  │
+│    - Icon mapping, tooltip handling                                                    │
+│  adapters/ui.ts - UserInteraction interface                                            │
+│    - UserInteraction, ClipboardService, VsCodeFolderOpener                             │
+│  adapters/vscode.ts - VS Code API interfaces                                           │
+│    - FileDeleter, FileCreator, DialogService, InputService                             │
 └───┬───────────────────────────────────────────────────────────────────────────────────┘
     │
     │ uses
     │
 ┌───▼─────────────────────────────────────────────────────────────────────────────────────┐
 │                           Service Layer                                                │
+│  Pure business logic. No `vscode` dependency in this layer.                                                                                       │
+│  Environment Discovery & Management:                                                    │
 │  services/configSearch.ts - Environment discovery                                      │
-│  services/environmentManager.ts - Environment selection                                │
+│    - Auto-discovers WSL from Windows, Windows from WSL                                 │
+│    - Emits events when facade list changes                                             │
+│  services/environmentManagerService.ts - Environment selection                         │
+│    - Manages current environment, quick pick UI                                        │
+│  services/environmentDetector.ts - Platform detection                                  │
+│  services/environment.ts - Environment utilities                                       │
+│                                                                                         │
+│  Data Access (Facade Pattern):                                                         │
 │  services/dataFacade.ts - BaseDataFacade interface                                     │
 │  services/nativeDataFacade.ts - Native environment facade                              │
 │  services/windowsToWslDataFacade.ts - Windows → WSL facade                             │
 │  services/wslToWindowsDataFacade.ts - WSL → Windows facade                             │
-│  services/claudeConfigReader.ts - Config file parsing                                  │
-│  services/fileAccessService.ts - File system operations                               │
-│  services/pathConverter.ts - Path conversion utilities                                 │
-│  services/environmentDetector.ts - Platform detection                                  │
+│                                                                                         │
+│  Business Logic:                                                                       │
+│  services/nodeService.ts - Tree node operations                                        │
+│    - Directory traversal, file filtering, node type dispatch                           │
+│  services/claudeCodeRootNodeService.ts - Root node management                          │
+│    - Creates "Global Configuration" and "Projects" nodes                               │
+│  services/rootNodeService.ts - Root node interface                                     │
+│                                                                                         │
+│  Operations:                                                                           │
 │  services/copyService.ts - Copy name/path operations                                  │
-│  services/deleteService.ts - Delete operations                                        │
-│  services/nodeService.ts - Node children operations                                   │
+│  services/deleteService.ts - Delete operations with confirmation                       │
+│  services/fileCreationService.ts - File/folder creation                                │
 │  services/openVscodeService.ts - Open directory in new window                         │
+│                                                                                         │
+│  Utilities:                                                                            │
+│  services/pathConverter.ts - Path conversion (WSL ↔ Windows)                          │
+│  services/loggerService.ts - Logging abstraction                                       │
 └───┬───────────────────────────────────────────────────────────────────────────────────┘
     │
     │ uses
     │
 ┌───▼─────────────────────────────────────────────────────────────────────────────────────┐
-│                            Type Layer                                                  │
+│                           Type Layer                                                  │
 │  types/nodeData.ts - NodeData interface, NodeType enum, NodeDataFactory               │
+│    - Pure data interfaces (NO vscode dependency)                                       │
+│    - Runtime type markers for efficient checking                                      │
+│    - Type guards (NodeTypeGuard)                                                       │
 │  types/contextMenu.ts - ContextMenuCommand interface, ContextKeys constants           │
 │  types/claudeConfig.ts - Claude configuration type definitions                         │
+│    - ClaudeGlobalConfig, ProjectEntry, McpServers, etc.                               │
 │  types/fileFilter.ts - FileFilter interfaces and implementations                      │
+│    - ClaudeCodeFileFilter, ProjectClaudeFileFilter                                     │
+│    - Composable filters (AndFilter, OrFilter, NotFilter)                              │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           Utilities Layer                                             │
+│  utils/logger.ts - Structured logging with levels                                     │
+│    - DEBUG, INFO, WARN, ERROR                                                         │
+│    - Component-based organization                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
 │                           Context Menu System                                        │
@@ -106,7 +157,8 @@ Context Editor is a VS Code extension that provides a visual interface for manag
 使用 bd create 拆分重构任务，每个 issue 按照以下流程执行：
 
 - 每个 Issue 的执行流程（TDD 方式）
-    # 1. 创建 issue
+```
+    1. 创建 issue
     bd create --title="..." --description="..." --type=feat|refactor --priority=2
     
     # 2. 标记为进行中
@@ -138,3 +190,4 @@ Context Editor is a VS Code extension that provides a visual interface for manag
     bd close <id>
     
     # 9. 继续下一个 issue
+```
