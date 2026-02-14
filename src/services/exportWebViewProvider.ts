@@ -8,6 +8,7 @@
 import type { ExportPlan, ExportCategory, ExportItem } from "../types/exportPlan";
 import type { WebViewPanel, WebViewMessage } from "../adapters/vscode";
 import type { ILoggerService } from "./loggerService";
+import type { UserInteraction } from "../adapters/ui";
 
 /**
  * Export options from user selection
@@ -36,7 +37,8 @@ export class ExportWebViewProvider {
 
   constructor(
     private readonly webViewPanel: WebViewPanel,
-    private readonly logger: ILoggerService
+    private readonly logger: ILoggerService,
+    private readonly userInteraction: UserInteraction
   ) {
     // Register message handler from webview
     this.webViewPanel.onDidReceiveMessage((message) => {
@@ -99,18 +101,12 @@ export class ExportWebViewProvider {
     this.logger.debug("Export requested", { options });
 
     if (!this.currentPlan) {
-      this.webViewPanel.postMessage({
-        type: "error",
-        data: "No export plan available",
-      });
+      this.userInteraction.showInfo("No export plan available");
       return;
     }
 
     if (options.toGitRepo && (!options.targetPath || options.targetPath.trim().length === 0)) {
-      this.webViewPanel.postMessage({
-        type: "error",
-        data: "Please enter a valid git repository path",
-      });
+      this.userInteraction.showInfo("Please enter a valid git repository path");
       return;
     }
 

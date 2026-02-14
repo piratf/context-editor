@@ -156,8 +156,9 @@ export function createContainer(
   // Register ExportWebViewProvider
   container.registerSingleton(ServiceTokens.ExportWebViewProvider, () => {
     const loggerService = container.get(ServiceTokens.LoggerService);
+    const userInteraction = container.get(ServiceTokens.UserInteraction);
     const webViewPanel = new VsCodeWebViewPanel(context);
-    return new ExportWebViewProvider(webViewPanel, loggerService);
+    return new ExportWebViewProvider(webViewPanel, loggerService, userInteraction);
   });
 
   // Initialize all singleton services immediately
