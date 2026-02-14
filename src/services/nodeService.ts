@@ -17,52 +17,7 @@ import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
 import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
-
-/**
- * File system entry information
- */
-export interface FsEntry {
-  readonly name: string;
-  readonly isDirectory: boolean;
-}
-
-/**
- * File system interface - abstraction for file system operations
- * Allows mocking for unit tests
- */
-export interface FileSystem {
-  /**
-   * Read directory contents
-   * @param dirPath - Directory path to read
-   * @returns Array of file system entries
-   * @throws Error if directory cannot be read
-   */
-  readDirectory(dirPath: string): Promise<FsEntry[]>;
-
-  /**
-   * Get file statistics
-   * @param filePath - Path to file or directory
-   * @returns File stats including existence, type, etc.
-   */
-  stat?(filePath: string): Promise<{ exists: boolean; isDirectory: boolean }>;
-
-  /**
-   * Get path separator
-   */
-  readonly pathSep: string;
-}
-
-/**
- * Options for creating child nodes
- */
-export interface ChildNodeOptions {
-  /** Filter to apply for children */
-  readonly filter?: SyncFileFilter;
-  /** Base context value for children (menu markers will be added by caller) */
-  readonly baseContextValue?: string;
-  /** Filter configuration */
-  readonly filterClaudeFiles?: boolean;
-}
+import { FileSystem, FsEntry } from "./fileSystemService";
 
 /**
  * Default file icon mapping
