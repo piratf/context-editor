@@ -35,13 +35,14 @@ export class ExportWebViewProvider {
       categories: plan.categories.map((c) => c.name).join(", "),
     });
 
+    const html = this.generateHtml(plan);
     this.webViewPanel.show(
       {
         viewType: "contextEditor.export",
         title: "Export Claude Resources",
         column: 2, // ViewColumn.Beside
       },
-      plan
+      html
     );
   }
 
@@ -99,12 +100,9 @@ export class ExportWebViewProvider {
 
   /**
    * Generate HTML content for the WebView
-   * Note: This would typically be in the WebViewPanel adapter,
-   * but shown here for reference on the HTML structure needed
    */
-  // @ts-expect-error - Method kept for reference
-  private _generateHtml(_plan: ExportPlan): string {
-    const categoriesHtml = _plan.categories
+  private generateHtml(plan: ExportPlan): string {
+    const categoriesHtml = plan.categories
       .map(
         (category: ExportCategory) => `
         <div class="category" data-category-id="${category.id}">
