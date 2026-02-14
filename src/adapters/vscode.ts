@@ -179,9 +179,9 @@ export interface WebViewPanel {
   /**
    * Show or reveal the webview panel with content
    * @param options - Panel creation options
-   * @param data - Data to pass to webview (will be serialized)
+   * @param html - HTML content to display in the webview
    */
-  show(options: WebViewPanelOptions, data: unknown): void;
+  show(options: WebViewPanelOptions, html: string): void;
 
   /**
    * Post a message to the webview
@@ -210,7 +210,7 @@ export class VsCodeWebViewPanel implements WebViewPanel {
 
   constructor(private readonly extensionContext: vscode.ExtensionContext) {}
 
-  show(options: WebViewPanelOptions, data: unknown): void {
+  show(options: WebViewPanelOptions, html: string): void {
     if (this.panel) {
       this.panel.reveal(options.column);
     } else {
@@ -234,8 +234,8 @@ export class VsCodeWebViewPanel implements WebViewPanel {
       });
     }
 
-    // Initialize webview with data
-    this.panel.webview.postMessage({ type: "init", data });
+    // Set HTML content for the webview
+    this.panel.webview.html = html;
   }
 
   postMessage(message: WebViewMessage): void {
