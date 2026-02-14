@@ -29,6 +29,7 @@ import type { IEnvironmentManagerService } from "../services/environmentManagerS
 import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 import type { FileSystem } from "../services/fileSystemService.js";
 import type { ExportScanner } from "../services/exportScanner.js";
+import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 
 /**
  * All service tokens for the DI container
@@ -66,4 +67,5 @@ export const ServiceTokens = {
 
   // Export
   ExportScannerService: new ServiceToken<ExportScanner>("ExportScannerService"),
+  ExportWebViewProvider: new ServiceToken<ExportWebViewProvider>("ExportWebViewProvider"),
 } as const;
