@@ -20,6 +20,7 @@ import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
 import { ServiceTokens } from "./di/tokens.js";
 import { IEnvironmentManagerService } from "./services/environmentManagerService";
+import { registerExportCommand } from "./commands/exportCommand";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -163,21 +164,7 @@ function registerCommands(
   context.subscriptions.push(refreshCommand);
 
   // Export command
-  const exportCommand = vscode.commands.registerCommand("contextEditor.export", async () => {
-    logger.debug("Export command triggered");
-    const scanner = container.get(ServiceTokens.ExportScannerService);
-    const webView = container.get(ServiceTokens.ExportWebViewProvider);
-    const userInteraction = container.get(ServiceTokens.UserInteraction);
-
-    const plan = await scanner.scan();
-    if (plan.totalCount === 0) {
-      userInteraction.showInfo("No items found to export");
-      return;
-    }
-
-    webView.show(plan);
-  });
-  context.subscriptions.push(exportCommand);
+  registerExportCommand(context, container);
 
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);

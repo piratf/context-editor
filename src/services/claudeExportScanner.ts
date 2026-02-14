@@ -36,9 +36,9 @@ export class ClaudeExportScanner implements ExportScanner {
   }
 
   async scan(): Promise<ExportPlan> {
-    const skillsCategory = await this.scanDirectory("skills", ExportItemType.SKILL);
-    const agentsCategory = await this.scanDirectory("agents", ExportItemType.AGENT);
-    const commandsCategory = await this.scanDirectory("commands", ExportItemType.COMMAND);
+    const skillsCategory = await this.scanDirectory(".claude/skills", ExportItemType.SKILL);
+    const agentsCategory = await this.scanDirectory(".claude/agents", ExportItemType.AGENT);
+    const commandsCategory = await this.scanDirectory(".claude/commands", ExportItemType.COMMAND);
 
     const categories = [skillsCategory, agentsCategory, commandsCategory];
     const totalCount = categories.reduce((sum, cat) => sum + cat.items.length, 0);

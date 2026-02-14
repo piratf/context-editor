@@ -10,12 +10,30 @@ import type { WebViewPanel, WebViewMessage } from "../adapters/vscode";
 import type { ILoggerService } from "./loggerService";
 
 /**
+ * Export options from user selection
+ */
+export interface ExportOptions {
+  readonly toGitRepo: boolean;
+  readonly targetPath: string;
+}
+
+/**
+ * Export request with plan and options
+ */
+export interface ExportRequest {
+  readonly plan: ExportPlan;
+  readonly options: ExportOptions;
+}
+
+/**
  * Export WebView Provider
  *
  * Manages the lifecycle of the export WebView panel.
  * Uses WebViewPanel interface to maintain testability.
  */
 export class ExportWebViewProvider {
+  private currentPlan: ExportPlan | null = null;
+
   constructor(
     private readonly webViewPanel: WebViewPanel,
     private readonly logger: ILoggerService
@@ -35,6 +53,7 @@ export class ExportWebViewProvider {
       categories: plan.categories.map((c) => c.name).join(", "),
     });
 
+    this.currentPlan = plan;
     const html = this.generateHtml(plan);
     this.webViewPanel.show(
       {
@@ -62,7 +81,7 @@ export class ExportWebViewProvider {
 
     switch (message.type) {
       case "export":
-        this.handleExport(message.data as string);
+        this.handleExport(message.data as ExportOptions);
         break;
       case "close":
         this.dispose();
@@ -76,22 +95,44 @@ export class ExportWebViewProvider {
   /**
    * Handle export action from WebView
    */
-  private handleExport(targetPath: string): void {
-    this.logger.debug("Export requested", { targetPath });
+  private handleExport(options: ExportOptions): void {
+    this.logger.debug("Export requested", { options });
 
-    if (!targetPath || targetPath.trim().length === 0) {
+    if (!this.currentPlan) {
       this.webViewPanel.postMessage({
         type: "error",
-        data: "Please enter a target path",
+        data: "No export plan available",
       });
       return;
     }
 
-    // TODO: Implement actual export logic
+    if (options.toGitRepo && (!options.targetPath || options.targetPath.trim().length === 0)) {
+      this.webViewPanel.postMessage({
+        type: "error",
+        data: "Please enter a valid git repository path",
+      });
+      return;
+    }
+
+    // Create export request with plan and options
+    const request: ExportRequest = {
+      plan: this.currentPlan,
+      options,
+    };
+
+    // TODO: Implement actual export logic with request
     // For now, just log and show success message
+    this.logger.debug("Export request", {
+      itemCount: request.plan.totalCount,
+      toGitRepo: request.options.toGitRepo,
+      targetPath: request.options.targetPath,
+    });
+
     this.webViewPanel.postMessage({
       type: "success",
-      data: `Export would proceed to: ${targetPath}`,
+      data: options.toGitRepo
+        ? `Export to git repository: ${options.targetPath}`
+        : "Export completed",
     });
 
     // Close panel after export
@@ -288,6 +329,13 @@ export class ExportWebViewProvider {
       border-color: var(--vscode-focusBorder);
     }
 
+    input:disabled {
+      background-color: var(--vscode-input-inactiveBackground);
+      color: var(--vscode-input-inactiveForeground);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
     input::placeholder {
       color: var(--vscode-input-placeholderForeground);
     }
@@ -328,6 +376,42 @@ export class ExportWebViewProvider {
       background-color: var(--vscode-button-hoverBackground);
     }
 
+    .confirm:disabled {
+      background-color: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    /* Checkbox Group */
+    .checkbox-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .checkbox-item {
+      gap: 8px;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .checkbox-item label {
+      display: inline;
+      margin: 0;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--vscode-foreground);
+    }
+
+    .input-indented {
+      margin-left: 20px;
+    }
+
     /* Scrollbar Styling */
     .main-content::-webkit-scrollbar {
       width: 10px;
@@ -366,17 +450,24 @@ export class ExportWebViewProvider {
     </main>
 
     <footer class="footer">
-      <div class="input-group">
-        <label for="target-path">Export Destination</label>
+      <div class="checkbox-group">
+        <div class="checkbox-item">
+          <input type="checkbox" id="export-git" checked />
+          <label for="export-git">Export to git repository</label>
+        </div>
+      </div>
+
+      <div class="input-group input-indented" id="input-group">
+        <label for="target-path">Repository Path</label>
         <div class="input-wrapper">
           <input
             id="target-path"
             type="text"
-            placeholder="Enter target directory path"
-            autofocus
+            placeholder="Enter a valid git repository path"
           />
         </div>
       </div>
+
       <div class="button-group">
         <button class="cancel" id="cancel-btn">Cancel</button>
         <button class="confirm" id="export-btn">Export</button>
@@ -390,11 +481,22 @@ export class ExportWebViewProvider {
       const exportBtn = document.getElementById('export-btn');
       const cancelBtn = document.getElementById('cancel-btn');
       const targetPathInput = document.getElementById('target-path');
+      const exportGitCheckbox = document.getElementById('export-git');
+
+      function updateExportButtonState() {
+        const anyChecked = exportGitCheckbox.checked;
+        exportBtn.disabled = !anyChecked;
+        // Enable/disable input based on checkbox state
+        targetPathInput.disabled = !exportGitCheckbox.checked;
+      }
 
       exportBtn.addEventListener('click', function() {
         vscode.postMessage({
           type: 'export',
-          data: targetPathInput.value
+          data: {
+            toGitRepo: exportGitCheckbox.checked,
+            targetPath: targetPathInput.value
+          }
         });
       });
 
@@ -402,15 +504,18 @@ export class ExportWebViewProvider {
         vscode.postMessage({ type: 'close' });
       });
 
+      // Update button and input state when checkbox changes
+      exportGitCheckbox.addEventListener('change', updateExportButtonState);
+
       // Allow Enter key to trigger export
       targetPathInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !exportBtn.disabled) {
           exportBtn.click();
         }
       });
 
-      // Auto-focus input on load
-      targetPathInput.focus();
+      // Initialize states
+      updateExportButtonState();
     })();
   </script>
 </body>
