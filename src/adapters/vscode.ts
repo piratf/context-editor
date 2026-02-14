@@ -232,6 +232,24 @@ export class VsCodeWebViewPanel implements WebViewPanel {
         this.panel = null;
         this.messageHandlers = [];
       });
+
+      // Register message handlers from previously registered callbacks
+      // This ensures handlers registered before panel creation are still active
+      this.panel.webview.onDidReceiveMessage(
+        (data: unknown) => {
+          const dataRecord = data as Record<string, unknown>;
+          const messageType = dataRecord.type;
+          const message: WebViewMessage = {
+            type: typeof messageType === "string" ? messageType : String(messageType),
+            data: dataRecord.data,
+          };
+          for (const h of this.messageHandlers) {
+            h(message);
+          }
+        },
+        null,
+        this.extensionContext.subscriptions
+      );
     }
 
     // Set HTML content for the webview
