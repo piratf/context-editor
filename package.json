@@ -76,6 +76,12 @@
         "command": "contextEditor.createFolder",
         "title": "Create Folder",
         "category": "Context Editor"
+      },
+      {
+        "command": "contextEditor.export",
+        "title": "Export",
+        "icon": "$(export)",
+        "category": "Context Editor"
       }
     ],
     "viewsContainers": {
@@ -107,6 +113,11 @@
           "command": "contextEditor.switchEnvironment",
           "when": "view == contextEditorUnified",
           "group": "navigation@2"
+        },
+        {
+          "command": "contextEditor.export",
+          "when": "view == contextEditorUnified",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
