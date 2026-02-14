@@ -149,3 +149,128 @@ export class VsCodeInputService implements InputService {
     });
   }
 }
+
+/**
+ * WebView panel options
+ */
+export interface WebViewPanelOptions {
+  readonly viewType: string;
+  readonly title: string;
+  readonly column?: number;
+  readonly enableScripts?: boolean;
+  readonly localResourceRoots?: readonly vscode.Uri[];
+}
+
+/**
+ * Message from or to webview
+ */
+export interface WebViewMessage {
+  readonly type: string;
+  readonly data?: unknown;
+}
+
+/**
+ * WebView panel interface
+ *
+ * Abstracts VS Code WebView API for testability.
+ * Services depend on this interface, not directly on vscode.window.
+ */
+export interface WebViewPanel {
+  /**
+   * Show or reveal the webview panel with content
+   * @param options - Panel creation options
+   * @param data - Data to pass to webview (will be serialized)
+   */
+  show(options: WebViewPanelOptions, data: unknown): void;
+
+  /**
+   * Post a message to the webview
+   * @param message - Message to send
+   */
+  postMessage(message: WebViewMessage): void;
+
+  /**
+   * Close and dispose the panel
+   */
+  dispose(): void;
+
+  /**
+   * Register message handler from webview
+   * @param handler - Callback when webview sends a message
+   */
+  onDidReceiveMessage(handler: (message: WebViewMessage) => void): void;
+}
+
+/**
+ * VS Code WebView panel implementation
+ */
+export class VsCodeWebViewPanel implements WebViewPanel {
+  private panel: vscode.WebviewPanel | null = null;
+  private messageHandlers: Array<(message: WebViewMessage) => void> = [];
+
+  constructor(private readonly extensionContext: vscode.ExtensionContext) {}
+
+  show(options: WebViewPanelOptions, data: unknown): void {
+    if (this.panel) {
+      this.panel.reveal(options.column);
+    } else {
+      this.panel = vscode.window.createWebviewPanel(
+        options.viewType,
+        options.title,
+        options.column ?? vscode.ViewColumn.Beside,
+        {
+          enableScripts: options.enableScripts ?? true,
+          localResourceRoots: options.localResourceRoots ?? [
+            vscode.Uri.joinPath(this.extensionContext.extensionUri, "out"),
+          ],
+          retainContextWhenHidden: false,
+        }
+      );
+
+      // Setup dispose handler
+      this.panel.onDidDispose(() => {
+        this.panel = null;
+        this.messageHandlers = [];
+      });
+    }
+
+    // Initialize webview with data
+    this.panel.webview.postMessage({ type: "init", data });
+  }
+
+  postMessage(message: WebViewMessage): void {
+    if (this.panel) {
+      this.panel.webview.postMessage(message);
+    }
+  }
+
+  dispose(): void {
+    if (this.panel) {
+      this.panel.dispose();
+      this.panel = null;
+      this.messageHandlers = [];
+    }
+  }
+
+  onDidReceiveMessage(handler: (message: WebViewMessage) => void): void {
+    this.messageHandlers.push(handler);
+
+    if (this.panel) {
+      this.panel.webview.onDidReceiveMessage(
+        (data: unknown) => {
+          const dataRecord = data as Record<string, unknown>;
+          const messageType = dataRecord.type;
+          const message: WebViewMessage = {
+            type: typeof messageType === "string" ? messageType : String(messageType),
+            data: dataRecord.data,
+          };
+          for (const h of this.messageHandlers) {
+            h(message);
+          }
+        },
+        null,
+        this.extensionContext.subscriptions
+      );
+    }
+  }
+}

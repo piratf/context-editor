@@ -18,6 +18,7 @@ import {
   VsCodeDialogService,
   VsCodeFileCreator,
   VsCodeInputService,
+  VsCodeWebViewPanel,
 } from "../adapters/vscode.js";
 import { CopyService } from "../services/copyService.js";
 import { DeleteService } from "../services/deleteService.js";
@@ -35,6 +36,8 @@ import { NodeFileSystemService } from "../services/fileSystemService.js";
 import { LogLevel } from "../services/loggerService.js";
 import { ClaudeExportScanner } from "../services/claudeExportScanner.js";
 import { ExportScanner } from "../services/exportScanner.js";
+import { ExportWebViewProvider } from "../services/exportWebViewProvider";
+import * as vscode from "vscode";
 
 /**
  * Create and configure the dependency injection container
@@ -53,6 +56,7 @@ import { ExportScanner } from "../services/exportScanner.js";
  * @returns Configured DI container instance
  */
 export function createContainer(
+  context: vscode.ExtensionContext,
   outputChannel: { appendLine(value: string): void },
   configSearch: { getAllFacades(): readonly IDataFacade[] },
   userInteraction: UserInteraction,
@@ -147,6 +151,12 @@ export function createContainer(
     }
     const fileSystem = container.get(ServiceTokens.FileSystemService);
     return new ClaudeExportScanner(homeDir, fileSystem);
+  });
+  // Register ExportWebViewProvider
+  container.registerSingleton(ServiceTokens.ExportWebViewProvider, () => {
+    const loggerService = container.get(ServiceTokens.LoggerService);
+    const webViewPanel = new VsCodeWebViewPanel(context);
+    return new ExportWebViewProvider(webViewPanel, loggerService);
   });
 
   // Initialize all singleton services immediately

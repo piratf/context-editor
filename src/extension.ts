@@ -74,7 +74,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const userInteraction = new VsCodeUserInteraction();
 
   // Create DI container for service management
-  container = createContainer(debugOutput, configSearch, userInteraction, logLevel);
+  container = createContainer(context, debugOutput, configSearch, userInteraction, logLevel);
   context.subscriptions.push(container);
 
   const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);

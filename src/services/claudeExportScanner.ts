@@ -20,6 +20,7 @@ export class ClaudeExportScanner implements ExportScanner {
       const name = file.name;
       const filePath = `${dirPath}/${name}`;
       items.push({
+        id: `${itemType}-${name}`,
         type: itemType,
         name: name,
         sourcePath: filePath,
@@ -27,6 +28,7 @@ export class ClaudeExportScanner implements ExportScanner {
     }
 
     return {
+      id: categoryName,
       name: categoryName,
       items: items,
     };
@@ -37,8 +39,12 @@ export class ClaudeExportScanner implements ExportScanner {
     const agentsCategory = await this.scanDirectory("agents", ExportItemType.AGENT);
     const commandsCategory = await this.scanDirectory("commands", ExportItemType.COMMAND);
 
+    const categories = [skillsCategory, agentsCategory, commandsCategory];
+    const totalCount = categories.reduce((sum, cat) => sum + cat.items.length, 0);
+
     return {
-      categories: [skillsCategory, agentsCategory, commandsCategory],
+      categories: categories,
+      totalCount: totalCount,
     };
   }
 }
