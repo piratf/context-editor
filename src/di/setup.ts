@@ -33,6 +33,8 @@ import type { IDataFacade } from "../services/environmentManagerService.js";
 import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 import { NodeFileSystemService } from "../services/fileSystemService.js";
 import { LogLevel } from "../services/loggerService.js";
+import { ClaudeExportScanner } from "../services/claudeExportScanner.js";
+import { ExportScanner } from "../services/exportScanner.js";
 
 /**
  * Create and configure the dependency injection container
@@ -135,6 +137,16 @@ export function createContainer(
   container.registerSingleton(ServiceTokens.TreeItemFactory, () => {
     const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
     return new TreeItemFactory(menuRegistry);
+  });
+
+  // Register ClaudeExportScanner
+  container.registerSingleton(ServiceTokens.ExportScannerService, (): ExportScanner => {
+    const homeDir = process.env.HOME ?? process.env.USERPROFILE;
+    if (homeDir === undefined || homeDir === "") {
+      throw new Error("Home directory not found");
+    }
+    const fileSystem = container.get(ServiceTokens.FileSystemService);
+    return new ClaudeExportScanner(homeDir, fileSystem);
   });
 
   // Initialize all singleton services immediately

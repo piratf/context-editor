@@ -28,6 +28,7 @@ import type { ILoggerService } from "../services/loggerService.js";
 import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
 import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 import type { FileSystem } from "../services/fileSystemService.js";
+import type { ExportScanner } from "../services/exportScanner.js";
 
 /**
  * All service tokens for the DI container
@@ -62,4 +63,7 @@ export const ServiceTokens = {
   // Menu and Factory
   ContextMenuRegistry: new ServiceToken<ContextMenuRegistry>("ContextMenuRegistry"),
   TreeItemFactory: new ServiceToken<TreeItemFactory>("TreeItemFactory"),
+
+  // Export
+  ExportScannerService: new ServiceToken<ExportScanner>("ExportScannerService"),
 } as const;
