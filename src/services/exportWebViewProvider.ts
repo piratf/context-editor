@@ -10,12 +10,12 @@ import type { WebViewPanel, WebViewMessage } from "../adapters/vscode";
 import type { ILoggerService } from "./loggerService";
 import type { UserInteraction } from "../adapters/ui";
 
-/**
- * Export options from user selection
- */
-export interface ExportOptions {
-  readonly toGitRepo: boolean;
+export interface GitRepoExportOptions {
   readonly targetPath: string;
+}
+
+export interface ExportOptions {
+  readonly gitRepo?: GitRepoExportOptions;
 }
 
 /**
@@ -105,7 +105,10 @@ export class ExportWebViewProvider {
       return;
     }
 
-    if (options.toGitRepo && (!options.targetPath || options.targetPath.trim().length === 0)) {
+    if (
+      options.gitRepo &&
+      (!options.gitRepo.targetPath || options.gitRepo.targetPath.trim().length === 0)
+    ) {
       this.userInteraction.showInfo("Please enter a valid git repository path");
       return;
     }
@@ -120,14 +123,13 @@ export class ExportWebViewProvider {
     // For now, just log and show success message
     this.logger.debug("Export request", {
       itemCount: request.plan.totalCount,
-      toGitRepo: request.options.toGitRepo,
-      targetPath: request.options.targetPath,
+      gitRepo: request.options.gitRepo,
     });
 
     this.webViewPanel.postMessage({
       type: "success",
-      data: options.toGitRepo
-        ? `Export to git repository: ${options.targetPath}`
+      data: options.gitRepo
+        ? `Export to git repository: ${options.gitRepo.targetPath}`
         : "Export completed",
     });
 
@@ -487,14 +489,16 @@ export class ExportWebViewProvider {
       }
 
       exportBtn.addEventListener('click', function() {
-        vscode.postMessage({
-          type: 'export',
-          data: {
-            toGitRepo: exportGitCheckbox.checked,
-            targetPath: targetPathInput.value
-          }
-        });
-      });
+       const data = {
+         gitRepo: exportGitCheckbox.checked ? {
+           targetPath: targetPathInput.value
+         } : undefined
+       };
+       vscode.postMessage({
+         type: "export",
+         data
+       });
+     });
 
       cancelBtn.addEventListener('click', function() {
         vscode.postMessage({ type: 'close' });
