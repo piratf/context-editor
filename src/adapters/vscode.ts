@@ -203,12 +203,54 @@ export interface WebViewPanel {
 
 /**
  * VS Code WebView panel implementation
+ *
+ * Uses delayed registration pattern:
+ * - Handlers are stored immediately when registered
+ * - Actual webview registration happens in show() (single registration point)
+ * - This ensures timing-independent handler registration
  */
 export class VsCodeWebViewPanel implements WebViewPanel {
   private panel: vscode.WebviewPanel | null = null;
   private messageHandlers: Array<(message: WebViewMessage) => void> = [];
+  private isHandlerRegistered = false;
 
   constructor(private readonly extensionContext: vscode.ExtensionContext) {}
+
+  /**
+   * Register a message handler
+   * Handler is stored immediately, actual registration happens when panel is shown
+   */
+  onDidReceiveMessage(handler: (message: WebViewMessage) => void): void {
+    this.messageHandlers.push(handler);
+  }
+
+  /**
+   * Register all stored handlers to the webview
+   * This is the single registration point for all handlers
+   */
+  private registerHandlers(): void {
+    if (!this.panel || this.isHandlerRegistered) {
+      return;
+    }
+
+    this.panel.webview.onDidReceiveMessage(
+      (data: unknown) => {
+        const dataRecord = data as Record<string, unknown>;
+        const messageType = dataRecord.type;
+        const message: WebViewMessage = {
+          type: typeof messageType === "string" ? messageType : String(messageType),
+          data: dataRecord.data,
+        };
+        for (const h of this.messageHandlers) {
+          h(message);
+        }
+      },
+      null,
+      this.extensionContext.subscriptions
+    );
+
+    this.isHandlerRegistered = true;
+  }
 
   show(options: WebViewPanelOptions, html: string): void {
     if (this.panel) {
@@ -230,26 +272,12 @@ export class VsCodeWebViewPanel implements WebViewPanel {
       // Setup dispose handler
       this.panel.onDidDispose(() => {
         this.panel = null;
-        this.messageHandlers = [];
+        this.isHandlerRegistered = false;
+        // Keep handlers for reuse (provider singleton can create new panel)
       });
 
-      // Register message handlers from previously registered callbacks
-      // This ensures handlers registered before panel creation are still active
-      this.panel.webview.onDidReceiveMessage(
-        (data: unknown) => {
-          const dataRecord = data as Record<string, unknown>;
-          const messageType = dataRecord.type;
-          const message: WebViewMessage = {
-            type: typeof messageType === "string" ? messageType : String(messageType),
-            data: dataRecord.data,
-          };
-          for (const h of this.messageHandlers) {
-            h(message);
-          }
-        },
-        null,
-        this.extensionContext.subscriptions
-      );
+      // Register all stored handlers (single registration point)
+      this.registerHandlers();
     }
 
     // Set HTML content for the webview
@@ -266,29 +294,8 @@ export class VsCodeWebViewPanel implements WebViewPanel {
     if (this.panel) {
       this.panel.dispose();
       this.panel = null;
-      this.messageHandlers = [];
-    }
-  }
-
-  onDidReceiveMessage(handler: (message: WebViewMessage) => void): void {
-    this.messageHandlers.push(handler);
-
-    if (this.panel) {
-      this.panel.webview.onDidReceiveMessage(
-        (data: unknown) => {
-          const dataRecord = data as Record<string, unknown>;
-          const messageType = dataRecord.type;
-          const message: WebViewMessage = {
-            type: typeof messageType === "string" ? messageType : String(messageType),
-            data: dataRecord.data,
-          };
-          for (const h of this.messageHandlers) {
-            h(message);
-          }
-        },
-        null,
-        this.extensionContext.subscriptions
-      );
+      this.isHandlerRegistered = false;
+      // Keep handlers for reuse
     }
   }
 }
