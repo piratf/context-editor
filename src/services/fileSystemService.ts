@@ -17,10 +17,16 @@ export interface FileSystem {
   /**
    * Read directory contents
    * @param dirPath - Directory path to read
+   * @param options
    * @returns Array of file system entries
    * @throws Error if directory cannot be read
    */
-  readDirectory(dirPath: string): Promise<FsEntry[]>;
+  readDirectory(
+    dirPath: string,
+    options?: {
+      recursive?: boolean;
+    }
+  ): Promise<FsEntry[]>;
 
   /**
    * Get file statistics
@@ -38,15 +44,19 @@ export interface FileSystem {
 export class NodeFileSystemService implements FileSystem {
   readonly pathSep: string = path.sep;
 
-  async readDirectory(dirPath: string): Promise<{ name: string; isDirectory: boolean }[]> {
-    {
-      const fs = await import("node:fs/promises");
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
-      return entries.map((entry) => ({
-        name: entry.name,
-        isDirectory: entry.isDirectory(),
-      }));
+  async readDirectory(
+    dirPath: string,
+    options?: {
+      recursive?: boolean;
     }
+  ): Promise<{ name: string; isDirectory: boolean }[]> {
+    const { recursive = false } = options ?? {};
+    const fs = await import("node:fs/promises");
+    const entries = await fs.readdir(dirPath, { withFileTypes: true, recursive: recursive });
+    return entries.map((entry) => ({
+      name: entry.name,
+      isDirectory: entry.isDirectory(),
+    }));
   }
 
   async stat(filePath: string): Promise<{ exists: boolean; isDirectory: boolean }> {
