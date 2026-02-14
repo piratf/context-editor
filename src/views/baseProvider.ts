@@ -11,7 +11,6 @@
 import * as vscode from "vscode";
 import type { NodeData } from "../types/nodeData.js";
 import { NodeType } from "../types/nodeData.js";
-import { NodeDataFactory } from "../types/nodeData.js";
 import { Logger } from "../utils/logger.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { DIContainer } from "../di/container.js";
@@ -77,17 +76,5 @@ export abstract class BaseProvider implements vscode.TreeDataProvider<TreeNode> 
         arguments: [vscode.Uri.file(element.path)],
       };
     }
-  }
-
-  /**
-   * Create an info node with standardized format
-   */
-  protected createInfoNode(label: string, tooltip: string, contextValue = "empty"): TreeNode {
-    // Create as NodeData (new architecture)
-    return NodeDataFactory.createInfo(label, {
-      tooltip,
-      contextValue,
-      iconId: "info",
-    });
   }
 }

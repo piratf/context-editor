@@ -26,7 +26,8 @@ import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { ILoggerService } from "../services/loggerService.js";
 import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
-import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService";
+import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
+import type { FileSystem } from "../services/fileSystemService.js";
 
 /**
  * All service tokens for the DI container
@@ -36,6 +37,7 @@ import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService
 export const ServiceTokens = {
   // Adapters (singleton - VS Code API wrappers)
   ClipboardService: new ServiceToken<VsCodeClipboardService>("ClipboardService"),
+  FileSystemService: new ServiceToken<FileSystem>("FileSystemService"),
   FileDeleter: new ServiceToken<VsCodeFileDeleter>("FileDeleter"),
   DialogService: new ServiceToken<VsCodeDialogService>("DialogService"),
   FolderOpener: new ServiceToken<VsCodeFolderOpener>("FolderOpener"),

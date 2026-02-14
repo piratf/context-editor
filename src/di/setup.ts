@@ -5,7 +5,6 @@
  * Called once during extension activation.
  */
 
-import * as path from "node:path";
 import { SimpleDIContainer } from "./container.js";
 import { ServiceTokens } from "./tokens.js";
 import {
@@ -27,11 +26,12 @@ import { NodeService } from "../services/nodeService.js";
 import { FileCreationService } from "../services/fileCreationService.js";
 import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
-import type { FileSystem } from "../services/nodeService.js";
+import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 import { VsCodeLoggerService } from "../services/loggerService.js";
 import { EnvironmentManagerService } from "../services/environmentManagerService.js";
-import type { IDataFacade } from "../types/environment";
-import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService";
+import type { IDataFacade } from "../services/environmentManagerService.js";
+import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
+import { NodeFileSystemService } from "../services/fileSystemService.js";
 import { LogLevel } from "../services/loggerService.js";
 
 /**
@@ -78,6 +78,8 @@ export function createContainer(
   // Register singleton Adapters (VS Code API wrappers)
   container.registerSingleton(ServiceTokens.ClipboardService, () => new VsCodeClipboardService());
 
+  container.registerSingleton(ServiceTokens.FileSystemService, () => new NodeFileSystemService());
+
   container.registerSingleton(ServiceTokens.FileDeleter, () => new VsCodeFileDeleter());
 
   container.registerSingleton(ServiceTokens.DialogService, () => new VsCodeDialogService());
@@ -110,21 +112,11 @@ export function createContainer(
   // Register NodeService with configuration
   // Using ProjectClaudeFileFilter for filtering Claude project files
   container.registerSingleton(ServiceTokens.NodeService, () => {
-    const fileSystem: FileSystem = {
-      pathSep: path.sep,
-      readDirectory: async (dirPath: string) => {
-        const fs = await import("node:fs/promises");
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        return entries.map((entry) => ({
-          name: entry.name,
-          isDirectory: entry.isDirectory(),
-        }));
-      },
-    };
-
+    const fileSystem = container.get(ServiceTokens.FileSystemService);
+    const filter = new ProjectClaudeFileFilter();
     const rootNodeService = container.get(ServiceTokens.ClaudeCodeRootNodeService);
 
-    return new NodeService(fileSystem, rootNodeService);
+    return new NodeService(fileSystem, rootNodeService, { filter });
   });
 
   container.registerSingleton(ServiceTokens.FileCreationService, () => {
