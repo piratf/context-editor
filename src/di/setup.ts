@@ -48,6 +48,7 @@ import * as vscode from "vscode";
  *
  * Service configuration is centralized here - all options are set during registration.
  *
+ * @param context
  * @param outputChannel - VS Code output channel for logging
  * @param configSearch - Config search instance with all facades
  * @param userInteraction - User interaction service

@@ -162,6 +162,23 @@ function registerCommands(
   });
   context.subscriptions.push(refreshCommand);
 
+  // Export command
+  const exportCommand = vscode.commands.registerCommand("contextEditor.export", async () => {
+    logger.debug("Export command triggered");
+    const scanner = container.get(ServiceTokens.ExportScannerService);
+    const webView = container.get(ServiceTokens.ExportWebViewProvider);
+    const userInteraction = container.get(ServiceTokens.UserInteraction);
+
+    const plan = await scanner.scan();
+    if (plan.totalCount === 0) {
+      userInteraction.showInfo("No items found to export");
+      return;
+    }
+
+    webView.show(plan);
+  });
+  context.subscriptions.push(exportCommand);
+
   // Register context menu commands via ContextMenuRegistry
   const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
   void menuRegistry.registerCommands(context);

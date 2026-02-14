@@ -1,6 +1,7 @@
 import { ExportCategory, ExportItem, ExportItemType, ExportPlan } from "../types/exportPlan";
 import { FileSystem, FsEntry } from "./fileSystemService";
 import { ExportScanner } from "./exportScanner";
+import * as path from "path";
 
 export class ClaudeExportScanner implements ExportScanner {
   constructor(
@@ -13,12 +14,12 @@ export class ClaudeExportScanner implements ExportScanner {
     itemType: ExportItemType
   ): Promise<ExportCategory> {
     const items: ExportItem[] = [];
-    const dirPath = `${this.homeDir}/${categoryName}`;
+    const dirPath = path.join(this.homeDir, categoryName);
     const files: FsEntry[] = await this.fileSystem.readDirectory(dirPath);
 
     for (const file of files) {
       const name = file.name;
-      const filePath = `${dirPath}/${name}`;
+      const filePath = path.join(dirPath, name);
       items.push({
         id: `${itemType}-${name}`,
         type: itemType,
