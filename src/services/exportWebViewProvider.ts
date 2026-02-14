@@ -104,18 +104,24 @@ export class ExportWebViewProvider {
   private generateHtml(plan: ExportPlan): string {
     const categoriesHtml = plan.categories
       .map(
-        (category: ExportCategory) => `
+        (category: ExportCategory, index: number) => `
         <div class="category" data-category-id="${category.id}">
-          <div class="category-title">${category.name}</div>
-          ${category.items
-            .map(
-              (item: ExportItem) => `
-            <div class="item" data-item-id="${item.id}">
-              <div class="item-name">${item.name}</div>
-            </div>
-          `
-            )
-            .join("")}
+          <div class="category-header">
+            <span class="category-title">${category.name}</span>
+            <span class="category-count">${String(category.items.length)}</span>
+          </div>
+          <div class="items-grid">
+            ${category.items
+              .map(
+                (item: ExportItem) => `
+              <div class="item" data-item-id="${item.id}" title="${item.sourcePath}">
+                <span class="item-name">${item.name}</span>
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+          ${index < plan.categories.length - 1 ? '<div class="category-divider"></div>' : ""}
         </div>
       `
       )
@@ -128,99 +134,256 @@ export class ExportWebViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Export Claude Resources</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      padding: 20px;
+      margin: 0;
+      padding: 0;
       font-family: var(--vscode-font-family);
       color: var(--vscode-foreground);
       background-color: var(--vscode-editor-background);
+      min-height: 100vh;
     }
-    .category {
-      margin-bottom: 24px;
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
-    .category-title {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 12px;
-      color: var(--vscode-foreground);
-    }
-    .item {
-      padding: 8px 12px;
-      margin: 4px 0;
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: 4px;
+
+    /* Header Section */
+    .header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--vscode-panel-border);
       background-color: var(--vscode-editor-background);
     }
-    .item-name {
-      font-size: 14px;
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
       color: var(--vscode-foreground);
     }
-    .input-area {
-      margin-top: 24px;
+
+    .header-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
     }
-    label {
-      display: block;
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* Category Section */
+    .category {
       margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 500;
     }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      margin-bottom: 8px;
+    }
+
+    .category-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vscode-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .category-count {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      background-color: var(--vscode-widget-background);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* Items Grid - Compact layout */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 6px;
+      padding-left: 12px;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      background-color: var(--vscode-widget-background);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: 3px;
+      cursor: default;
+      transition: background-color 0.1s;
+    }
+
+    .item:hover {
+      background-color: var(--vscode-widget-hoverBackground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .item-name {
+      font-size: 12px;
+      color: var(--vscode-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Category Divider */
+    .category-divider {
+      height: 1px;
+      background-color: var(--vscode-panel-border);
+      margin: 16px 0 16px 12px;
+    }
+
+    /* Footer Input Area */
+    .footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--vscode-panel-border);
+      background-color: var(--vscode-editor-background);
+    }
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--vscode-foreground);
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 8px;
+    }
+
     input {
-      width: 100%;
-      padding: 8px;
+      flex: 1;
+      padding: 8px 12px;
       border: 1px solid var(--vscode-input-border);
-      border-radius: 4px;
+      border-radius: 3px;
       background-color: var(--vscode-input-background);
       color: var(--vscode-input-foreground);
-      box-sizing: border-box;
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
     }
+
     input:focus {
-      outline: 1px solid var(--vscode-focusBorder);
+      outline: none;
+      border-color: var(--vscode-focusBorder);
     }
+
+    input::placeholder {
+      color: var(--vscode-input-placeholderForeground);
+    }
+
+    /* Button Group */
     .button-group {
       display: flex;
       gap: 8px;
-      margin-top: 24px;
       justify-content: flex-end;
     }
+
     button {
       padding: 8px 16px;
       cursor: pointer;
       border: none;
-      border-radius: 4px;
+      border-radius: 3px;
       font-family: var(--vscode-font-family);
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: background-color 0.1s;
     }
+
     .cancel {
       background-color: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
     }
+
     .cancel:hover {
       background-color: var(--vscode-button-secondaryHoverBackground);
     }
+
     .confirm {
       background-color: var(--vscode-button-background);
       color: var(--vscode-button-foreground);
     }
+
     .confirm:hover {
       background-color: var(--vscode-button-hoverBackground);
+    }
+
+    /* Scrollbar Styling */
+    .main-content::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .main-content::-webkit-scrollbar-track {
+      background: var(--vscode-editorBackground);
+    }
+
+    .main-content::-webkit-scrollbar-thumb {
+      background: var(--vscode-scrollbarSlider-background);
+      border-radius: 5px;
+    }
+
+    .main-content::-webkit-scrollbar-thumb:hover {
+      background: var(--vscode-scrollbarSlider-hoverBackground);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--vscode-descriptionForeground);
     }
   </style>
 </head>
 <body>
   <div id="app">
-    ${categoriesHtml}
-    <div class="input-area">
-      <label for="target-path">Export Destination</label>
-      <input
-        id="target-path"
-        type="text"
-        placeholder="Enter target directory path"
-      />
-    </div>
-    <div class="button-group">
-      <button class="cancel" id="cancel-btn">Cancel</button>
-      <button class="confirm" id="export-btn">Export</button>
-    </div>
+    <header class="header">
+      <h1>Export Claude Resources</h1>
+      <div class="header-subtitle">${String(plan.totalCount)} items ready to export</div>
+    </header>
+
+    <main class="main-content">
+      ${categoriesHtml}
+    </main>
+
+    <footer class="footer">
+      <div class="input-group">
+        <label for="target-path">Export Destination</label>
+        <div class="input-wrapper">
+          <input
+            id="target-path"
+            type="text"
+            placeholder="Enter target directory path"
+            autofocus
+          />
+        </div>
+      </div>
+      <div class="button-group">
+        <button class="cancel" id="cancel-btn">Cancel</button>
+        <button class="confirm" id="export-btn">Export</button>
+      </div>
+    </footer>
   </div>
+
   <script>
     (function() {
       const vscode = acquireVsCodeApi();
@@ -238,6 +401,16 @@ export class ExportWebViewProvider {
       cancelBtn.addEventListener('click', function() {
         vscode.postMessage({ type: 'close' });
       });
+
+      // Allow Enter key to trigger export
+      targetPathInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          exportBtn.click();
+        }
+      });
+
+      // Auto-focus input on load
+      targetPathInput.focus();
     })();
   </script>
 </body>
