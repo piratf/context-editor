@@ -184,6 +184,12 @@ export interface WebViewPanel {
   show(options: WebViewPanelOptions, html: string): void;
 
   /**
+   * Initialize the webview panel (create if not exists)
+   * This ensures the panel is ready before generating HTML content
+   */
+  init(): void;
+
+  /**
    * Post a message to the webview
    * @param message - Message to send
    */
@@ -199,6 +205,19 @@ export interface WebViewPanel {
    * @param handler - Callback when webview sends a message
    */
   onDidReceiveMessage(handler: (message: WebViewMessage) => void): void;
+
+  /**
+   * Convert a local file URI to a webview URI
+   * @param uri - Local file URI to convert
+   * @returns Webview-ready URI string
+   */
+  asWebviewUri(uri: vscode.Uri): string;
+
+  /**
+   * Get the extension URI
+   * @returns Extension URI
+   */
+  getExtensionUri(): vscode.Uri;
 }
 
 /**
@@ -222,6 +241,29 @@ export class VsCodeWebViewPanel implements WebViewPanel {
    */
   onDidReceiveMessage(handler: (message: WebViewMessage) => void): void {
     this.messageHandlers.push(handler);
+  }
+
+  /**
+   * Initialize the webview panel (create if not exists)
+   * This ensures the panel is ready before generating HTML content
+   */
+  init(): void {
+    if (this.panel) {
+      return;
+    }
+
+    this.panel = vscode.window.createWebviewPanel(
+      "contextEditor.export.init",
+      "Export Claude Resources",
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(this.extensionContext.extensionUri, "out")],
+        retainContextWhenHidden: false,
+      }
+    );
+
+    this.registerHandlers();
   }
 
   /**
@@ -263,6 +305,7 @@ export class VsCodeWebViewPanel implements WebViewPanel {
         {
           enableScripts: options.enableScripts ?? true,
           localResourceRoots: options.localResourceRoots ?? [
+            vscode.Uri.joinPath(this.extensionContext.extensionUri, "src", "webviews"),
             vscode.Uri.joinPath(this.extensionContext.extensionUri, "out"),
           ],
           retainContextWhenHidden: false,
@@ -288,6 +331,17 @@ export class VsCodeWebViewPanel implements WebViewPanel {
     if (this.panel) {
       this.panel.webview.postMessage(message);
     }
+  }
+
+  getExtensionUri(): vscode.Uri {
+    return this.extensionContext.extensionUri;
+  }
+
+  asWebviewUri(uri: vscode.Uri): string {
+    if (!this.panel) {
+      throw new Error("WebView panel is not initialized");
+    }
+    return this.panel.webview.asWebviewUri(uri).toString();
   }
 
   dispose(): void {
