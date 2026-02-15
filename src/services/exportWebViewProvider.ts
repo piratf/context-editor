@@ -9,6 +9,8 @@ import type { ExportPlan, ExportCategory, ExportItem } from "../types/exportPlan
 import type { WebViewPanel, WebViewMessage } from "../adapters/vscode";
 import type { ILoggerService } from "./loggerService";
 import type { UserInteraction } from "../adapters/ui";
+import type { ConfigService, ExportState } from "./configService.js";
+import { DEFAULT_EXPORT_STATE } from "./configService.js";
 
 export interface GitRepoExportOptions {
   readonly targetPath: string;
@@ -34,11 +36,13 @@ export interface ExportRequest {
  */
 export class ExportWebViewProvider {
   private currentPlan: ExportPlan | null = null;
+  private exportState: ExportState = DEFAULT_EXPORT_STATE;
 
   constructor(
     private readonly webViewPanel: WebViewPanel,
     private readonly logger: ILoggerService,
-    private readonly userInteraction: UserInteraction
+    private readonly userInteraction: UserInteraction,
+    private readonly configService: ConfigService
   ) {
     // Register message handler from webview
     this.webViewPanel.onDidReceiveMessage((message) => {
@@ -56,6 +60,8 @@ export class ExportWebViewProvider {
     });
 
     this.currentPlan = plan;
+    this.exportState = this.configService.getExportState();
+
     const html = this.generateHtml(plan);
     this.webViewPanel.show(
       {
@@ -126,13 +132,16 @@ export class ExportWebViewProvider {
       gitRepo: request.options.gitRepo,
     });
 
-    this.webViewPanel.postMessage({
-      type: "success",
-      data: options.gitRepo
-        ? `Export to git repository: ${options.gitRepo.targetPath}`
-        : "Export completed",
-    });
+    const stateToSave: ExportState = {
+      git: {
+        enabled: options.gitRepo !== undefined,
+        targetPath: options.gitRepo?.targetPath ?? "",
+      },
+      categories: this.exportState.categories,
+    };
+    void this.configService.setExportState(stateToSave);
 
+    this.userInteraction.showInfo("Export completed successfully");
     // Close panel after export
     this.dispose();
   }
@@ -171,7 +180,7 @@ export class ExportWebViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Export Claude Resources</title>
+  <title>Export Claude Resources</title>;
   <style>
     * {
       box-sizing: border-box;
@@ -434,7 +443,7 @@ export class ExportWebViewProvider {
       padding: 40px 20px;
       color: var(--vscode-descriptionForeground);
     }
-  </style>
+  </style>;
 </head>
 <body>
   <div id="app">
@@ -450,7 +459,7 @@ export class ExportWebViewProvider {
     <footer class="footer">
       <div class="checkbox-group">
         <div class="checkbox-item">
-          <input type="checkbox" id="export-git" checked />
+          <input type="checkbox" id="export-git" ${this.exportState.git.enabled ? "checked" : ""} />
           <label for="export-git">Export to git repository</label>
         </div>
       </div>
@@ -461,6 +470,7 @@ export class ExportWebViewProvider {
           <input
             id="target-path"
             type="text"
+            value="${this.exportState.git.targetPath}"
             placeholder="Enter a valid git repository path"
           />
         </div>
@@ -489,16 +499,15 @@ export class ExportWebViewProvider {
       }
 
       exportBtn.addEventListener('click', function() {
-       const data = {
-         gitRepo: exportGitCheckbox.checked ? {
-           targetPath: targetPathInput.value
-         } : undefined
-       };
-       vscode.postMessage({
-         type: "export",
-         data
-       });
-     });
+        vscode.postMessage({
+          type: 'export',
+          data: {
+            gitRepo: exportGitCheckbox.checked ? {
+              targetPath: targetPathInput.value
+            } : undefined
+          }
+        });
+      });
 
       cancelBtn.addEventListener('click', function() {
         vscode.postMessage({ type: 'close' });

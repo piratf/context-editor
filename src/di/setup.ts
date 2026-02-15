@@ -37,6 +37,8 @@ import { ClaudeExportScanner } from "../services/claudeExportScanner.js";
 import { ExportScanner } from "../services/exportScanner.js";
 import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 import * as vscode from "vscode";
+import { VsCodeConfigService } from "../services/vscodeConfigService";
+import { VsCodeConfigurationStore } from "../adapters/vscodeConfigurationStore";
 
 /**
  * Create and configure the dependency injection container
@@ -58,7 +60,8 @@ export function createContainer(
   context: vscode.ExtensionContext,
   outputChannel: { appendLine(value: string): void },
   configSearch: { getAllFacades(): readonly IDataFacade[] },
-  userInteraction: UserInteraction
+  userInteraction: UserInteraction,
+  configStore: VsCodeConfigurationStore
 ): SimpleDIContainer {
   const container = new SimpleDIContainer();
 
@@ -97,6 +100,10 @@ export function createContainer(
   container.registerSingleton(ServiceTokens.InputService, () => new VsCodeInputService());
 
   // Register singleton Services (stateless business logic)
+  container.registerSingleton(ServiceTokens.ConfigService, () => {
+    return new VsCodeConfigService(configStore);
+  });
+
   container.registerSingleton(ServiceTokens.CopyService, () => {
     const clipboard = container.get(ServiceTokens.ClipboardService);
     return new CopyService(clipboard);
@@ -155,7 +162,8 @@ export function createContainer(
     const loggerService = container.get(ServiceTokens.LoggerService);
     const userInteraction = container.get(ServiceTokens.UserInteraction);
     const webViewPanel = new VsCodeWebViewPanel(context);
-    return new ExportWebViewProvider(webViewPanel, loggerService, userInteraction);
+    const configService = container.get(ServiceTokens.ConfigService);
+    return new ExportWebViewProvider(webViewPanel, loggerService, userInteraction, configService);
   });
 
   // Initialize all singleton services immediately

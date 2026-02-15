@@ -37,6 +37,8 @@ export default [
       "@typescript-eslint/no-unsafe-return": "error",
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/no-unsafe-argument": "error",
+      // Disabled: Type parameters are necessary for API design and type safety
+      "@typescript-eslint/no-unnecessary-type-parameters": "off",
 
       // Common rules
       "no-console": "off",

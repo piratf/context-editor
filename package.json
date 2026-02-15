@@ -152,6 +152,54 @@
           "group": "4_delete@1"
         }
       ]
+    },
+    "configuration": {
+      "title": "Context Editor",
+      "properties": {
+        "contextEditor.export.git": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "targetPath": ""
+          },
+          "description": "Git export configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable export to git repository"
+            },
+            "targetPath": {
+              "type": "string",
+              "default": "",
+              "description": "Target git repository path"
+            }
+          }
+        },
+        "contextEditor.export.categories": {
+          "type": "object",
+          "default": {
+            "skills": true,
+            "agents": true,
+            "commands": true
+          },
+          "description": "Categories export state",
+          "properties": {
+            "skills": {
+              "type": "boolean",
+              "default": true
+            },
+            "agents": {
+              "type": "boolean",
+              "default": true
+            },
+            "commands": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      }
     }
   },
   "scripts": {
