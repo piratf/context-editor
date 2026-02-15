@@ -20,6 +20,6 @@
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": true
   },
-  "exclude": ["node_modules", ".vscode-test"],
-  "include": ["src"]
+  "exclude": ["node_modules", ".vscode-test", "src/webviews/**/*.js", "src/webviews/**/*.css"],
+  "include": ["src", "src/webviews/**/*"]
 }

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export Claude Resources</title>
+  <link rel="stylesheet" href="${stylesUri}">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Export Claude Resources</h1>
+      <div class="header-subtitle">${totalCount} items ready to export</div>
+    </header>
+
+    <main class="main-content">
+      ${categoriesHtml}
+    </main>
+
+    <footer class="footer">
+      <div class="checkbox-group">
+        <div class="checkbox-item">
+          <input type="checkbox" id="export-git" ${exportGitChecked} />
+          <label for="export-git">Export to git repository</label>
+        </div>
+      </div>
+
+      <div class="input-group input-indented" id="input-group">
+        <label for="target-path">Repository Path</label>
+        <div class="input-wrapper">
+          <input
+            id="target-path"
+            type="text"
+            value="${targetPath}"
+            placeholder="Enter a valid git repository path"
+          />
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button class="cancel" id="cancel-btn">Cancel</button>
+        <button class="confirm" id="export-btn">Export</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="${scriptUri}"></script>
+</body>
+</html>
