@@ -30,6 +30,7 @@ import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeSe
 import type { FileSystem } from "../services/fileSystemService.js";
 import type { ExportScanner } from "../services/exportScanner.js";
 import { ExportWebViewProvider } from "../services/exportWebViewProvider";
+import { ConfigService } from "../services/configService";
 
 /**
  * All service tokens for the DI container
@@ -68,4 +69,7 @@ export const ServiceTokens = {
   // Export
   ExportScannerService: new ServiceToken<ExportScanner>("ExportScannerService"),
   ExportWebViewProvider: new ServiceToken<ExportWebViewProvider>("ExportWebViewProvider"),
+
+  // Configuration
+  ConfigService: new ServiceToken<ConfigService>("ConfigService"),
 } as const;

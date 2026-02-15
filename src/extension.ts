@@ -22,6 +22,7 @@ import { ServiceTokens } from "./di/tokens.js";
 import { IEnvironmentManagerService } from "./services/environmentManagerService";
 import { VsCodeLoggerService, ILoggerService } from "./services/loggerService.js";
 import { registerExportCommand } from "./commands/exportCommand.js";
+import { VsCodeConfigurationStore } from "./adapters/vscodeConfigurationStore.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -74,8 +75,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Initialize user interaction adapter
   const userInteraction = new VsCodeUserInteraction();
 
+  const configStore = new VsCodeConfigurationStore();
+
   // Create DI container for service management
-  container = createContainer(context, debugOutput, configSearch, userInteraction, logLevel);
+  container = createContainer(context, debugOutput, configSearch, userInteraction, logLevel, configStore);
   context.subscriptions.push(container);
 
   const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);
