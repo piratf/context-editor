@@ -20,19 +20,19 @@
     <footer class="footer">
       <div class="checkbox-group">
         <div class="checkbox-item">
-          <input type="checkbox" id="export-git" ${exportGitChecked} />
-          <label for="export-git">Export to git repository</label>
+          <input type="checkbox" id="export-to-directory" ${exportToDirectoryChecked} />
+          <label for="export-to-directory">Export to directory</label>
         </div>
       </div>
 
       <div class="input-group input-indented" id="input-group">
-        <label for="target-path">Repository Path</label>
+        <label for="target-path">Local Path</label>
         <div class="input-wrapper">
           <input
             id="target-path"
             type="text"
             value="${targetPath}"
-            placeholder="Enter a valid git repository path"
+            placeholder="Enter a valid directory path"
           />
         </div>
       </div>

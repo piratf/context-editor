@@ -8,7 +8,7 @@
 /**
  * Git export configuration
  */
-export interface GitExportConfig {
+export interface ExportToDirectoryConfig {
   readonly enabled: boolean;
   readonly targetPath: string;
 }
@@ -25,7 +25,7 @@ export interface CategoriesExportConfig {
  * Complete export state
  */
 export interface ExportState {
-  readonly git: GitExportConfig;
+  readonly directory: ExportToDirectoryConfig;
   readonly categories: CategoriesExportConfig;
 }
 
@@ -33,7 +33,7 @@ export interface ExportState {
  * Default export state
  */
 export const DEFAULT_EXPORT_STATE: ExportState = {
-  git: { enabled: false, targetPath: "" },
+  directory: { enabled: false, targetPath: "" },
   categories: { skills: true, agents: true, commands: true },
 };
 
@@ -41,7 +41,7 @@ export const DEFAULT_EXPORT_STATE: ExportState = {
  * Configuration keys
  */
 export const CONFIG_KEYS = {
-  GIT: "contextEditor.export.git",
+  DIRECTORY: "contextEditor.export.directory",
   CATEGORIES: "contextEditor.export.categories",
 } as const;
 

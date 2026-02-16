@@ -156,23 +156,23 @@
     "configuration": {
       "title": "Context Editor",
       "properties": {
-        "contextEditor.export.git": {
+        "contextEditor.export.directory": {
           "type": "object",
           "default": {
             "enabled": true,
             "targetPath": ""
           },
-          "description": "Git export configuration",
+          "description": "Export to directory configuration",
           "properties": {
             "enabled": {
               "type": "boolean",
               "default": true,
-              "description": "Enable export to git repository"
+              "description": "Enable export to directory"
             },
             "targetPath": {
               "type": "string",
               "default": "",
-              "description": "Target git repository path"
+              "description": "Target directory path"
             }
           }
         },
@@ -204,7 +204,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "rm -rf out/ && tsc -p ./ && cp -r src/webviews out/",
+    "compile": "rm -rf out/ && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",

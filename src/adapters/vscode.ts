@@ -258,10 +258,15 @@ export class VsCodeWebViewPanel implements WebViewPanel {
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(this.extensionContext.extensionUri, "out")],
+        localResourceRoots: [vscode.Uri.joinPath(this.extensionContext.extensionUri, "webviews")],
         retainContextWhenHidden: false,
       }
     );
+
+    this.panel.onDidDispose((): void => {
+      this.panel = null;
+      this.isHandlerRegistered = false;
+    });
 
     this.registerHandlers();
   }
@@ -297,34 +302,9 @@ export class VsCodeWebViewPanel implements WebViewPanel {
   show(options: WebViewPanelOptions, html: string): void {
     if (this.panel) {
       this.panel.reveal(options.column);
-    } else {
-      this.panel = vscode.window.createWebviewPanel(
-        options.viewType,
-        options.title,
-        options.column ?? vscode.ViewColumn.Beside,
-        {
-          enableScripts: options.enableScripts ?? true,
-          localResourceRoots: options.localResourceRoots ?? [
-            vscode.Uri.joinPath(this.extensionContext.extensionUri, "src", "webviews"),
-            vscode.Uri.joinPath(this.extensionContext.extensionUri, "out"),
-          ],
-          retainContextWhenHidden: false,
-        }
-      );
-
-      // Setup dispose handler
-      this.panel.onDidDispose(() => {
-        this.panel = null;
-        this.isHandlerRegistered = false;
-        // Keep handlers for reuse (provider singleton can create new panel)
-      });
-
-      // Register all stored handlers (single registration point)
-      this.registerHandlers();
+      // Set HTML content for the webview
+      this.panel.webview.html = html;
     }
-
-    // Set HTML content for the webview
-    this.panel.webview.html = html;
   }
 
   postMessage(message: WebViewMessage): void {

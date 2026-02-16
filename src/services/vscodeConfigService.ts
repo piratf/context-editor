@@ -5,7 +5,7 @@ import {
   ConfigService,
   DEFAULT_EXPORT_STATE,
   ExportState,
-  GitExportConfig,
+  ExportToDirectoryConfig,
 } from "./configService";
 
 /**
@@ -15,17 +15,17 @@ export class VsCodeConfigService implements ConfigService {
   constructor(private readonly store: ConfigurationStore) {}
 
   getExportState(): ExportState {
-    const git = this.store.get<GitExportConfig>(CONFIG_KEYS.GIT);
+    const git = this.store.get<ExportToDirectoryConfig>(CONFIG_KEYS.DIRECTORY);
     const categories = this.store.get<CategoriesExportConfig>(CONFIG_KEYS.CATEGORIES);
 
     return {
-      git: git ?? DEFAULT_EXPORT_STATE.git,
+      directory: git ?? DEFAULT_EXPORT_STATE.directory,
       categories: categories ?? DEFAULT_EXPORT_STATE.categories,
     };
   }
 
   async setExportState(state: ExportState): Promise<void> {
-    await this.store.set(CONFIG_KEYS.GIT, state.git);
+    await this.store.set(CONFIG_KEYS.DIRECTORY, state.directory);
     await this.store.set(CONFIG_KEYS.CATEGORIES, state.categories);
   }
 }

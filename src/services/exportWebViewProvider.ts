@@ -15,12 +15,12 @@ import type { UserInteraction } from "../adapters/ui";
 import type { ConfigService, ExportState } from "./configService.js";
 import { DEFAULT_EXPORT_STATE } from "./configService.js";
 
-export interface GitRepoExportOptions {
+export interface ExportToDirectoryOptions {
   readonly targetPath: string;
 }
 
 export interface ExportOptions {
-  readonly gitRepo?: GitRepoExportOptions;
+  readonly toDirectory?: ExportToDirectoryOptions;
 }
 
 /**
@@ -117,13 +117,22 @@ export class ExportWebViewProvider {
       return;
     }
 
-    if (
-      options.gitRepo &&
-      (!options.gitRepo.targetPath || options.gitRepo.targetPath.trim().length === 0)
-    ) {
-      this.userInteraction.showInfo("Please enter a valid git repository path");
-      return;
+    if (options.toDirectory) {
+      // if directory not exist
+      if (!fs.existsSync(options.toDirectory.targetPath)) {
+        this.userInteraction.showInfo("Please enter a valid path");
+        return;
+      }
     }
+
+    const stateToSave: ExportState = {
+      directory: {
+        enabled: options.toDirectory !== undefined,
+        targetPath: options.toDirectory?.targetPath ?? "",
+      },
+      categories: this.exportState.categories,
+    };
+    void this.configService.setExportState(stateToSave);
 
     // Create export request with plan and options
     const request: ExportRequest = {
@@ -135,17 +144,8 @@ export class ExportWebViewProvider {
     // For now, just log and show success message
     this.logger.debug("Export request", {
       itemCount: request.plan.totalCount,
-      gitRepo: request.options.gitRepo,
+      gitRepo: request.options.toDirectory,
     });
-
-    const stateToSave: ExportState = {
-      git: {
-        enabled: options.gitRepo !== undefined,
-        targetPath: options.gitRepo?.targetPath ?? "",
-      },
-      categories: this.exportState.categories,
-    };
-    void this.configService.setExportState(stateToSave);
 
     this.userInteraction.showInfo("Export completed successfully");
     // Close panel after export
@@ -185,14 +185,13 @@ export class ExportWebViewProvider {
     // Get extension URI and create webview URIs
     const extensionUri = this.webViewPanel.getExtensionUri();
     const stylesUri = this.webViewPanel.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "out", "webviews", "export", "styles.css")
+      vscode.Uri.joinPath(extensionUri, "webviews", "export", "styles.css")
     );
     const scriptUri = this.webViewPanel.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "out", "webviews", "export", "script.js")
+      vscode.Uri.joinPath(extensionUri, "webviews", "export", "script.js")
     );
 
-    // Read HTML template
-    const templatePath = path.join(__dirname, "..", "webviews", "export", "index.html");
+    const templatePath = path.join(extensionUri.fsPath, "webviews", "export", "index.html");
     let htmlTemplate: string;
     try {
       htmlTemplate = fs.readFileSync(templatePath, "utf-8");
@@ -207,7 +206,7 @@ export class ExportWebViewProvider {
       .replace("${scriptUri}", scriptUri)
       .replace("${totalCount}", String(plan.totalCount))
       .replace("${categoriesHtml}", categoriesHtml)
-      .replace("${exportGitChecked}", this.exportState.git.enabled ? "checked" : "")
-      .replace("${targetPath}", this.exportState.git.targetPath);
+      .replace("${exportToDirectoryChecked}", this.exportState.directory.enabled ? "checked" : "")
+      .replace("${targetPath}", this.exportState.directory.targetPath);
   }
 }
