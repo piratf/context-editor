@@ -173,23 +173,23 @@
             "Show ERROR logs only"
           ]
         },
-        "contextEditor.export.git": {
+        "contextEditor.export.directory": {
           "type": "object",
           "default": {
             "enabled": true,
             "targetPath": ""
           },
-          "description": "Git export configuration",
+          "description": "Export to directory configuration",
           "properties": {
             "enabled": {
               "type": "boolean",
               "default": true,
-              "description": "Enable export to git repository"
+              "description": "Enable export to directory"
             },
             "targetPath": {
               "type": "string",
               "default": "",
-              "description": "Target git repository path"
+              "description": "Target directory path"
             }
           }
         },
