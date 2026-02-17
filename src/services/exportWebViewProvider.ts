@@ -228,8 +228,9 @@ export class ExportWebViewProvider {
     const categoriesHtml = plan.categories
       .map(
         (category: ExportCategory, index: number) => `
-        <div class="category" data-category-id="${category.id}">
+        <div class="category collapsed" data-category-id="${category.id}">
           <div class="category-header">
+            <span class="category-toggle-icon">▼</span>
             <span class="category-title">${category.name}</span>
             <span class="category-count">${String(category.items.length)}</span>
           </div>

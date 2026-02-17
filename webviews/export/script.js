@@ -130,6 +130,16 @@
     });
   });
 
+  // Category toggle functionality
+  const categoryHeaders = document.querySelectorAll('.category-header');
+
+  categoryHeaders.forEach(header => {
+    header.addEventListener('click', function() {
+      const category = this.closest('.category');
+      category.classList.toggle('collapsed');
+    });
+  });
+
   // Initialize states
   updateExportButtonState();
 })();
