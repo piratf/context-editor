@@ -40,15 +40,7 @@ body {
 
 /* Category Section */
 .category {
-  margin-bottom: 8px;
-}
-
-.category-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 .category-title {
@@ -73,6 +65,7 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 6px;
   padding-left: 12px;
+  padding-top: 12px;
 }
 
 .item {
@@ -97,13 +90,6 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Category Divider */
-.category-divider {
-  height: 1px;
-  background-color: var(--vscode-panel-border);
-  margin: 16px 0 16px 12px;
 }
 
 /* Footer Input Area */
@@ -349,4 +335,39 @@ button {
   font-size: 13px;
   font-weight: 500;
   color: var(--vscode-foreground);
+}
+
+/* Category Divider */
+.category-divider {
+  height: 1px;
+  background-color: var(--vscode-panel-border);
+  margin: 12px 0 12px 12px;
+}
+
+/* Category Toggle Icon */
+.category-toggle-icon {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+}
+
+/* Category header interactive */
+.category-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.category-header:hover .category-toggle-icon {
+  color: var(--vscode-foreground);
+}
+
+/* Collapsed state */
+.category.collapsed .items-grid {
+  display: none;
+}
+
+.category.collapsed .category-toggle-icon {
+  transform: rotate(-90deg);
 }
