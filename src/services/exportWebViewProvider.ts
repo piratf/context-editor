@@ -17,6 +17,7 @@ import type { ConfigService, ExportState } from "./configService.js";
 import { DEFAULT_EXPORT_STATE } from "./configService.js";
 import type { ExportService } from "./exportService.js";
 import type { ILoggerService } from "./loggerService";
+import type { DirectoryPicker } from "../adapters/directoryPicker";
 
 /**
  * Export WebView Provider
@@ -34,7 +35,8 @@ export class ExportWebViewProvider {
     private readonly userInteraction: UserInteraction,
     private readonly configService: ConfigService,
     private readonly exportService: ExportService,
-    private readonly folderOpener: VsCodeOpener
+    private readonly folderOpener: VsCodeOpener,
+    private readonly directoryPicker: DirectoryPicker
   ) {
     // Register message handler from webview
     this.webViewPanel.onDidReceiveMessage((message) => {
@@ -85,6 +87,9 @@ export class ExportWebViewProvider {
     switch (message.type) {
       case "export":
         void this.handleExport(message.data as ExportOptions);
+        break;
+      case "selectDirectory":
+        void this.handleSelectDirectory(message.data as { currentPath?: string });
         break;
       case "close":
         this.dispose();
@@ -176,6 +181,38 @@ export class ExportWebViewProvider {
 
     // Close panel after export
     this.dispose();
+  }
+
+  private async handleSelectDirectory(data?: { currentPath?: string }): Promise<void> {
+    this.logger.debug("Directory selection requested", { currentPath: data?.currentPath });
+
+    const options: {
+      title: string;
+      canSelectFolders: boolean;
+      canSelectFiles: boolean;
+      canSelectMany: boolean;
+      openLabel: string;
+      defaultPath?: string;
+    } = {
+      title: "Select Export Directory",
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false,
+      openLabel: "Select",
+    };
+
+    if (data?.currentPath !== undefined) {
+      options.defaultPath = data.currentPath;
+    }
+
+    const path = await this.directoryPicker.showDirectoryPicker(options);
+
+    if (path != null) {
+      this.webViewPanel.postMessage({
+        type: "directorySelected",
+        data: { path },
+      });
+    }
   }
 
   /**

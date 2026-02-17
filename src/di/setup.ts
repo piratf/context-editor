@@ -40,6 +40,7 @@ import * as vscode from "vscode";
 import { VsCodeConfigService } from "../services/vscodeConfigService";
 import { VsCodeConfigurationStore } from "../adapters/vscodeConfigurationStore";
 import { DirectoryExportService } from "../services/directoryExportService";
+import { VsCodeDirectoryPicker } from "../adapters/vsCodeDirectoryPicker";
 
 /**
  * Create and configure the dependency injection container
@@ -97,8 +98,8 @@ export function createContainer(
   container.registerSingleton(ServiceTokens.UserInteraction, () => new VsCodeUserInteraction());
 
   container.registerSingleton(ServiceTokens.FileCreator, () => new VsCodeFileCreator());
-
   container.registerSingleton(ServiceTokens.InputService, () => new VsCodeInputService());
+  container.registerSingleton(ServiceTokens.DirectoryPicker, () => new VsCodeDirectoryPicker());
 
   // Register singleton Services (stateless business logic)
   container.registerSingleton(ServiceTokens.ConfigService, () => {
@@ -166,13 +167,15 @@ export function createContainer(
     const configService = container.get(ServiceTokens.ConfigService);
     const exportService = container.get(ServiceTokens.ExportService);
     const folderOpener = container.get(ServiceTokens.FolderOpener);
+    const directoryPicker = container.get(ServiceTokens.DirectoryPicker);
     return new ExportWebViewProvider(
       webViewPanel,
       loggerService,
       userInteraction,
       configService,
       exportService,
-      folderOpener
+      folderOpener,
+      directoryPicker
     );
   });
 

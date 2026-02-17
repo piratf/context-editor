@@ -17,6 +17,7 @@
     exportBtn.disabled = !anyChecked;
     // Enable/disable input based on checkbox state
     targetPathInput.disabled = !exportToDirectoryCheckBox.checked;
+    browseBtn.disabled = !exportToDirectoryCheckBox.checked;
   }
 
   exportBtn.addEventListener("click", function () {
@@ -58,6 +59,9 @@
       case "exportError":
         handleExportError(message.data);
         break;
+      case "directorySelected":
+        targetPathInput.value = message.data.path;
+        break;
     }
   });
 
@@ -93,6 +97,15 @@
       progressContainer.style.display = "none";
     }, 3000);
   }
+
+  const browseBtn = document.getElementById("browse-btn");
+
+  browseBtn.addEventListener("click", function () {
+    vscode.postMessage({
+      type: "selectDirectory",
+      data: { currentPath: targetPathInput.value },
+    });
+  });
 
   // Initialize states
   updateExportButtonState();
