@@ -68,6 +68,11 @@ export class ExportWebViewProvider {
       },
       html
     );
+
+    this.webViewPanel.postMessage({
+      type: "init",
+      data: { isEmpty: plan.totalCount === 0 },
+    });
   }
 
   /**

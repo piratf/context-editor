@@ -157,7 +157,8 @@ export function createContainer(
       throw new Error("Home directory not found");
     }
     const fileSystem = container.get(ServiceTokens.FileSystemService);
-    return new ClaudeExportScanner(homeDir, fileSystem);
+    const loggerService = container.get(ServiceTokens.LoggerService);
+    return new ClaudeExportScanner(homeDir, fileSystem, loggerService);
   });
   // Register ExportWebViewProvider
   container.registerSingleton(ServiceTokens.ExportWebViewProvider, () => {
