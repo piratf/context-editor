@@ -11,6 +11,7 @@ export enum ExportItemType {
   SKILL = "skill",
   AGENT = "agent",
   COMMAND = "command",
+  SETTINGS = "settings",
 }
 
 /**
