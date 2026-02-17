@@ -1,5 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
+  let isEmpty = false;
 
   const progressContainer = document.getElementById("progress-container");
   const progressStatus = document.getElementById("progress-status");
@@ -11,8 +12,26 @@
   const cancelBtn = document.getElementById("cancel-btn");
   const targetPathInput = document.getElementById("target-path");
   const exportToDirectoryCheckBox = document.getElementById("export-to-directory");
+  const browseBtn = document.getElementById("browse-btn");
+  const emptyState = document.getElementById("empty-state");
+
+  function initEmptyState() {
+    if (isEmpty) {
+      emptyState.style.display = "block";
+      exportBtn.disabled = true;
+      targetPathInput.disabled = true;
+      exportToDirectoryCheckBox.disabled = true;
+      browseBtn.disabled = true;
+    } else {
+      emptyState.style.display = "none";
+    }
+  }
 
   function updateExportButtonState() {
+    if (isEmpty) {
+      exportBtn.disabled = true;
+      return;
+    }
     const anyChecked = exportToDirectoryCheckBox.checked;
     exportBtn.disabled = !anyChecked;
     // Enable/disable input based on checkbox state
@@ -49,7 +68,13 @@
 
   window.addEventListener("message", (event) => {
     const message = event.data;
+
     switch (message.type) {
+      case "init":
+        isEmpty = message.data.isEmpty;
+        initEmptyState();
+        updateExportButtonState();
+        break;
       case "progress":
         updateProgress(message.data);
         break;
@@ -97,8 +122,6 @@
       progressContainer.style.display = "none";
     }, 3000);
   }
-
-  const browseBtn = document.getElementById("browse-btn");
 
   browseBtn.addEventListener("click", function () {
     vscode.postMessage({

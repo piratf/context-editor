@@ -2,11 +2,13 @@ import { ExportCategory, ExportItem, ExportItemType, ExportPlan } from "../types
 import { FileSystem, FsEntry } from "./fileSystemService";
 import { ExportScanner } from "./exportScanner";
 import * as path from "path";
+import { ILoggerService } from "./loggerService";
 
 export class ClaudeExportScanner implements ExportScanner {
   constructor(
     private readonly homeDir: string,
-    private readonly fileSystem: FileSystem
+    private readonly fileSystem: FileSystem,
+    private readonly logger: ILoggerService
   ) {}
 
   private async scanDirectory(
@@ -15,16 +17,26 @@ export class ClaudeExportScanner implements ExportScanner {
   ): Promise<ExportCategory> {
     const items: ExportItem[] = [];
     const dirPath = path.join(this.homeDir, categoryName);
-    const files: FsEntry[] = await this.fileSystem.readDirectory(dirPath);
 
-    for (const file of files) {
-      const name = file.name;
-      const filePath = path.join(dirPath, name);
-      items.push({
-        id: `${itemType}-${name}`,
-        type: itemType,
-        name: name,
-        sourcePath: filePath,
+    try {
+      const files: FsEntry[] = await this.fileSystem.readDirectory(dirPath);
+
+      for (const file of files) {
+        const name = file.name;
+        const filePath = path.join(dirPath, name);
+        items.push({
+          id: `${itemType}-${name}`,
+          type: itemType,
+          name: name,
+          sourcePath: filePath,
+        });
+      }
+    } catch (error) {
+      // Directory doesn't exist or cannot be read - return empty category
+      // This is expected for users who don't have all Claude resource directories
+      this.logger.info(`Directory not found, skipping: ${categoryName}`, {
+        path: dirPath,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
 
