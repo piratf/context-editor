@@ -307,3 +307,35 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Browse button for input group */
+.browse-btn {
+  flex-shrink: 0;
+  padding: 0 12px;
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.browse-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryBackground);
+}
+
+.browse-btn:active:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.browse-btn:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.browse-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -32,6 +32,7 @@ import type { ExportScanner } from "../services/exportScanner.js";
 import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 import { ConfigService } from "../services/configService";
 import type { ExportService } from "../services/exportService.js";
+import type { DirectoryPicker } from "../adapters/directoryPicker.js";
 
 /**
  * All service tokens for the DI container
@@ -48,6 +49,7 @@ export const ServiceTokens = {
   UserInteraction: new ServiceToken<UserInteraction>("UserInteraction"),
   FileCreator: new ServiceToken<FileCreator>("FileCreator"),
   InputService: new ServiceToken<InputService>("InputService"),
+  DirectoryPicker: new ServiceToken<DirectoryPicker>("DirectoryPicker"),
 
   // Services (transient - business logic)
   CopyService: new ServiceToken<CopyService>("CopyService"),
