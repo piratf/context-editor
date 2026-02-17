@@ -63,7 +63,7 @@ export class ExportWebViewProvider {
     this.webViewPanel.show(
       {
         viewType: "contextEditor.export",
-        title: "Export Claude Resources",
+        title: "Export Claude Settings",
         column: 2, // ViewColumn.Beside
       },
       html

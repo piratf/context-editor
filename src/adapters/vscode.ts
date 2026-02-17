@@ -254,7 +254,7 @@ export class VsCodeWebViewPanel implements WebViewPanel {
 
     this.panel = vscode.window.createWebviewPanel(
       "contextEditor.export.init",
-      "Export Claude Resources",
+      "Export Claude Settings",
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
