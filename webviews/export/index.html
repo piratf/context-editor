@@ -10,13 +10,12 @@
   <div id="app">
     <header class="header">
       <h1>Export Claude Resources</h1>
-      <div class="header-subtitle">${totalCount} items ready to export</div>
+      <div class="empty-state" id="empty-state" style="display: none;">
+        <p>No Claude resources found to export.</p>
+        <p class="empty-state-hint">Make sure you have resources in your ~/.claude/skills, ~/.claude/agents, or
+          ~/.claude/commands directories.</p>
+      </div>
     </header>
-    <div class="empty-state" id="empty-state" style="display: none;">
-      <p>No Claude resources found to export.</p>
-      <p class="empty-state-hint">Make sure you have resources in your ~/.claude/skills, ~/.claude/agents, or
-        ~/.claude/commands directories.</p>
-    </div>
     <div class="progress-container" id="progress-container" style="display: none;">
       <div class="progress-header">
         <span class="progress-status" id="progress-status">Preparing...</span>
@@ -33,6 +32,7 @@
     </main>
 
     <footer class="footer">
+      <div class="footer-subtitle">${totalCount} items ready to export</div>
       <div class="checkbox-group">
         <div class="checkbox-item">
           <input type="checkbox" id="export-to-directory" ${exportToDirectoryChecked} />
