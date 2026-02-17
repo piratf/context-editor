@@ -7,29 +7,16 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import type { ExportPlan, ExportCategory, ExportItem } from "../types/exportPlan";
-import type { WebViewPanel, WebViewMessage } from "../adapters/vscode";
 import * as vscode from "vscode";
-import type { ILoggerService } from "./loggerService";
 import type { UserInteraction } from "../adapters/ui";
+import type { VsCodeOpener } from "../adapters/ui.js";
+import type { WebViewMessage, WebViewPanel } from "../adapters/vscode";
+import type { ExportCategory, ExportItem, ExportPlan } from "../types/exportPlan";
+import { ExportOptions, ExportRequest } from "../types/exportRequest";
 import type { ConfigService, ExportState } from "./configService.js";
 import { DEFAULT_EXPORT_STATE } from "./configService.js";
-
-export interface ExportToDirectoryOptions {
-  readonly targetPath: string;
-}
-
-export interface ExportOptions {
-  readonly toDirectory?: ExportToDirectoryOptions;
-}
-
-/**
- * Export request with plan and options
- */
-export interface ExportRequest {
-  readonly plan: ExportPlan;
-  readonly options: ExportOptions;
-}
+import type { ExportService } from "./exportService.js";
+import type { ILoggerService } from "./loggerService";
 
 /**
  * Export WebView Provider
@@ -45,7 +32,9 @@ export class ExportWebViewProvider {
     private readonly webViewPanel: WebViewPanel,
     private readonly logger: ILoggerService,
     private readonly userInteraction: UserInteraction,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly exportService: ExportService,
+    private readonly folderOpener: VsCodeOpener
   ) {
     // Register message handler from webview
     this.webViewPanel.onDidReceiveMessage((message) => {
@@ -95,7 +84,7 @@ export class ExportWebViewProvider {
 
     switch (message.type) {
       case "export":
-        this.handleExport(message.data as ExportOptions);
+        void this.handleExport(message.data as ExportOptions);
         break;
       case "close":
         this.dispose();
@@ -109,7 +98,7 @@ export class ExportWebViewProvider {
   /**
    * Handle export action from WebView
    */
-  private handleExport(options: ExportOptions): void {
+  private async handleExport(options: ExportOptions): Promise<void> {
     this.logger.debug("Export requested", { options });
 
     if (!this.currentPlan) {
@@ -118,7 +107,6 @@ export class ExportWebViewProvider {
     }
 
     if (options.toDirectory) {
-      // if directory not exist
       if (!fs.existsSync(options.toDirectory.targetPath)) {
         this.userInteraction.showInfo("Please enter a valid path");
         return;
@@ -134,20 +122,58 @@ export class ExportWebViewProvider {
     };
     void this.configService.setExportState(stateToSave);
 
-    // Create export request with plan and options
     const request: ExportRequest = {
       plan: this.currentPlan,
       options,
     };
 
-    // TODO: Implement actual export logic with request
-    // For now, just log and show success message
     this.logger.debug("Export request", {
       itemCount: request.plan.totalCount,
       gitRepo: request.options.toDirectory,
     });
 
-    this.userInteraction.showInfo("Export completed successfully");
+    try {
+      const result = await this.exportService.export(request, (progress) => {
+        this.webViewPanel.postMessage({ type: "progress", data: progress });
+      });
+
+      if (result.success) {
+        this.webViewPanel.postMessage({
+          type: "exportComplete",
+          data: { exportedCount: result.exportedCount },
+        });
+
+        const targetPath = request.options.toDirectory?.targetPath;
+        if (targetPath != null) {
+          const action = await this.userInteraction.showInformationMessageWithActions(
+            `Exported ${String(result.exportedCount)} items successfully`,
+            "Open Folder"
+          );
+          if (action === "Open Folder") {
+            await this.folderOpener.openFolderInNewWindow(targetPath);
+          }
+        } else {
+          this.userInteraction.showInfo(
+            `Exported ${String(result.exportedCount)} items successfully`
+          );
+        }
+      } else {
+        this.webViewPanel.postMessage({
+          type: "exportComplete",
+          data: { exportedCount: result.exportedCount, errors: result.errors.length },
+        });
+        this.userInteraction.showInfo(
+          `Exported ${String(result.exportedCount)} items with ${String(result.errors.length)} errors`
+        );
+      }
+    } catch (error) {
+      this.webViewPanel.postMessage({
+        type: "exportError",
+        data: { message: error instanceof Error ? error.message : String(error) },
+      });
+      this.logger.error("Export failed", error as Error);
+    }
+
     // Close panel after export
     this.dispose();
   }

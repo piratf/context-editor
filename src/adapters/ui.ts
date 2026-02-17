@@ -61,6 +61,17 @@ export interface UserInteraction {
   showInformationMessage(message: string): Promise<void>;
 
   /**
+   * Show information message with action buttons
+   * @param message - Message to display
+   * @param buttons - Button labels
+   * @returns Clicked button or undefined if dismissed
+   */
+  showInformationMessageWithActions(
+    message: string,
+    ...buttons: string[]
+  ): Promise<string | undefined>;
+
+  /**
    * Show a warning message with optional buttons
    * @param message - Message to display
    * @param options - Message options
@@ -144,6 +155,13 @@ export class VsCodeUserInteraction implements UserInteraction {
     await vscode.window.showInformationMessage(message);
   }
 
+  async showInformationMessageWithActions(
+    message: string,
+    ...buttons: string[]
+  ): Promise<string | undefined> {
+    return vscode.window.showInformationMessage(message, ...buttons);
+  }
+
   async showWarningMessage(
     message: string,
     options: MessageOptions,
@@ -194,6 +212,12 @@ export class VsCodeClipboardService implements ClipboardService {
  */
 export interface VsCodeOpener {
   openFolderInNewWindow(folderPath: string): Promise<void>;
+
+  /**
+   * Open folder in system file manager
+   * @param folderPath - Path to folder
+   */
+  openInSystemFileManager(folderPath: string): Promise<void>;
 }
 
 /**
@@ -205,5 +229,9 @@ export class VsCodeFolderOpener implements VsCodeOpener {
     await vscode.commands.executeCommand("vscode.openFolder", uri, {
       forceNewWindow: true,
     });
+  }
+
+  async openInSystemFileManager(folderPath: string): Promise<void> {
+    await vscode.commands.executeCommand("revealInExplorer", folderPath);
   }
 }

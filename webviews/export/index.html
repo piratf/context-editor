@@ -13,6 +13,17 @@
       <div class="header-subtitle">${totalCount} items ready to export</div>
     </header>
 
+    <div class="progress-container" id="progress-container" style="display: none;">
+      <div class="progress-header">
+        <span class="progress-status" id="progress-status">Preparing...</span>
+        <span class="progress-percentage" id="progress-percentage">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-current" id="progress-current"></div>
+    </div>
+
     <main class="main-content">
       ${categoriesHtml}
     </main>
