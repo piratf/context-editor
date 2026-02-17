@@ -11,6 +11,41 @@ export class ClaudeExportScanner implements ExportScanner {
     private readonly logger: ILoggerService
   ) {}
 
+  private async addFile(
+    categoryName: string,
+    itemType: ExportItemType,
+    fileName: string
+  ): Promise<ExportCategory> {
+    const items: ExportItem[] = [];
+    const filePath = path.join(this.homeDir, categoryName, fileName);
+
+    try {
+      if (this.fileSystem.stat) {
+        const stat = await this.fileSystem.stat(filePath);
+        if (stat.exists && !stat.isDirectory) {
+          items.push({
+            id: `${itemType}-${fileName}`,
+            type: itemType,
+            name: fileName,
+            sourcePath: filePath,
+          });
+        }
+      }
+    } catch (error) {
+      // File doesn't exist or cannot be accessed - return empty category
+      this.logger.info(`File not found, skipping: ${categoryName}/${fileName}`, {
+        path: filePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return {
+      id: categoryName,
+      name: categoryName,
+      items: items,
+    };
+  }
+
   private async scanDirectory(
     categoryName: string,
     itemType: ExportItemType
@@ -51,8 +86,13 @@ export class ClaudeExportScanner implements ExportScanner {
     const skillsCategory = await this.scanDirectory(".claude/skills", ExportItemType.SKILL);
     const agentsCategory = await this.scanDirectory(".claude/agents", ExportItemType.AGENT);
     const commandsCategory = await this.scanDirectory(".claude/commands", ExportItemType.COMMAND);
+    const settingsCategory = await this.addFile(
+      ".claude",
+      ExportItemType.SETTINGS,
+      "settings.json"
+    );
 
-    const categories = [skillsCategory, agentsCategory, commandsCategory];
+    const categories = [skillsCategory, agentsCategory, commandsCategory, settingsCategory];
     const totalCount = categories.reduce((sum, cat) => sum + cat.items.length, 0);
 
     return {
