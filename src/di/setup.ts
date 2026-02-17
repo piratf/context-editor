@@ -39,6 +39,7 @@ import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 import * as vscode from "vscode";
 import { VsCodeConfigService } from "../services/vscodeConfigService";
 import { VsCodeConfigurationStore } from "../adapters/vscodeConfigurationStore";
+import { DirectoryExportService } from "../services/directoryExportService";
 
 /**
  * Create and configure the dependency injection container
@@ -163,7 +164,21 @@ export function createContainer(
     const userInteraction = container.get(ServiceTokens.UserInteraction);
     const webViewPanel = new VsCodeWebViewPanel(context);
     const configService = container.get(ServiceTokens.ConfigService);
-    return new ExportWebViewProvider(webViewPanel, loggerService, userInteraction, configService);
+    const exportService = container.get(ServiceTokens.ExportService);
+    const folderOpener = container.get(ServiceTokens.FolderOpener);
+    return new ExportWebViewProvider(
+      webViewPanel,
+      loggerService,
+      userInteraction,
+      configService,
+      exportService,
+      folderOpener
+    );
+  });
+
+  container.registerSingleton(ServiceTokens.ExportService, () => {
+    const loggerService = container.get(ServiceTokens.LoggerService);
+    return new DirectoryExportService(loggerService);
   });
 
   // Initialize all singleton services immediately

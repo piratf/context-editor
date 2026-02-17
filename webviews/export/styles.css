@@ -259,3 +259,51 @@ button {
   padding: 40px 20px;
   color: var(--vscode-descriptionForeground);
 }
+
+/* Progress Container */
+.progress-container {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.progress-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.progress-percentage {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.progress-bar {
+  height: 6px;
+  background-color: var(--vscode-widget-background);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--vscode-button-background);
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+.progress-current {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

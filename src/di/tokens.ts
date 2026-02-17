@@ -31,6 +31,7 @@ import type { FileSystem } from "../services/fileSystemService.js";
 import type { ExportScanner } from "../services/exportScanner.js";
 import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 import { ConfigService } from "../services/configService";
+import type { ExportService } from "../services/exportService.js";
 
 /**
  * All service tokens for the DI container
@@ -69,6 +70,7 @@ export const ServiceTokens = {
   // Export
   ExportScannerService: new ServiceToken<ExportScanner>("ExportScannerService"),
   ExportWebViewProvider: new ServiceToken<ExportWebViewProvider>("ExportWebViewProvider"),
+  ExportService: new ServiceToken<ExportService>("ExportService"),
 
   // Configuration
   ConfigService: new ServiceToken<ConfigService>("ConfigService"),
