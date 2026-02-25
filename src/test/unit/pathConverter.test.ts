@@ -12,7 +12,11 @@ import { PathConverterFactory, PathConverterUtils } from "../../services/pathCon
 describe("PathConverter", () => {
   describe("WslToWindowsPathConverter", () => {
     describe("使用新格式 (\\wsl.localhost)", () => {
-      const converter = PathConverterFactory.createWslToWindowsConverter("Ubuntu", false);
+      const converter = PathConverterFactory.createWslToWindowsConverter({
+        distroName: "Ubuntu",
+        useLegacyFormat: false,
+        homePath: "/home/user/user1/",
+      });
 
       it("should convert home directory paths", () => {
         const result = converter.convert("/home/user/project");
@@ -55,7 +59,11 @@ describe("PathConverter", () => {
     });
 
     describe("使用旧格式 (\\wsl$)", () => {
-      const converter = PathConverterFactory.createWslToWindowsConverter("Ubuntu-20.04", true);
+      const converter = PathConverterFactory.createWslToWindowsConverter({
+        distroName: "Ubuntu-20.04",
+        useLegacyFormat: true,
+        homePath: "/home/user/user1/",
+      });
 
       it("should convert home directory paths using legacy format", () => {
         const result = converter.convert("/home/user/project");
@@ -69,7 +77,11 @@ describe("PathConverter", () => {
 
     describe("不同发行版", () => {
       it("should handle Ubuntu distro", () => {
-        const converter = PathConverterFactory.createWslToWindowsConverter("Ubuntu");
+        const converter = PathConverterFactory.createWslToWindowsConverter({
+          distroName: "Ubuntu",
+          useLegacyFormat: false,
+          homePath: "/home/user/user1/",
+        });
         assert.strictEqual(
           converter.convert("/home/test"),
           "\\\\wsl.localhost\\Ubuntu\\home\\test"
@@ -77,7 +89,11 @@ describe("PathConverter", () => {
       });
 
       it("should handle Debian distro", () => {
-        const converter = PathConverterFactory.createWslToWindowsConverter("Debian");
+        const converter = PathConverterFactory.createWslToWindowsConverter({
+          distroName: "Debian",
+          useLegacyFormat: false,
+          homePath: "/home/user/user1/",
+        });
         assert.strictEqual(
           converter.convert("/home/test"),
           "\\\\wsl.localhost\\Debian\\home\\test"
@@ -85,7 +101,11 @@ describe("PathConverter", () => {
       });
 
       it("should handle distro with hyphen in name", () => {
-        const converter = PathConverterFactory.createWslToWindowsConverter("Ubuntu-22.04");
+        const converter = PathConverterFactory.createWslToWindowsConverter({
+          distroName: "Ubuntu-22.04",
+          useLegacyFormat: false,
+          homePath: "/home/user/user1/",
+        });
         assert.strictEqual(
           converter.convert("/home/test"),
           "\\\\wsl.localhost\\Ubuntu-22.04\\home\\test"
@@ -94,7 +114,11 @@ describe("PathConverter", () => {
     });
 
     describe("路径规范化", () => {
-      const converter = PathConverterFactory.createWslToWindowsConverter("Ubuntu");
+      const converter = PathConverterFactory.createWslToWindowsConverter({
+        distroName: "Ubuntu",
+        useLegacyFormat: false,
+        homePath: "/home/user/user1/",
+      });
 
       it("should normalize mixed slashes", () => {
         const result = converter.convert("/home/user\\project");
@@ -275,7 +299,11 @@ describe("PathConverter", () => {
 
   describe("双向转换测试", () => {
     describe("WSL → Windows → WSL", () => {
-      const toWin = PathConverterFactory.createWslToWindowsConverter("Ubuntu");
+      const toWin = PathConverterFactory.createWslToWindowsConverter({
+        distroName: "Ubuntu",
+        useLegacyFormat: false,
+        homePath: "/home/user/user1/",
+      });
       const toWsl = PathConverterFactory.createWindowsToWslConverter();
 
       it("should preserve home paths", () => {

@@ -30,6 +30,8 @@ export interface EnvironmentInfo extends IEnvironmentInfo {
   type: EnvironmentType;
   /** Full path to the .claude.json configuration file */
   configPath: string;
+  /** Home directory path for the environment */
+  homePath: string;
   /** WSL instance name (only for WSL environments) */
   instanceName?: string;
 }
@@ -156,6 +158,12 @@ export interface ClaudeDataFacade extends IDataFacade {
    * @returns Full path to the .claude.json file
    */
   getConfigPath(): string;
+
+  /**
+   * Get the home directory path
+   * @returns Home directory path for this environment
+   */
+  getHomePath(): string;
 }
 
 /**
@@ -184,6 +192,13 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    */
   getConfigPath(): string {
     return this.environmentInfo.configPath;
+  }
+
+  /**
+   * Get the home directory path
+   */
+  getHomePath(): string {
+    return this.environmentInfo.homePath;
   }
 
   /**

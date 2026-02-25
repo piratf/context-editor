@@ -37,6 +37,7 @@ export class NativeDataFacade extends BaseDataFacade {
     const info: EnvironmentInfo = {
       type: env.type,
       configPath: env.getConfigPath(),
+      homePath: env.homeDir,
     };
     super(info);
     this.environment = env;
@@ -123,6 +124,14 @@ export class NativeDataFacade extends BaseDataFacade {
     }
 
     return contextFiles;
+  }
+
+  /**
+   * Get the home directory path
+   * @returns Home directory path for the native environment
+   */
+  getHomePath(): string {
+    return this.environment.homeDir;
   }
 }
 

@@ -44,6 +44,7 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
     const info: EnvironmentInfo = {
       type: EnvironmentType.Windows,
       configPath: wslConfigPath,
+      homePath: `/mnt/c/Users/${username}`,
     };
 
     super(info);
@@ -133,11 +134,20 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
 
   /**
    * Get the Windows username this facade is configured for
+   * @returns Windows username or "unknown" if not detectable
    */
   getWindowsUsername(): string {
     // Extract from config path
     const match = this.getConfigPath().match(/^\/mnt\/c\/Users\/([^/]+)\//);
     return match?.[1] ?? "unknown";
+  }
+
+  /**
+   * Get the home directory path
+   * @returns Home directory path for Windows (in WSL format)
+   */
+  getHomePath(): string {
+    return this.getEnvironmentInfo().homePath;
   }
 }
 

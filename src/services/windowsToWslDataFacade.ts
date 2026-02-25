@@ -35,9 +35,14 @@ const execAsync = promisify(exec);
 /**
  * Result of WSL instance discovery
  */
-interface DiscoveredWslInstance {
+export interface DiscoveredWslInstance {
+  /** WSL distro name (e.g., "Ubuntu", "Debian") */
   distroName: string;
+  /** Home directory path (e.g., "\\\\wsl.localhost\\Ubuntu\\home") */
+  homePath: string;
+  /** Full path to the .claude.json configuration file */
   configPath: string;
+  /** Whether to use legacy \\wsl$ format instead of \\wsl.localhost */
   useLegacyFormat: boolean;
 }
 
@@ -50,17 +55,19 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
     typeof PathConverterFactory.createWslToWindowsConverter
   >;
 
-  constructor(distroName: string, configPath: string, useLegacyFormat = false) {
-    const distroConfig: WslDistroConfig = { distroName, useLegacyFormat };
-    const pathConverter = PathConverterFactory.createWslToWindowsConverter(
-      distroName,
-      useLegacyFormat
-    );
+  constructor(instance: DiscoveredWslInstance) {
+    const distroConfig: WslDistroConfig = {
+      distroName: instance.distroName,
+      useLegacyFormat: instance.useLegacyFormat,
+      homePath: instance.homePath,
+    };
+    const pathConverter = PathConverterFactory.createWslToWindowsConverter(distroConfig);
 
     const info: EnvironmentInfo = {
       type: EnvironmentType.WSL,
-      configPath: configPath,
-      instanceName: distroName,
+      configPath: instance.configPath,
+      instanceName: instance.distroName,
+      homePath: instance.homePath,
     };
 
     super(info);
@@ -162,6 +169,14 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
   isUsingLegacyFormat(): boolean {
     return this.distroConfig.useLegacyFormat;
   }
+
+  /**
+   * Get the home directory path
+   * @returns Home directory path for this WSL instance (In Windows format)
+   */
+  getHomePath(): string {
+    return this.distroConfig.homePath;
+  }
 }
 
 /**
@@ -170,13 +185,11 @@ export class WindowsToWslDataFacade extends BaseDataFacade {
 export const WindowsToWslDataFacadeFactory = {
   /**
    * Create a WindowsToWslDataFacade for a specific WSL distro
-   * @param distroName - WSL distro name (e.g., "Ubuntu", "Debian")
-   * @param configPath - Full path to the .claude.json file
-   * @param useLegacyFormat - Whether to use legacy \\wsl$ format instead of \\wsl.localhost
+   * @param instance - Discovered WSL instance information
    * @returns Configured WindowsToWslDataFacade
    */
-  create(distroName: string, configPath: string, useLegacyFormat = false): WindowsToWslDataFacade {
-    return new WindowsToWslDataFacade(distroName, configPath, useLegacyFormat);
+  create(instance: DiscoveredWslInstance): WindowsToWslDataFacade {
+    return new WindowsToWslDataFacade(instance);
   },
 
   /**
@@ -249,6 +262,7 @@ export const WindowsToWslDataFacadeFactory = {
             await fs.access(configPath);
             discovered.push({
               distroName: distro,
+              homePath,
               configPath,
               useLegacyFormat,
             });
@@ -306,11 +320,7 @@ export const WindowsToWslDataFacadeFactory = {
 
     for (const instance of discovered) {
       // Create facade with the actual discovered config path
-      const facade = this.create(
-        instance.distroName,
-        instance.configPath,
-        instance.useLegacyFormat
-      );
+      const facade = this.create(instance);
 
       // Verify facade is accessible
       if (await this.isFacadeAccessible(facade)) {

@@ -8,6 +8,7 @@
 import * as assert from "node:assert";
 import { describe, it } from "node:test";
 import {
+  DiscoveredWslInstance,
   WindowsToWslDataFacade,
   WindowsToWslDataFacadeFactory,
 } from "../../services/windowsToWslDataFacade.js";
@@ -16,7 +17,20 @@ import { EnvironmentType } from "../../services/dataFacade.js";
 // Mock config path for testing
 const mockConfigPath = "\\\\wsl.localhost\\Ubuntu\\home\\testuser\\.claude.json";
 const mockConfigPathLegacy = "\\\\wsl$\\Ubuntu\\home\\testuser\\.claude.json";
-
+const mockHomePath = "\\\\wsl.localhost\\Ubuntu\\home\\testuser";
+const mockHomePathLegacy = "\\\\wsl$\\Ubuntu\\home\\testuser";
+const wslInstance: DiscoveredWslInstance = {
+  distroName: "Ubuntu",
+  homePath: mockHomePath,
+  configPath: mockConfigPath,
+  useLegacyFormat: false,
+};
+const wslInstanceLegacy: DiscoveredWslInstance = {
+  distroName: "Ubuntu",
+  homePath: mockHomePathLegacy,
+  configPath: mockConfigPathLegacy,
+  useLegacyFormat: true,
+};
 /**
  * Test facade that exposes private methods for testing
  */
@@ -37,46 +51,56 @@ class TestableWindowsToWslDataFacade extends WindowsToWslDataFacade {
 describe("WindowsToWslDataFacade", () => {
   describe("构造函数", () => {
     it("should create facade for Ubuntu distro", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       assert.ok(facade instanceof WindowsToWslDataFacade);
       assert.strictEqual(facade.getDistroName(), "Ubuntu");
     });
 
     it("should create facade for Debian distro", () => {
-      const facade = new WindowsToWslDataFacade("Debian", mockConfigPath);
+      const facade = new WindowsToWslDataFacade({
+        distroName: "Debian",
+        homePath: mockHomePath,
+        configPath: mockConfigPath,
+        useLegacyFormat: false,
+      });
       assert.strictEqual(facade.getDistroName(), "Debian");
     });
 
     it("should use new format by default", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       assert.ok(!facade.isUsingLegacyFormat());
     });
 
     it("should use legacy format when specified", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPathLegacy, true);
+      const facade = new WindowsToWslDataFacade(wslInstanceLegacy);
       assert.ok(facade.isUsingLegacyFormat());
     });
 
     it("should have WSL environment type", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       const info = facade.getEnvironmentInfo();
       assert.strictEqual(info.type, EnvironmentType.WSL);
     });
 
     it("should have instance name set to distro name", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu-22.04", mockConfigPath);
+      const facade = new WindowsToWslDataFacade({
+        distroName: "Ubuntu-22.04",
+        homePath: mockHomePath,
+        configPath: mockConfigPath,
+        useLegacyFormat: false,
+      });
       const info = facade.getEnvironmentInfo();
       assert.strictEqual(info.instanceName, "Ubuntu-22.04");
     });
 
     it("should have UNC config path with new format", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       const path = facade.getConfigPath();
       assert.strictEqual(path, mockConfigPath);
     });
 
     it("should have UNC config path with legacy format", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPathLegacy, true);
+      const facade = new WindowsToWslDataFacade(wslInstanceLegacy);
       const path = facade.getConfigPath();
       assert.strictEqual(path, mockConfigPathLegacy);
     });
@@ -84,7 +108,7 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("路径转换", () => {
     it("should convert WSL paths to Windows UNC", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const wslPath = "/home/user/project";
       const expectedWindowsPath = "\\\\wsl.localhost\\Ubuntu\\home\\user\\project";
 
@@ -93,27 +117,27 @@ describe("WindowsToWslDataFacade", () => {
     });
 
     it("should handle root path", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const convertedPath = facade.convertWslPathToWindowsForTest("/");
       assert.ok(convertedPath.includes("\\\\wsl.localhost\\Ubuntu"));
     });
 
     it("should handle paths with special characters", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const wslPath = "/home/user/my project";
       const converted = facade.convertWslPathToWindowsForTest(wslPath);
       assert.ok(converted.includes("my project"));
     });
 
     it("should preserve Windows UNC paths", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const uncPath = "\\\\wsl.localhost\\Ubuntu\\home\\user\\project";
       const converted = facade.convertWslPathToWindowsForTest(uncPath);
       assert.strictEqual(converted, uncPath);
     });
 
     it("should preserve relative paths", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const relativePath = "relative/path";
       const converted = facade.convertWslPathToWindowsForTest(relativePath);
       assert.strictEqual(converted, relativePath);
@@ -122,26 +146,26 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("isAccessible()", () => {
     it("should return true", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       assert.ok(facade.isAccessible());
     });
   });
 
   describe("parseConfig()私有方法", () => {
     it("should handle empty string", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const result = facade.parseConfigForTest("");
       assert.deepStrictEqual(result, {});
     });
 
     it("should handle invalid JSON", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const result = facade.parseConfigForTest("{ invalid json }");
       assert.deepStrictEqual(result, {});
     });
 
     it("should parse valid JSON", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const mockConfig = { settings: { theme: "dark" } };
       const result = facade.parseConfigForTest(JSON.stringify(mockConfig));
       if (result.settings !== undefined && typeof result.settings === "object") {
@@ -152,7 +176,7 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("normalizeProjects()覆盖方法", () => {
     it("should convert project paths", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const projects = [{ path: "/home/user/project1" }, { path: "/home/user/project2" }];
 
       const result = facade.normalizeProjectsForTest(projects);
@@ -163,13 +187,13 @@ describe("WindowsToWslDataFacade", () => {
     });
 
     it("should handle empty projects", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const result = facade.normalizeProjectsForTest(null);
       assert.deepStrictEqual(result, []);
     });
 
     it("should handle undefined projects", () => {
-      const facade = new TestableWindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new TestableWindowsToWslDataFacade(wslInstance);
       const result = facade.normalizeProjectsForTest(undefined);
       assert.deepStrictEqual(result, []);
     });
@@ -177,18 +201,18 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("WindowsToWslDataFacadeFactory", () => {
     it("should create facade using factory", () => {
-      const facade = WindowsToWslDataFacadeFactory.create("Ubuntu", mockConfigPath);
+      const facade = WindowsToWslDataFacadeFactory.create(wslInstance);
       assert.ok(facade instanceof WindowsToWslDataFacade);
       assert.strictEqual(facade.getDistroName(), "Ubuntu");
     });
 
     it("should create facade with legacy format", () => {
-      const facade = WindowsToWslDataFacadeFactory.create("Debian", mockConfigPathLegacy, true);
+      const facade = WindowsToWslDataFacadeFactory.create(wslInstanceLegacy);
       assert.ok(facade.isUsingLegacyFormat());
     });
 
     it("should check facade accessibility", async () => {
-      const facade = WindowsToWslDataFacadeFactory.create("Ubuntu", mockConfigPath);
+      const facade = WindowsToWslDataFacadeFactory.create(wslInstance);
       // In test environment, WSL is likely not accessible
       // Just verify the method doesn't throw
       const accessible = await WindowsToWslDataFacadeFactory.isFacadeAccessible(facade);
@@ -329,29 +353,24 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("不同发行版", () => {
     it("should work with Ubuntu", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       assert.strictEqual(facade.getDistroName(), "Ubuntu");
     });
 
     it("should work with Debian", () => {
-      const facade = new WindowsToWslDataFacade("Debian", mockConfigPath);
+      const facade = new WindowsToWslDataFacade({
+        distroName: "Debian",
+        homePath: mockHomePath,
+        configPath: mockConfigPath,
+        useLegacyFormat: false,
+      });
       assert.strictEqual(facade.getDistroName(), "Debian");
-    });
-
-    it("should work with distro names containing hyphens", () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu-22.04", mockConfigPath);
-      assert.strictEqual(facade.getDistroName(), "Ubuntu-22.04");
-    });
-
-    it("should work with openSUSE", () => {
-      const facade = new WindowsToWslDataFacade("openSUSE", mockConfigPath);
-      assert.strictEqual(facade.getDistroName(), "openSUSE");
     });
   });
 
   describe("缓存行为", () => {
     it("should use cache by default", async () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       // First call will try to read (and likely fail if no WSL)
       await facade.getProjects();
       // Second call should use cache
@@ -360,7 +379,7 @@ describe("WindowsToWslDataFacade", () => {
     });
 
     it("should clear cache on refresh", async () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       await facade.getProjects();
       await facade.refresh();
       // No assertion - just verify it doesn't throw
@@ -369,7 +388,7 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("getGlobalConfig()", () => {
     it("should return undefined for non-existent config", async () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       const value = await facade.getGlobalConfig("nonexistent");
       assert.strictEqual(value, undefined);
     });
@@ -377,7 +396,7 @@ describe("WindowsToWslDataFacade", () => {
 
   describe("getProjectContextFiles()", () => {
     it("should return empty array for non-existent project", async () => {
-      const facade = new WindowsToWslDataFacade("Ubuntu", mockConfigPath);
+      const facade = new WindowsToWslDataFacade(wslInstance);
       const files = await facade.getProjectContextFiles("nonexistent");
       assert.deepStrictEqual(files, []);
     });

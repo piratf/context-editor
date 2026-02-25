@@ -23,6 +23,8 @@ export interface WslDistroConfig {
   distroName: string;
   /** Whether to use legacy \\wsl$ format instead of \\wsl.localhost */
   useLegacyFormat: boolean;
+  /** Home directory path for the distro (e.g., "\\\\wsl.localhost\\Ubuntu\\home\\user") */
+  homePath: string;
 }
 
 /**
@@ -166,15 +168,11 @@ export class WindowsToWslPathConverter implements PathConverter {
 export const PathConverterFactory = {
   /**
    * Create a WSL to Windows converter for a specific distro
-   * @param distroName - WSL distro name (e.g., "Ubuntu")
-   * @param useLegacyFormat - Whether to use legacy \\wsl$ format
+   * @param distroConfig - WSL distro configuration
    * @returns Configured path converter
    */
-  createWslToWindowsConverter(
-    distroName: string,
-    useLegacyFormat = false
-  ): WslToWindowsPathConverter {
-    return new WslToWindowsPathConverter({ distroName, useLegacyFormat });
+  createWslToWindowsConverter(distroConfig: WslDistroConfig): WslToWindowsPathConverter {
+    return new WslToWindowsPathConverter(distroConfig);
   },
 
   /**
