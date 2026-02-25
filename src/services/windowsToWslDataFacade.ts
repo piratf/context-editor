@@ -38,7 +38,7 @@ const execAsync = promisify(exec);
 export interface DiscoveredWslInstance {
   /** WSL distro name (e.g., "Ubuntu", "Debian") */
   distroName: string;
-  /** Home directory path (e.g., "\\\\wsl.localhost\\Ubuntu\\home") */
+  /** Home directory path (e.g., "\\\\wsl.localhost\\Ubuntu\\home\\user") */
   homePath: string;
   /** Full path to the .claude.json configuration file */
   configPath: string;
@@ -234,14 +234,14 @@ export const WindowsToWslDataFacadeFactory = {
     const discovered: DiscoveredWslInstance[] = [];
 
     for (const distro of distros) {
-      const homePath = `${prefix}${distro}\\home`;
+      const homeRootPath = `${prefix}${distro}\\home`;
 
       try {
         // Check if home directory is accessible
-        await fs.access(homePath);
+        await fs.access(homeRootPath);
 
         // List subdirectories in home (each subdirectory is a username)
-        const entries = await fs.readdir(homePath, { withFileTypes: true });
+        const entries = await fs.readdir(homeRootPath, { withFileTypes: true });
 
         for (const entry of entries) {
           if (!entry.isDirectory()) {
@@ -256,13 +256,13 @@ export const WindowsToWslDataFacadeFactory = {
           }
 
           // Check if .claude.json exists in this user's home directory
-          const configPath = `${homePath}\\${username}\\.claude.json`;
+          const configPath = `${homeRootPath}\\${username}\\.claude.json`;
 
           try {
             await fs.access(configPath);
             discovered.push({
               distroName: distro,
-              homePath,
+              homePath: `${homeRootPath}\\${username}`,
               configPath,
               useLegacyFormat,
             });
