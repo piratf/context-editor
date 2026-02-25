@@ -14,8 +14,8 @@
 import * as path from "node:path";
 import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
-import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
-import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
+import type { SyncFileFilter } from "../types/fileFilter.js";
+import { ClaudeCodeFileFilter } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
 
 /**
@@ -109,7 +109,6 @@ export const EMPTY_CHILDREN_RESULT: GetChildrenResult = { success: true, childre
  */
 export class NodeService {
   private readonly filter: SyncFileFilter;
-  private readonly pathSep: string;
   private readonly rootNodeService: RootNodeService;
 
   constructor(
@@ -119,8 +118,6 @@ export class NodeService {
       filter?: SyncFileFilter;
     } = {}
   ) {
-    this.pathSep = fileSystem.pathSep;
-
     // Use provided filter or default to ClaudeCodeFileFilter
     if (options.filter !== undefined) {
       this.filter = options.filter;
@@ -160,10 +157,8 @@ export class NodeService {
       // Create child nodes
       const children: NodeData[] = [];
       for (const entry of sortedEntries) {
-        if (this.shouldInclude(entry, node.path)) {
-          const childNode = this.createChildNode(entry, node.path);
-          children.push(childNode);
-        }
+        const childNode = this.createChildNode(entry, node.path);
+        children.push(childNode);
       }
 
       // Show empty message if no children
@@ -190,23 +185,6 @@ export class NodeService {
         }),
       };
     }
-  }
-
-  /**
-   * Check if an entry should be included based on filter
-   */
-  private shouldInclude(entry: FsEntry, parentPath: string): boolean {
-    const fullPath = path.join(parentPath, entry.name);
-    const context: FilterContext = createFilterContext(
-      fullPath,
-      entry.name,
-      entry.isDirectory,
-      parentPath,
-      this.pathSep
-    );
-
-    const result = this.filter.evaluate(context);
-    return result.include;
   }
 
   /**
