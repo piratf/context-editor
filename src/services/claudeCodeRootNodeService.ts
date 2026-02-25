@@ -30,6 +30,30 @@ import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
  * - Helper methods for file system operations
  */
 export class ClaudeCodeRootNodeService implements RootNodeService {
+  /** AI tool directories to scan in home folder */
+  private readonly AI_TOOL_DIRS = [
+    // Mainstream AI tool directories
+    ".claude",
+    ".gemini",
+    ".cursor",
+    ".aider",
+    ".roo",
+    ".cline",
+    ".trae",
+    ".codeium",
+    ".github",
+    ".openai",
+    ".codex",
+    // Universal standard and protocol directories
+    ".agents",
+    ".mcp",
+    ".skills",
+    ".well-known",
+  ] as const;
+
+  /** AI tool config files to scan in home folder */
+  private readonly AI_TOOL_FILES = [".claude.json"] as const;
+
   constructor(
     private readonly environmentManager: IEnvironmentManagerService,
     private readonly logger: ILoggerService
@@ -94,37 +118,41 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   private async getGlobalConfigChildren(facade: IDataFacade): Promise<GetChildrenResult> {
     this.logger.debug("getGlobalConfigChildren called");
 
+    const homePath = facade.getHomePath();
     const children: NodeData[] = [];
-    const hasConfig = await this.doesConfigExist(facade);
 
-    // Add ~/.claude.json file
-    if (hasConfig) {
-      const info = facade.getEnvironmentInfo();
-      children.push(
-        NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
-          tooltip: info.configPath,
-        })
-      );
+    // Process directories
+    for (const dir of this.AI_TOOL_DIRS) {
+      const fullPath = path.join(homePath, dir);
+      if (await this.directoryExists(fullPath)) {
+        children.push(
+          NodeDataFactory.createDirectory(`~/${dir}`, fullPath, {
+            collapsibleState: 1,
+            tooltip: fullPath,
+          })
+        );
+      }
     }
 
-    // Add ~/.claude/ directory
-    const claudeDir = this.deriveClaudeDir(facade);
-    const hasClaudeDir = await this.directoryExists(claudeDir);
-    if (hasClaudeDir) {
-      children.push(
-        NodeDataFactory.createDirectory("~/.claude", claudeDir, {
-          collapsibleState: 1,
-          tooltip: claudeDir,
-        })
-      );
+    // Process files
+    for (const file of this.AI_TOOL_FILES) {
+      const fullPath = path.join(homePath, file);
+      if (await this.fileExists(fullPath)) {
+        children.push(
+          NodeDataFactory.createFile(`~/${file}`, fullPath, {
+            tooltip: fullPath,
+            iconId: "settings-gear",
+          })
+        );
+      }
     }
 
-    // If nothing found, show empty message
+    // If nothing found, show info message
     if (children.length === 0) {
       children.push(
         this.createInfoNode(
-          "(no configuration found)",
-          "No ~/.claude.json or ~/.claude/ directory found"
+          "(no AI tool directories found)",
+          "No known AI tool directories exist in home folder"
         )
       );
     }
@@ -204,21 +232,12 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   }
 
   /**
-   * Derive the .claude directory path from the config file path
+   * Check if a file exists
    */
-  private deriveClaudeDir(facade: IDataFacade): string {
-    const info = facade.getEnvironmentInfo();
-    const dir = path.dirname(info.configPath);
-    return path.join(dir, ".claude");
-  }
-
-  /**
-   * Check if the config file exists for a given facade
-   */
-  private async doesConfigExist(facade: IDataFacade): Promise<boolean> {
+  private async fileExists(filePath: string): Promise<boolean> {
     try {
-      await facade.getGlobalConfig("settings");
-      return true;
+      const stats = await fs.stat(filePath);
+      return stats.isFile();
     } catch {
       return false;
     }
