@@ -15,7 +15,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { ILoggerService } from "./loggerService.js";
-import type { IDataFacade, IEnvironmentManagerService } from "./environmentManagerService.js";
+import type { IEnvironmentManagerService } from "./environmentManagerService.js";
+import type { IDataFacade } from "../types/environment.js";
 import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
 import { RootNodeService } from "./rootNodeService.js";
 import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";

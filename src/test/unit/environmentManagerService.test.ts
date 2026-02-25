@@ -9,7 +9,7 @@ import {
   type IEnvironmentManagerService,
   type IUserInteraction,
 } from "../../services/environmentManagerService.js";
-import type { IDataFacade, IEnvironmentInfo } from "../../services/environmentManagerService.js";
+import type { IDataFacade, IEnvironmentInfo } from "../../types/environment";
 
 // Mock facade factory
 function createMockFacade(info: IEnvironmentInfo): IDataFacade {

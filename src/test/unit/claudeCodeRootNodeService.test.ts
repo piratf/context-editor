@@ -5,11 +5,8 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { ClaudeCodeRootNodeService } from "../../services/claudeCodeRootNodeService.js";
-import type {
-  IEnvironmentManagerService,
-  IDataFacade,
-  IEnvironmentInfo,
-} from "../../services/environmentManagerService.js";
+import type { IEnvironmentManagerService } from "../../services/environmentManagerService.js";
+import type { IDataFacade, IEnvironmentInfo } from "../../types/environment";
 import type { ILoggerService } from "../../services/loggerService.js";
 import { NodeType, NodeDataFactory } from "../../types/nodeData.js";
 

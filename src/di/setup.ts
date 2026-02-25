@@ -31,8 +31,8 @@ import type { FileSystem } from "../services/nodeService.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 import { VsCodeLoggerService } from "../services/loggerService.js";
 import { EnvironmentManagerService } from "../services/environmentManagerService.js";
-import type { IDataFacade } from "../services/environmentManagerService.js";
-import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
+import type { IDataFacade } from "../types/environment";
+import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService";
 
 /**
  * Create and configure the dependency injection container
@@ -123,7 +123,7 @@ export function createContainer(
     // Configuration: use ProjectClaudeFileFilter
     const filter = new ProjectClaudeFileFilter();
 
-    const rootNodeService = container.get(ServiceTokens.ClaudeCodeRootNodeService)
+    const rootNodeService = container.get(ServiceTokens.ClaudeCodeRootNodeService);
 
     return new NodeService(fileSystem, rootNodeService, { filter });
   });
