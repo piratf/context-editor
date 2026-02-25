@@ -12,7 +12,7 @@
  */
 
 import * as path from "node:path";
-import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
+import type { NodeData, DirectoryData, ProjectData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter } from "../types/fileFilter.js";
 import { ClaudeCodeFileFilter } from "../types/fileFilter.js";
@@ -188,6 +188,28 @@ export class NodeService {
   }
 
   /**
+   * Get children for a project node
+   *
+   * @param node - Project node data
+   * @returns Array of child node data, or error node if failed
+   */
+  async getChildrenForProjectNode(node: ProjectData): Promise<GetChildrenResult> {
+    // Validate node has path
+    if (!node.path) {
+      return {
+        success: false,
+        error: NodeDataFactory.createError("Error: No path", {
+          tooltip: "Project node has no path",
+          contextValue: "error",
+        }),
+      };
+    }
+
+    // Delegate to rootNodeService for project children
+    return await this.rootNodeService.getProjectChildren(node.path);
+  }
+
+  /**
    * Create a child node from a file system entry
    */
   private createChildNode(entry: FsEntry, parentPath: string): NodeData {
@@ -266,6 +288,11 @@ export class NodeService {
     // DIRECTORY - has children
     if (NodeTypeGuard.isDirectoryData(node)) {
       return await this.getChildrenForDirectoryNode(node);
+    }
+
+    // PROJECT - has children
+    if (NodeTypeGuard.isProject(node)) {
+      return await this.getChildrenForProjectNode(node);
     }
 
     // USER_ROOT and PROJECTS_ROOT - have children

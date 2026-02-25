@@ -54,6 +54,58 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   /** AI tool config files to scan in home folder */
   private readonly AI_TOOL_FILES = [".claude.json"] as const;
 
+  /** AI tool directories to scan in project folder */
+  private readonly PROJECT_AI_TOOL_DIRS = [
+    // Mainstream AI tool directories
+    ".claude",
+    ".gemini",
+    ".cursor",
+    ".aider",
+    ".roo",
+    ".cline",
+    ".trae",
+    ".codeium",
+    ".github",
+    ".openai",
+    ".codex",
+    ".windsurf",
+    // Universal standard and protocol directories
+    ".agents",
+    ".mcp",
+    ".skills",
+    ".well-known",
+  ] as const;
+
+  /** AI tool config files to scan in project folder */
+  private readonly PROJECT_AI_TOOL_FILES = [
+    // Claude Code
+    "CLAUDE.md",
+    ".mcp.json",
+    ".claude.json",
+    ".claudeignore",
+    // Gemini CLI
+    "GEMINI.md",
+    "AGENT.md",
+    ".gemini.yaml",
+    ".env",
+    // Cursor
+    ".cursorrules",
+    ".cursorignore",
+    "AGENTS.md",
+    // Roo Code
+    ".roorules",
+    ".rooignore",
+    ".roomodes",
+    // Windsurf
+    ".windsurf.json",
+    ".windsurfrules",
+    // Aider
+    ".aider.conf.yml",
+    ".aider.chat.history.md",
+    // Trae
+    ".trae.config",
+  ] as const;
+
   constructor(
     private readonly environmentManager: IEnvironmentManagerService,
     private readonly logger: ILoggerService
@@ -190,7 +242,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
         const projectName = this.getProjectName(project.path);
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
         children.push(
-          NodeDataFactory.createDirectory(projectName, project.path, {
+          NodeDataFactory.createProject(projectName, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
           })
@@ -272,5 +324,71 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       tooltip,
       iconId: "info",
     });
+  }
+
+  /**
+   * Get children for Project node
+   */
+  async getProjectChildren(projectPath: string): Promise<GetChildrenResult> {
+    this.logger.debug(`getProjectChildren called, projectPath: ${projectPath}`);
+
+    const children: NodeData[] = [];
+
+    // Process directories
+    for (const dir of this.PROJECT_AI_TOOL_DIRS) {
+      const fullPath = path.join(projectPath, dir);
+      if (await this.directoryExists(fullPath)) {
+        children.push(
+          NodeDataFactory.createDirectory(dir, fullPath, {
+            collapsibleState: 1,
+            tooltip: fullPath,
+          })
+        );
+      }
+    }
+
+    // Process files
+    for (const file of this.PROJECT_AI_TOOL_FILES) {
+      const fullPath = path.join(projectPath, file);
+      if (await this.fileExists(fullPath)) {
+        // Determine icon based on file type
+        const iconId = this.getFileIcon(file);
+        children.push(
+          NodeDataFactory.createFile(file, fullPath, {
+            tooltip: fullPath,
+            iconId,
+          })
+        );
+      }
+    }
+
+    // If nothing found, show info message
+    if (children.length === 0) {
+      children.push(
+        this.createInfoNode(
+          "(no AI tool files found)",
+          "No known AI tool directories or files exist in this project"
+        )
+      );
+    }
+
+    this.logger.debug(`getProjectChildren: returning ${String(children.length)} children`);
+    return { success: true, children };
+  }
+
+  /**
+   * Get appropriate icon ID for a file
+   */
+  private getFileIcon(filename: string): string {
+    const ext = path.extname(filename);
+    const iconMap: Record<string, string> = {
+      ".json": "settings-gear",
+      ".md": "file-text",
+      ".yaml": "settings-gear",
+      ".yml": "settings-gear",
+      ".env": "lock",
+      ".conf": "settings-gear",
+    };
+    return iconMap[ext] ?? "file";
   }
 }
