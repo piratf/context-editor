@@ -116,9 +116,9 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
    * Get children for Global Configuration node
    */
   private async getGlobalConfigChildren(facade: IDataFacade): Promise<GetChildrenResult> {
-    this.logger.debug("getGlobalConfigChildren called");
-
     const homePath = facade.getHomePath();
+    this.logger.debug(`getGlobalConfigChildren called, homePath ${homePath}`);
+
     const children: NodeData[] = [];
 
     // Process directories
