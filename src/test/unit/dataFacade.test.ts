@@ -131,10 +131,7 @@ describe("DataFacade", () => {
       };
       const mockConfig: ConfigReadResult = {
         config: {},
-        projects: [
-          { path: "/home/test/p1" },
-          { path: "/home/test/p2" },
-        ],
+        projects: [{ path: "/home/test/p1" }, { path: "/home/test/p2" }],
       };
       const facade = new TestDataFacade(envInfo, mockConfig);
 

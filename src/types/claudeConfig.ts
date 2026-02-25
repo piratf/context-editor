@@ -447,7 +447,9 @@ export interface ClaudeProjectEntry {
  * Projects entry in .claude.json.
  * Can be a record of project path to config, or an array of project entries.
  */
-export type ClaudeProjects = Readonly<Record<string, ClaudeProjectEntry>> | readonly ClaudeProjectEntry[];
+export type ClaudeProjects =
+  | Readonly<Record<string, ClaudeProjectEntry>>
+  | readonly ClaudeProjectEntry[];
 
 /**
  * Main ~/.claude.json configuration structure.
@@ -485,7 +487,13 @@ export interface ClaudeConfig {
 /**
  * Tree node types for the Context Editor tree view.
  */
-export type TreeNodeType = "project" | "settings" | "claudeMd" | "mcpServers" | "mcpServer" | "folder";
+export type TreeNodeType =
+  | "project"
+  | "settings"
+  | "claudeMd"
+  | "mcpServers"
+  | "mcpServer"
+  | "folder";
 
 /**
  * Tree item collapsible state.

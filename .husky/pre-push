@@ -6,6 +6,16 @@ if [ -n "$SKIP_TESTS" ]; then
   exit 0
 fi
 
+# Check formatting before push
+echo "Checking code formatting..."
+npm run format:check || {
+  echo ""
+  echo "Code formatting check failed. Run 'npm run format' to fix."
+  echo "To skip this check and push anyway, run:"
+  echo "  SKIP_TESTS=1 git push"
+  exit 1
+}
+
 echo "Running tests before push..."
 npm test || {
   echo ""

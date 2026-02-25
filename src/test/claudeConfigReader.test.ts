@@ -6,14 +6,10 @@
 import * as assert from "node:assert";
 
 suite("ClaudeConfigReader WSL Tests", function () {
-
   test("should detect WSL network paths", function () {
     // Legacy WSL path format
     const legacyPath = "\\\\wsl$\\Ubuntu-24.04\\home\\user\\.claude.json";
-    assert.ok(
-      legacyPath.startsWith("\\\\wsl$\\"),
-      "Legacy path should start with \\\\wsl$\\"
-    );
+    assert.ok(legacyPath.startsWith("\\\\wsl$\\"), "Legacy path should start with \\\\wsl$\\");
 
     // Windows 11 WSL path format
     const newPath = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\user\\.claude.json";
@@ -154,7 +150,6 @@ suite("ClaudeConfigReader WSL Tests", function () {
 });
 
 suite("ProjectProvider WSL Path Conversion Tests", function () {
-
   test("should detect WSL environment from config path", function () {
     const testCases = [
       {
@@ -191,11 +186,7 @@ suite("ProjectProvider WSL Path Conversion Tests", function () {
         tc.expectedType,
         `Environment type mismatch for ${tc.input}`
       );
-      assert.strictEqual(
-        result.wslDistro,
-        tc.expectedDistro,
-        `Distro mismatch for ${tc.input}`
-      );
+      assert.strictEqual(result.wslDistro, tc.expectedDistro, `Distro mismatch for ${tc.input}`);
     }
   });
 
@@ -204,7 +195,8 @@ suite("ProjectProvider WSL Path Conversion Tests", function () {
       {
         wslPath: "/home/cloud/code/git/piratf/context-editor/CLAUDE.md",
         distro: "Ubuntu-24.04",
-        expected: "\\\\wsl$\\Ubuntu-24.04\\home\\cloud\\code\\git\\piratf\\context-editor\\CLAUDE.md",
+        expected:
+          "\\\\wsl$\\Ubuntu-24.04\\home\\cloud\\code\\git\\piratf\\context-editor\\CLAUDE.md",
       },
       {
         wslPath: "/home/cloud/.claude/settings.json",
@@ -268,16 +260,10 @@ function detectEnvironmentFromConfigPath(configPath: string): {
   let environmentType: "windows" | "linux" | "mac" = "windows";
   let wslDistro: string | null = null;
 
-  if (
-    configPath.startsWith("\\\\wsl$\\") ||
-    configPath.startsWith("\\\\wsl.localhost\\")
-  ) {
+  if (configPath.startsWith("\\\\wsl$\\") || configPath.startsWith("\\\\wsl.localhost\\")) {
     environmentType = "windows";
     const parts = configPath.split("\\").filter((p) => p.length > 0);
-    if (
-      parts.length >= 2 &&
-      (parts[0] === "wsl$" || parts[0] === "wsl.localhost")
-    ) {
+    if (parts.length >= 2 && (parts[0] === "wsl$" || parts[0] === "wsl.localhost")) {
       wslDistro = parts[1];
     }
   } else if (configPath.startsWith("/home/")) {

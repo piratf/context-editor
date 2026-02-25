@@ -17,6 +17,7 @@
  */
 
 import { EnvironmentType } from "./environment.js";
+import { IDataFacade, IEnvironmentInfo, IProjectEntry } from "../types/environment";
 
 // Re-export EnvironmentType for convenience
 export { EnvironmentType };
@@ -24,7 +25,7 @@ export { EnvironmentType };
 /**
  * Environment information for a data facade
  */
-export interface EnvironmentInfo {
+export interface EnvironmentInfo extends IEnvironmentInfo {
   /** Environment type */
   type: EnvironmentType;
   /** Full path to the .claude.json configuration file */
@@ -36,7 +37,7 @@ export interface EnvironmentInfo {
 /**
  * Project entry from .claude.json
  */
-export interface ProjectEntry {
+export interface ProjectEntry extends IProjectEntry {
   /** Absolute path to the project (converted to current environment format) */
   path: string;
   /** Project-specific state (allowed tools, trust settings) */
@@ -108,7 +109,7 @@ export interface ConfigReadResult {
  * This interface provides unified access to .claude.json data across
  * different environments. Implementations handle path conversion internally.
  */
-export interface ClaudeDataFacade {
+export interface ClaudeDataFacade extends IDataFacade {
   /**
    * Get environment information
    * @returns Information about this facade's environment

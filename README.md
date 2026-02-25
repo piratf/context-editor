@@ -28,11 +28,11 @@
 
 ## ✨ Key Features
 
-* 🌳 **Unified Configuration Management** - Manage your user scope (`~/.claude`) and all project Claude configurations in one single interface
-* 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json`
-* 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
-* ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
-* 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
+- 🌳 **Unified Configuration Management** - Manage your user scope (`~/.claude`) and all project Claude configurations in one single interface
+- 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json`
+- 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
+- ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
+- 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
 
 ## 📸 Interface Preview
 
@@ -52,14 +52,14 @@ The view title dynamically shows the current environment (e.g., "⚡ Windows", "
 
 Right-click on any item in the tree view to access quick actions:
 
-| Menu Item | Description |
-|:---|:---|
-| **Copy Name** | Copy the item name to clipboard |
-| **Copy Path** | Copy the full file/directory path |
-| **Delete** | Delete the selected file or directory |
-| **Open in New Window** | Open a directory in a new VS Code window |
-| **Create File** | Create a new file in the selected directory |
-| **Create Folder** | Create a new folder in the selected directory |
+| Menu Item              | Description                                   |
+| :--------------------- | :-------------------------------------------- |
+| **Copy Name**          | Copy the item name to clipboard               |
+| **Copy Path**          | Copy the full file/directory path             |
+| **Delete**             | Delete the selected file or directory         |
+| **Open in New Window** | Open a directory in a new VS Code window      |
+| **Create File**        | Create a new file in the selected directory   |
+| **Create Folder**      | Create a new folder in the selected directory |
 
 <details>
 <summary><b>📁 Tree View Structure Example</b></summary>
@@ -106,18 +106,18 @@ Context Editor: ⚡ Windows
 1. **Activate Extension** - Extension auto-activates on VS Code startup
 2. **Open View** - Click the **Context Editor** icon (home icon) in the activity bar
 3. **Browse Configuration** - View unified sidebar with two main sections:
-    - **Global Configuration**: Global config files and ~/.claude/ directory
-    - **Projects**: All registered Claude projects
+   - **Global Configuration**: Global config files and ~/.claude/ directory
+   - **Projects**: All registered Claude projects
 4. **Switch Environments** - Click the environment indicator (e.g., "⚡ Windows") in the view title or toolbar to switch environments
 5. **Open Files** - Double-click any file to open it in the editor
 
 ### Available Commands
 
-| Command | Shortcut | Description |
-|:---|:---|:---|
+| Command                              | Shortcut                                                   | Description                                                        |
+| :----------------------------------- | :--------------------------------------------------------- | :----------------------------------------------------------------- |
 | `Context Editor: Switch Environment` | Click status bar item `⚡ <Environment>` or toolbar button | Switch between available environments (Windows, WSL, macOS, Linux) |
-| `Context Editor: Refresh` | Click refresh icon in view title | Refresh configuration view and re-discover environments |
-| `Context Editor: Show Debug Output` | Command Palette (`Ctrl+Shift+P`) | Show debug output panel |
+| `Context Editor: Refresh`            | Click refresh icon in view title                           | Refresh configuration view and re-discover environments            |
+| `Context Editor: Show Debug Output`  | Command Palette (`Ctrl+Shift+P`)                           | Show debug output panel                                            |
 
 ## 🛠️ Development
 
@@ -230,11 +230,11 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 ## ✨ 核心特性
 
-* 🌳 **统一配置管理** - 在一个界面中直接管理 user scope（`~/.claude`）和所有项目的 Claude 配置
-* 🔍 **自动发现** - 自动解析 `~/.claude.json` 中的项目配置
-* 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
-* ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
-* 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
+- 🌳 **统一配置管理** - 在一个界面中直接管理 user scope（`~/.claude`）和所有项目的 Claude 配置
+- 🔍 **自动发现** - 自动解析 `~/.claude.json` 中的项目配置
+- 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
+- ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
+- 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
 
 ## 📸 界面预览
 
@@ -254,14 +254,14 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 在树视图中右键点击任意项目即可访问快捷操作：
 
-| 菜单项 | 说明 |
-|:---|:---|
-| **复制名称** | 复制项目名称到剪贴板 |
-| **复制路径** | 复制完整的文件/目录路径 |
-| **删除** | 删除选中的文件或目录 |
+| 菜单项             | 说明                        |
+| :----------------- | :-------------------------- |
+| **复制名称**       | 复制项目名称到剪贴板        |
+| **复制路径**       | 复制完整的文件/目录路径     |
+| **删除**           | 删除选中的文件或目录        |
 | **在新窗口中打开** | 在新 VS Code 窗口中打开目录 |
-| **创建文件** | 在选中目录中创建新文件 |
-| **创建文件夹** | 在选中目录中创建新文件夹 |
+| **创建文件**       | 在选中目录中创建新文件      |
+| **创建文件夹**     | 在选中目录中创建新文件夹    |
 
 <details>
 <summary><b>📁 树视图结构示例</b></summary>
@@ -308,18 +308,18 @@ Context Editor: ⚡ Windows
 1. **激活扩展** - 扩展会在 VS Code 启动时自动激活
 2. **打开视图** - 点击活动栏中的 **Context Editor** 图标（首页图标）
 3. **浏览配置** - 查看统一侧边栏，包含两个主要部分：
-    - **Global Configuration**：全局配置文件和 ~/.claude/ 目录
-    - **Projects**：所有已注册的 Claude Code 项目
+   - **Global Configuration**：全局配置文件和 ~/.claude/ 目录
+   - **Projects**：所有已注册的 Claude Code 项目
 4. **切换环境** - 点击视图标题中的环境指示器（如 "⚡ Windows"）或工具栏按钮切换环境
 5. **打开文件** - 双击任意文件即可在编辑器中打开
 
 ### 可用命令
 
-| 命令 | 快捷方式 | 说明 |
-|:---|:---|:---|
+| 命令                                 | 快捷方式                                | 说明                                             |
+| :----------------------------------- | :-------------------------------------- | :----------------------------------------------- |
 | `Context Editor: Switch Environment` | 点击状态栏项 `⚡ <环境名>` 或工具栏按钮 | 在可用环境（Windows、WSL、macOS、Linux）之间切换 |
-| `Context Editor: Refresh` | 点击视图标题栏刷新图标 | 刷新配置视图并重新发现环境 |
-| `Context Editor: Show Debug Output` | 命令面板 (`Ctrl+Shift+P`) | 显示调试输出面板 |
+| `Context Editor: Refresh`            | 点击视图标题栏刷新图标                  | 刷新配置视图并重新发现环境                       |
+| `Context Editor: Show Debug Output`  | 命令面板 (`Ctrl+Shift+P`)               | 显示调试输出面板                                 |
 
 ## 🛠️ 开发
 

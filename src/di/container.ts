@@ -47,7 +47,10 @@ export interface DIContainer extends Disposable {
  * Uses Symbol as the key to ensure uniqueness and prevent accidental collisions.
  */
 export class ServiceToken<T> {
-  constructor(public readonly description: string, _typeHint?: T) {}
+  constructor(
+    public readonly description: string,
+    _typeHint?: T
+  ) {}
 }
 
 /**

@@ -14,7 +14,6 @@ import { ServiceTokens } from "../di/tokens";
  * Unified provider that shows both Global and Projects in a single view
  */
 export class UnifiedProvider extends BaseProvider {
-
   /**
    * Get children of a given node, or root nodes if no node provided
    *

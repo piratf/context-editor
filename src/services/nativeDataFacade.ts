@@ -17,14 +17,14 @@
  * - Handles file system errors gracefully
  */
 
-import * as fs from 'node:fs/promises';
-import { Environment, getEnvironment } from './environment.js';
+import * as fs from "node:fs/promises";
+import { Environment, getEnvironment } from "./environment.js";
 import {
   BaseDataFacade,
   type ClaudeGlobalConfig,
   type ConfigReadResult,
   type EnvironmentInfo,
-} from './dataFacade.js';
+} from "./dataFacade.js";
 
 /**
  * Data facade for accessing the current (native) environment's configuration
@@ -58,14 +58,14 @@ export class NativeDataFacade extends BaseDataFacade {
   protected async readConfigFile(): Promise<ConfigReadResult> {
     try {
       const configPath = this.getConfigPath();
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const config = this.parseConfig(content);
       const projects = this.normalizeProjects(config.projects);
 
       return { config, projects };
     } catch (error) {
       // Handle file not found or parse errors
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         // Config file doesn't exist, return empty config
         return { config: {}, projects: [] };
       }
@@ -98,7 +98,7 @@ export class NativeDataFacade extends BaseDataFacade {
    */
   async getProjectContextFiles(projectName: string): Promise<readonly string[]> {
     const projects = await this.getProjects();
-    const project = projects.find(p => {
+    const project = projects.find((p) => {
       const projectNameLower = projectName.toLowerCase();
       const pathLower = p.path.toLowerCase();
       return pathLower.includes(projectNameLower) || pathLower === projectNameLower;
@@ -109,7 +109,7 @@ export class NativeDataFacade extends BaseDataFacade {
     }
 
     const contextFiles: string[] = [];
-    const possibleFiles = ['.claude.md', 'CLAUDE.md', '.clauderc'];
+    const possibleFiles = [".claude.md", "CLAUDE.md", ".clauderc"];
 
     // Check which files actually exist
     for (const file of possibleFiles) {
