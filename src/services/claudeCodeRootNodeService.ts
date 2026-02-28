@@ -294,6 +294,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   /**
    * Merge and deduplicate projects by path
    * Later projects with the same path will override earlier ones (Gemini overrides Claude)
+   * Uses platform-aware path comparison for Windows case-insensitivity
    * @param projects - Array of project entries to merge
    * @returns Deduplicated and sorted project entries
    */
@@ -302,8 +303,14 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   ): readonly IProjectEntry[] {
     const pathMap = new Map<string, IProjectEntry>();
 
+    // Get current environment type for case-insensitive comparison on Windows
+    const facade = this.environmentManager.getCurrentFacade();
+    const isWindows = facade?.getEnvironmentInfo().type === "windows";
+
     for (const project of projects) {
-      pathMap.set(project.path, project);
+      // Normalize path key based on platform
+      const normalizedKey = isWindows ? project.path.toLowerCase() : project.path;
+      pathMap.set(normalizedKey, project);
     }
 
     // Sort by label (now guaranteed to exist)

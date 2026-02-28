@@ -15,7 +15,7 @@ import * as path from "node:path";
 import type { NodeData, DirectoryData, ProjectData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
-import { ClaudeCodeFileFilter, AllowAllFilter, isInsideDirectory } from "../types/fileFilter.js";
+import { AllowAllFilter, isInsideDirectory } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
 
 /**
@@ -138,25 +138,13 @@ export const EMPTY_CHILDREN_RESULT: GetChildrenResult = { success: true, childre
  * - In project root: Use configured filter (ProjectClaudeFileFilter by default)
  */
 export class NodeService {
-  private readonly filter: SyncFileFilter;
   private readonly rootNodeService: RootNodeService;
   private readonly allowAllFilter: AllowAllFilter;
 
   constructor(
     private readonly fileSystem: FileSystem,
-    nodeService: RootNodeService,
-    options: {
-      filter?: SyncFileFilter;
-    } = {}
+    nodeService: RootNodeService
   ) {
-    // Use provided filter or default to ClaudeCodeFileFilter
-    if (options.filter !== undefined) {
-      this.filter = options.filter;
-    } else {
-      // Default filter for Claude files
-      this.filter = new ClaudeCodeFileFilter();
-    }
-
     this.rootNodeService = nodeService;
     this.allowAllFilter = new AllowAllFilter();
   }
@@ -179,8 +167,9 @@ export class NodeService {
       return this.allowAllFilter;
     }
 
-    // Use the default filter for project root
-    return this.filter;
+    // All directories that reach this point are AI tool directories
+    // which always use allowAllFilter
+    return this.allowAllFilter;
   }
 
   /**
@@ -338,13 +327,6 @@ export class NodeService {
       }
     }
     return undefined;
-  }
-
-  /**
-   * Get the filter being used
-   */
-  getFilter(): SyncFileFilter {
-    return this.filter;
   }
 
   /**

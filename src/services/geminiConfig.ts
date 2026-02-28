@@ -78,7 +78,7 @@ export class GeminiConfig {
    * @returns Label extracted from the last path component
    */
   private extractLabelFromPath(path: string): string {
-    const parts = path.split(/[/\\]/);
+    const parts = path.split(/[/\\]/).filter((p) => p.length > 0);
     return parts[parts.length - 1] ?? path;
   }
 
