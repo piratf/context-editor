@@ -126,9 +126,10 @@ export function toErrorDataSafe(error: Error | string | object | undefined): Err
 
 /**
  * Directory node data
+ * Includes both DIRECTORY and PROJECT types since projects are directories
  */
 export interface DirectoryData extends NodeData {
-  readonly type: NodeType.DIRECTORY;
+  readonly type: NodeType.DIRECTORY | NodeType.PROJECT;
   readonly path: string;
 }
 
@@ -143,7 +144,7 @@ export interface FileData extends NodeData {
 /**
  * Project node data
  */
-export interface ProjectData extends NodeData {
+export interface ProjectData extends DirectoryData {
   readonly type: NodeType.PROJECT;
   readonly path: string;
 }
@@ -193,7 +194,7 @@ export function isNodeData(node: unknown): node is NodeData {
  */
 export const NodeTypeGuard = {
   isDirectoryData: (data: NodeData): data is DirectoryData =>
-    data.type === NodeType.DIRECTORY && data.path !== undefined,
+    (data.type === NodeType.DIRECTORY || data.type === NodeType.PROJECT) && data.path !== undefined,
 
   isProject: (data: NodeData): data is ProjectData =>
     data.type === NodeType.PROJECT && data.path !== undefined,

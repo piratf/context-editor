@@ -14,7 +14,7 @@ import * as vscode from "vscode";
 import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { type EnvironmentChangeEvent } from "./services/environmentManagerService";
-import { Logger } from "./utils/logger.js";
+import { Logger, LogLevel } from "./utils/logger.js";
 import { VsCodeUserInteraction } from "./adapters/ui.js";
 import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
@@ -46,8 +46,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const debugOutput = vscode.window.createOutputChannel("Context Editor");
   context.subscriptions.push(debugOutput);
 
+  // Get log level from VS Code configuration
+  const config = vscode.workspace.getConfiguration("contextEditor");
+  const logLevelStr = config.get<string>("logLevel", "INFO");
+  const logLevel: LogLevel = parseLogLevel(logLevelStr);
+
   // Initialize logger
-  logger = new Logger(debugOutput, "ContextEditor");
+  logger = new Logger(debugOutput, "ContextEditor", logLevel);
   logger.logEntry("activate");
 
   // Initialize config search and discover all environments
@@ -65,7 +70,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const userInteraction = new VsCodeUserInteraction();
 
   // Create DI container for service management
-  container = createContainer(debugOutput, configSearch, userInteraction);
+  container = createContainer(debugOutput, configSearch, userInteraction, logLevel);
   context.subscriptions.push(container);
 
   const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);
@@ -169,4 +174,22 @@ function registerCommands(
 
 export function deactivate(): void {
   console.log("Context Editor extension is now deactivated!");
+}
+
+/**
+ * Parse log level string from configuration to LogLevel enum
+ */
+function parseLogLevel(level: string): LogLevel {
+  switch (level) {
+    case "DEBUG":
+      return LogLevel.DEBUG;
+    case "INFO":
+      return LogLevel.INFO;
+    case "WARN":
+      return LogLevel.WARN;
+    case "ERROR":
+      return LogLevel.ERROR;
+    default:
+      return LogLevel.INFO;
+  }
 }

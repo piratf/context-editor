@@ -141,6 +141,23 @@
           "group": "4_delete@1"
         }
       ]
+    },
+    "configuration": {
+      "title": "Context Editor",
+      "properties": {
+        "contextEditor.logLevel": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+          "default": "INFO",
+          "description": "控制输出日志的级别",
+          "enumDescriptions": [
+            "显示所有日志（开发调试用）",
+            "显示 INFO 及以上级别",
+            "显示 WARN 及以上级别",
+            "仅显示 ERROR 日志"
+          ]
+        }
+      }
     }
   },
   "scripts": {

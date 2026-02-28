@@ -33,6 +33,7 @@ import { VsCodeLoggerService } from "../services/loggerService.js";
 import { EnvironmentManagerService } from "../services/environmentManagerService.js";
 import type { IDataFacade } from "../types/environment";
 import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService";
+import { LogLevel } from "../services/loggerService.js";
 
 /**
  * Create and configure the dependency injection container
@@ -47,18 +48,20 @@ import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService
  * @param outputChannel - VS Code output channel for logging
  * @param configSearch - Config search instance with all facades
  * @param userInteraction - User interaction service
+ * @param logLevel - Minimum log level to output
  * @returns Configured DI container instance
  */
 export function createContainer(
   outputChannel: { appendLine(value: string): void },
   configSearch: { getAllFacades(): readonly IDataFacade[] },
-  userInteraction: UserInteraction
+  userInteraction: UserInteraction,
+  logLevel: LogLevel = LogLevel.INFO
 ): SimpleDIContainer {
   const container = new SimpleDIContainer();
 
   // Register LoggerService
   container.registerSingleton(ServiceTokens.LoggerService, () => {
-    return new VsCodeLoggerService("ContextEditor", outputChannel);
+    return new VsCodeLoggerService("ContextEditor", outputChannel, logLevel);
   });
 
   // Register EnvironmentManagerService
