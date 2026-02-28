@@ -233,6 +233,18 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       this.getGeminiProjects(facade),
     ]);
 
+    // Log Claude projects
+    this.logger.debug("Claude projects:", {
+      count: claudeProjects.length,
+      projects: claudeProjects.map((p) => ({ path: p.path, state: p.state })),
+    });
+
+    // Log Gemini projects
+    this.logger.debug("Gemini projects:", {
+      count: geminiProjects.length,
+      projects: geminiProjects.map((p) => ({ path: p.path, state: p.state })),
+    });
+
     // Merge and deduplicate projects by path
     const allProjects = this.mergeAndDeduplicateProjects([...claudeProjects, ...geminiProjects]);
 
