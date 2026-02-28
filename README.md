@@ -14,6 +14,12 @@
   <a href="#english">English</a> | <a href="#%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87">简体中文</a>
 </p>
 
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=piratf.context-editor">
+    <img src="https://img.shields.io/badge/Marketplace-Install%20Now-007acc?style=for-the-badge&logo=visual-studio-code" alt="Install from VS Code Marketplace">
+  </a>
+</p>
+
 ---
 
 <h2 id="english">English</h2>
@@ -143,8 +149,6 @@ Context Editor: ⚡ Windows
 
 For development setup, contributing guidelines, and technical details, see [Development Documentation](docs/development.md).
 
-For detailed architecture documentation, see [CLAUDE.md](CLAUDE.md).
-
 ## 📄 License
 
 This project is licensed under [MPL-2.0](LICENSE).
@@ -154,7 +158,6 @@ This project is licensed under [MPL-2.0](LICENSE).
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=piratf.context-editor)
 - [GitHub Repository](https://github.com/piratf/context-editor)
 - [Issue Tracker](https://github.com/piratf/context-editor/issues)
-- [Claude Code Documentation](https://code.claude.com/docs/en/overview)
 
 ---
 
@@ -285,8 +288,6 @@ Context Editor: ⚡ Windows
 
 有关开发设置、贡献指南和技术细节，请参阅[开发文档](docs/development.md)。
 
-详细的架构文档请参阅 [CLAUDE.md](CLAUDE.md)。
-
 ## 📄 许可证
 
 本项目采用 [MPL-2.0 许可证](LICENSE) 开源。
@@ -296,7 +297,6 @@ Context Editor: ⚡ Windows
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=piratf.context-editor)
 - [GitHub 仓库](https://github.com/piratf/context-editor)
 - [问题反馈](https://github.com/piratf/context-editor/issues)
-- [Claude Code 文档](https://code.claude.com/docs/zh-CN/overview)
 
 ---
 
