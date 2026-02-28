@@ -23,14 +23,26 @@
 </p>
 
 <p align="center">
-  Manage your AI tool configurations (Claude, Gemini, Cursor, Aider) in a unified VS Code sidebar
+  Manage your AI tool configurations (Claude, Gemini, Cursor, Aider, and more) in a unified VS Code sidebar
+</p>
+
+<p align="center">
+  <small>
+    <strong>Supported Tools:</strong> Claude Code, Gemini CLI, Cursor, Aider, Roo Code, Cline, Trae, Codeium, OpenAI, Codex, Windsurf, and universal standards (MCP, Skills, Agents)
+  </small>
+</p>
+
+<p align="center">
+  <small>
+    📦 <strong>Project Registration:</strong> Claude Code (~/.claude.json) and Gemini (~/.gemini/projects.json)
+  </small>
 </p>
 
 ## ✨ Key Features
 
-- 🌳 **Unified Configuration Management** - Manage configurations for multiple AI tools (Claude, Gemini, Cursor, Aider) in one interface
-- 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json` and `~/.gemini/projects.json`
-- 🔀 **Cross-Tool Projects** - Projects registered in multiple AI tools are automatically merged and deduplicated
+- 🌳 **Multi-AI Configuration Management** - Manage configurations for 10+ AI tools (Claude, Gemini, Cursor, Aider, Roo Code, Cline, Trae, Codeium, OpenAI, Codex, Windsurf) in one unified interface
+- 🔍 **Smart Project Discovery** - Automatically parses project registrations from Claude Code (`~/.claude.json`) and Gemini CLI (`~/.gemini/projects.json`); scans for AI tool directories and config files in all projects
+- 🔀 **Cross-Tool Projects** - Projects registered in multiple AI tools are automatically merged and deduplicated by path
 - 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
 - ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
 - 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
@@ -42,10 +54,14 @@
 The extension provides a unified sidebar to manage all your AI tool configurations:
 
 > **Global Configuration**
-> Displays global configuration directories (`~/.claude/`, `~/.gemini/`) and their file structures
+> Scans and displays global configuration directories and files in your home folder:
+> - **AI Tool Directories**: `~/.claude/`, `~/.gemini/`, `~/.cursor/`, `~/.aider/`, `~/.roo/`, `~/.cline/`, `~/.trae/`, `~/.codeium/`, `~/.openai/`, `~/.codex/`, `~/.github/`, `~/.windsurf/`
+> - **Universal Standards**: `~/.mcp/`, `~/.skills/`, `~/.agents/`, `~/.well-known/`
+> - **Config Files**: `~/.claude.json`
 
 > **Projects**
-> Shows all registered projects from Claude (`~/.claude.json`) and Gemini (`~/.gemini/projects.json`), merged and deduplicated by path. Displays AI tool configuration files (`.claude/`, `.gemini/`, `CLAUDE.md`, `GEMINI.md`, etc.) for each project.
+> - **Project Registration**: Automatically reads projects registered in Claude Code (`~/.claude.json`) and Gemini CLI (`~/.gemini/projects.json`), merged and deduplicated by path
+> - **Per-Project Files**: Scans each project for AI tool directories and config files including `CLAUDE.md`, `GEMINI.md`, `AGENT.md`, `.cursorrules`, `.roorules`, `.windsurf.json`, `.aider.conf.yml`, and more
 
 The view title dynamically shows the current environment (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)") and provides a toolbar button for quick environment switching.
 
@@ -230,14 +246,26 @@ This project is licensed under [MPL-2.0](LICENSE).
 </p>
 
 <p align="center">
-  在统一的 VS Code 侧边栏中管理你的 AI 工具配置（Claude、Gemini、Cursor、Aider）
+  在统一的 VS Code 侧边栏中管理你的 AI 工具配置（Claude、Gemini、Cursor、Aider 等）
+</p>
+
+<p align="center">
+  <small>
+    <strong>支持的 AI 工具：</strong>Claude Code、Gemini CLI、Cursor、Aider、Roo Code、Cline、Trae、Codeium、OpenAI、Codex、Windsurf，以及通用标准（MCP、Skills、Agents）
+  </small>
+</p>
+
+<p align="center">
+  <small>
+    📦 <strong>项目注册解析：</strong>Claude Code（~/.claude.json）和 Gemini（~/.gemini/projects.json）
+  </small>
 </p>
 
 ## ✨ 核心特性
 
-- 🌳 **统一配置管理** - 在一个界面中管理多种 AI 工具的配置（Claude、Gemini、Cursor、Aider）
-- 🔍 **自动发现** - 自动解析 `~/.claude.json` 和 `~/.gemini/projects.json` 中的项目配置
-- 🔀 **跨工具项目** - 在多个 AI 工具中注册的项目会自动合并和去重
+- 🌳 **多 AI 配置管理** - 在一个统一界面中管理 10+ 种 AI 工具的配置（Claude、Gemini、Cursor、Aider、Roo Code、Cline、Trae、Codeium、OpenAI、Codex、Windsurf）
+- 🔍 **智能项目发现** - 自动解析 Claude Code（`~/.claude.json`）和 Gemini CLI（`~/.gemini/projects.json`）的项目注册信息；扫描所有项目中的 AI 工具目录和配置文件
+- 🔀 **跨工具项目** - 在多个 AI 工具中注册的项目会自动按路径合并和去重
 - 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
 - ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
 - 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
@@ -249,10 +277,14 @@ This project is licensed under [MPL-2.0](LICENSE).
 扩展提供统一的侧边栏，管理所有 AI 工具配置：
 
 > **Global Configuration（全局配置）**
-> 显示全局配置目录（`~/.claude/`、`~/.gemini/`）及其文件结构
+> 扫描并显示用户主目录中的全局配置目录和文件：
+> - **AI 工具目录**：`~/.claude/`、`~/.gemini/`、`~/.cursor/`、`~/.aider/`、`~/.roo/`、`~/.cline/`、`~/.trae/`、`~/.codeium/`、`~/.openai/`、`~/.codex/`、`~/.github/`、`~/.windsurf/`
+> - **通用标准**：`~/.mcp/`、`~/.skills/`、`~/.agents/`、`~/.well-known/`
+> - **配置文件**：`~/.claude.json`
 
 > **Projects（项目列表）**
-> 展示从 Claude（`~/.claude.json`）和 Gemini（`~/.gemini/projects.json`）注册的所有项目，按路径合并去重。显示每个项目的 AI 工具配置文件（`.claude/`、`.gemini/`、`CLAUDE.md`、`GEMINI.md` 等）。
+> - **项目注册**：自动读取在 Claude Code（`~/.claude.json`）和 Gemini CLI（`~/.gemini/projects.json`）中注册的项目，按路径合并去重
+> - **项目内文件**：扫描每个项目中的 AI 工具目录和配置文件，包括 `CLAUDE.md`、`GEMINI.md`、`AGENT.md`、`.cursorrules`、`.roorules`、`.windsurf.json`、`.aider.conf.yml` 等
 
 视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"），并提供工具栏按钮用于快速切换环境。
 
