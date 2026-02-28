@@ -16,10 +16,11 @@ import * as path from "node:path";
 
 import type { ILoggerService } from "./loggerService.js";
 import type { IEnvironmentManagerService } from "./environmentManagerService.js";
-import type { IDataFacade } from "../types/environment.js";
+import type { IDataFacade, IProjectEntry } from "../types/environment.js";
 import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
 import { RootNodeService } from "./rootNodeService.js";
 import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
+import { GeminiConfig } from "./geminiConfig.js";
 
 /**
  * Service for managing Claude Code root nodes
@@ -226,19 +227,27 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       configPath: info.configPath,
     });
 
-    // Get projects for current environment
-    const projects = await facade.getProjects();
+    // Get projects from both Claude and Gemini
+    const [claudeProjects, geminiProjects] = await Promise.all([
+      facade.getProjects(),
+      this.getGeminiProjects(facade),
+    ]);
 
-    this.logger.debug(`Found ${String(projects.length)} projects`);
+    // Merge and deduplicate projects by path
+    const allProjects = this.mergeAndDeduplicateProjects([...claudeProjects, ...geminiProjects]);
 
-    if (projects.length === 0) {
+    this.logger.debug(
+      `Found ${String(allProjects.length)} projects (Claude: ${String(claudeProjects.length)}, Gemini: ${String(geminiProjects.length)})`
+    );
+
+    if (allProjects.length === 0) {
       children.push(
         this.createInfoNode("(no projects found)", "No projects found in this environment")
       );
     } else {
       // Create directory nodes for each project
       // Project directories are REAL file system nodes - they have paths and can be opened
-      for (const project of projects) {
+      for (const project of allProjects) {
         const projectName = this.getProjectName(project.path);
         this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
         children.push(
@@ -252,6 +261,35 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
 
     this.logger.debug(`getProjectsChildren: returning ${String(children.length)} children`);
     return { success: true, children };
+  }
+
+  /**
+   * Get Gemini projects from ~/.gemini/projects.json
+   * @param facade - Current data facade for home path access
+   * @returns Promise resolving to array of Gemini project entries
+   */
+  private async getGeminiProjects(facade: IDataFacade): Promise<readonly IProjectEntry[]> {
+    const homePath = facade.getHomePath();
+    const geminiConfig = new GeminiConfig(homePath);
+    return await geminiConfig.getProjects();
+  }
+
+  /**
+   * Merge and deduplicate projects by path
+   * Later projects with the same path will override earlier ones (Gemini overrides Claude)
+   * @param projects - Array of project entries to merge
+   * @returns Deduplicated and sorted project entries
+   */
+  private mergeAndDeduplicateProjects(
+    projects: readonly IProjectEntry[]
+  ): readonly IProjectEntry[] {
+    const pathMap = new Map<string, IProjectEntry>();
+
+    for (const project of projects) {
+      pathMap.set(project.path, project);
+    }
+
+    return Array.from(pathMap.values()).sort((a, b) => a.path.localeCompare(b.path));
   }
 
   /**
@@ -279,7 +317,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   private createProjectsNode(): NodeData {
     return NodeDataFactory.createVirtualNode("Projects", NodeType.PROJECTS_ROOT, {
       collapsibleState: 1,
-      tooltip: "Registered Claude projects",
+      tooltip: "Registered Claude and Gemini projects",
     });
   }
 
