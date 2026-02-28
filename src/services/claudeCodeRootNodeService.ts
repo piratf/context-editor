@@ -301,9 +301,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     }
 
     // Sort by label (now guaranteed to exist)
-    return Array.from(pathMap.values()).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    );
+    return Array.from(pathMap.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
   /**

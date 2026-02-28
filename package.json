@@ -147,7 +147,12 @@
       "properties": {
         "contextEditor.logLevel": {
           "type": "string",
-          "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR"
+          ],
           "default": "INFO",
           "description": "控制输出日志的级别",
           "enumDescriptions": [

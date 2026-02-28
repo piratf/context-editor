@@ -44,7 +44,11 @@ export class Logger {
   private readonly componentName: string;
   private minLevel: LogLevel;
 
-  constructor(outputChannel: vscode.OutputChannel, componentName: string, minLevel: LogLevel = LogLevel.INFO) {
+  constructor(
+    outputChannel: vscode.OutputChannel,
+    componentName: string,
+    minLevel: LogLevel = LogLevel.INFO
+  ) {
     this.outputChannel = outputChannel;
     this.componentName = componentName;
     this.minLevel = minLevel;

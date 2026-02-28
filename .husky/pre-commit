@@ -1,4 +1,7 @@
 #!/bin/sh
 
+# Set up PATH for Node.js
+export PATH="$HOME/.nvm/versions/node/v22.21.0/bin:$PATH"
+
 echo "Running lint-staged..."
 npx lint-staged

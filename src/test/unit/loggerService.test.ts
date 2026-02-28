@@ -4,7 +4,11 @@
 
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { VsCodeLoggerService, type ILoggerService, LogLevel } from "../../services/loggerService.js";
+import {
+  VsCodeLoggerService,
+  type ILoggerService,
+  LogLevel,
+} from "../../services/loggerService.js";
 
 void describe("VsCodeLoggerService", () => {
   const COMPONENT_NAME = "TestComponent";
@@ -117,7 +121,11 @@ void describe("VsCodeLoggerService", () => {
         calls.push(value);
       };
 
-      const debugLogger = new VsCodeLoggerService(COMPONENT_NAME, mockOutputChannel, LogLevel.DEBUG);
+      const debugLogger = new VsCodeLoggerService(
+        COMPONENT_NAME,
+        mockOutputChannel,
+        LogLevel.DEBUG
+      );
       debugLogger.debug("Debug message");
       debugLogger.info("Info message");
       debugLogger.warn("Warn message");
@@ -171,7 +179,11 @@ void describe("VsCodeLoggerService", () => {
         calls.push(value);
       };
 
-      const errorLogger = new VsCodeLoggerService(COMPONENT_NAME, mockOutputChannel, LogLevel.ERROR);
+      const errorLogger = new VsCodeLoggerService(
+        COMPONENT_NAME,
+        mockOutputChannel,
+        LogLevel.ERROR
+      );
       errorLogger.debug("Debug message");
       errorLogger.info("Info message");
       errorLogger.warn("Warn message");

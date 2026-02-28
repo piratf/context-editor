@@ -52,11 +52,13 @@ The extension provides a unified sidebar to manage all your AI tool configuratio
 
 > **Global Configuration**
 > Scans and displays global configuration directories and files in your home folder:
+>
 > - **AI Tool Directories**: `~/.claude/`, `~/.gemini/`, `~/.cursor/`, `~/.aider/`, `~/.roo/`, `~/.cline/`, `~/.trae/`, `~/.codeium/`, `~/.openai/`, `~/.codex/`, `~/.github/`, `~/.windsurf/`
 > - **Universal Standards**: `~/.mcp/`, `~/.skills/`, `~/.agents/`, `~/.well-known/`
 > - **Config Files**: `~/.claude.json`
 
 > **Projects**
+>
 > - **Project Registration**: Automatically reads projects registered in Claude Code (`~/.claude.json`) and Gemini CLI (`~/.gemini/projects.json`), merged and deduplicated by path
 > - **Per-Project Files**: Scans each project for AI tool directories and config files including `CLAUDE.md`, `GEMINI.md`, `AGENT.md`, `.cursorrules`, `.roorules`, `.windsurf.json`, `.aider.conf.yml`, and more
 
@@ -272,11 +274,13 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 > **Global Configuration（全局配置）**
 > 扫描并显示用户主目录中的全局配置目录和文件：
+>
 > - **AI 工具目录**：`~/.claude/`、`~/.gemini/`、`~/.cursor/`、`~/.aider/`、`~/.roo/`、`~/.cline/`、`~/.trae/`、`~/.codeium/`、`~/.openai/`、`~/.codex/`、`~/.github/`、`~/.windsurf/`
 > - **通用标准**：`~/.mcp/`、`~/.skills/`、`~/.agents/`、`~/.well-known/`
 > - **配置文件**：`~/.claude.json`
 
 > **Projects（项目列表）**
+>
 > - **项目注册**：自动读取在 Claude Code（`~/.claude.json`）和 Gemini CLI（`~/.gemini/projects.json`）中注册的项目，按路径合并去重
 > - **项目内文件**：扫描每个项目中的 AI 工具目录和配置文件，包括 `CLAUDE.md`、`GEMINI.md`、`AGENT.md`、`.cursorrules`、`.roorules`、`.windsurf.json`、`.aider.conf.yml` 等
 
