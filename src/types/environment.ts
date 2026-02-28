@@ -17,6 +17,7 @@ export interface IEnvironmentInfo {
  */
 export interface IProjectEntry {
   readonly path: string;
+  readonly label: string;
   readonly state?: unknown;
   readonly mcpServers?: unknown;
 }

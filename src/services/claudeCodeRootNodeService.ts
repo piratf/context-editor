@@ -236,13 +236,13 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     // Log Claude projects
     this.logger.debug("Claude projects:", {
       count: claudeProjects.length,
-      projects: claudeProjects.map((p) => ({ path: p.path, state: p.state })),
+      projects: claudeProjects.map((p) => ({ path: p.path, label: p.label })),
     });
 
     // Log Gemini projects
     this.logger.debug("Gemini projects:", {
       count: geminiProjects.length,
-      projects: geminiProjects.map((p) => ({ path: p.path, state: p.state })),
+      projects: geminiProjects.map((p) => ({ path: p.path, label: p.label })),
     });
 
     // Merge and deduplicate projects by path
@@ -260,10 +260,9 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       // Create directory nodes for each project
       // Project directories are REAL file system nodes - they have paths and can be opened
       for (const project of allProjects) {
-        const projectName = this.getProjectName(project.path);
-        this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
+        this.logger.debug(`Adding project: ${project.label}`, { path: project.path });
         children.push(
-          NodeDataFactory.createProject(projectName, project.path, {
+          NodeDataFactory.createProject(project.label, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
           })
@@ -301,7 +300,10 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       pathMap.set(project.path, project);
     }
 
-    return Array.from(pathMap.values()).sort((a, b) => a.path.localeCompare(b.path));
+    // Sort by label (now guaranteed to exist)
+    return Array.from(pathMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
   }
 
   /**
@@ -355,14 +357,6 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Get project name from project path
-   */
-  private getProjectName(projectPath: string): string {
-    const parts = projectPath.split(/[/\\]/);
-    return parts[parts.length - 1] ?? projectPath;
   }
 
   /**

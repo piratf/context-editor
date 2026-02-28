@@ -42,6 +42,8 @@ export interface EnvironmentInfo extends IEnvironmentInfo {
 export interface ProjectEntry extends IProjectEntry {
   /** Absolute path to the project (converted to current environment format) */
   path: string;
+  /** Display name for the project */
+  label: string;
   /** Project-specific state (allowed tools, trust settings) */
   state?: ProjectState;
   /** Per-project MCP servers configuration */
@@ -356,7 +358,10 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
         .filter(this.isValidProjectEntry.bind(this))
         .filter((entry) => this.shouldIncludeProjectPath(entry.path))
         .map((entry): ProjectEntry => {
-          const result: ProjectEntry = { path: entry.path };
+          const result: ProjectEntry = {
+            path: entry.path,
+            label: this.extractLabelFromPath(entry.path, entry.label),
+          };
           if (entry.state !== undefined) result.state = entry.state;
           if (entry.mcpServers !== undefined) result.mcpServers = entry.mcpServers;
           return result;
@@ -372,7 +377,10 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
           continue;
         }
         if (typeof config === "object" && config !== null) {
-          const entry: ProjectEntry = { path: projectPath };
+          const entry: ProjectEntry = {
+            path: projectPath,
+            label: this.extractLabelFromPath(projectPath, config),
+          };
 
           // Extract state from config if present
           const configObj = config as Record<string, unknown>;
@@ -403,6 +411,25 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
     }
 
     return [];
+  }
+
+  /**
+   * Extract label from path or config
+   * @param path - Project path
+   * @param config - Optional config object that may contain an explicit label
+   * @returns Label to use for display
+   */
+  protected extractLabelFromPath(path: string, config?: unknown): string {
+    // Check if config has an explicit label
+    if (config !== null && config !== undefined && typeof config === "object") {
+      const configObj = config as Record<string, unknown>;
+      if ("label" in configObj && typeof configObj.label === "string" && configObj.label) {
+        return configObj.label;
+      }
+    }
+    // Extract from path (last directory name)
+    const parts = path.split(/[/\\]/);
+    return parts[parts.length - 1] ?? path;
   }
 
   /**

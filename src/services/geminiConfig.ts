@@ -61,11 +61,22 @@ export class GeminiConfig {
    */
   private normalizeProjects(projects: Readonly<Record<string, string>>): IProjectEntry[] {
     return Object.entries(projects).map(
-      ([path, label]): IProjectEntry => ({
+      ([path, configuredLabel]): IProjectEntry => ({
         path,
-        state: label ? { label } : undefined,
+        // Use configured label, or extract from path as fallback
+        label: configuredLabel || this.extractLabelFromPath(path),
       })
     );
+  }
+
+  /**
+   * Extract label from path
+   * @param path - Project path
+   * @returns Label extracted from the last path component
+   */
+  private extractLabelFromPath(path: string): string {
+    const parts = path.split(/[/\\]/);
+    return parts[parts.length - 1] ?? path;
   }
 
   /**
