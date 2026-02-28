@@ -40,12 +40,9 @@
 
 ## ✨ Key Features
 
-- 🌳 **Multi-AI Configuration Management** - Manage configurations for 10+ AI tools (Claude, Gemini, Cursor, Aider, Roo Code, Cline, Trae, Codeium, OpenAI, Codex, Windsurf) in one unified interface
-- 🔍 **Smart Project Discovery** - Automatically parses project registrations from Claude Code (`~/.claude.json`) and Gemini CLI (`~/.gemini/projects.json`); scans for AI tool directories and config files in all projects
-- 🔀 **Cross-Tool Projects** - Projects registered in multiple AI tools are automatically merged and deduplicated by path
-- 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
-- ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
-- 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
+- 🎯 **One View for All AI Tools** - Stop digging through config files. See all your AI projects and configurations in one unified sidebar
+- 🔗 **Cross-Environment Access** - Windows users: seamlessly access and edit both native and WSL environment configs
+- ⚡ **Quick Actions Menu** - Edit, copy, or jump directly to any project through the right-click context menu
 
 ## 📸 Interface Preview
 
@@ -263,12 +260,9 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 ## ✨ 核心特性
 
-- 🌳 **多 AI 配置管理** - 在一个统一界面中管理 10+ 种 AI 工具的配置（Claude、Gemini、Cursor、Aider、Roo Code、Cline、Trae、Codeium、OpenAI、Codex、Windsurf）
-- 🔍 **智能项目发现** - 自动解析 Claude Code（`~/.claude.json`）和 Gemini CLI（`~/.gemini/projects.json`）的项目注册信息；扫描所有项目中的 AI 工具目录和配置文件
-- 🔀 **跨工具项目** - 在多个 AI 工具中注册的项目会自动按路径合并和去重
-- 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
-- ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
-- 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
+- 🎯 **一屏览尽，告别翻找** - 所有 AI 工具的项目和配置，统一呈现在一个侧边栏中
+- 🔗 **跨环境无缝访问** - Windows 用户：直接访问和编辑本机与 WSL 环境的配置
+- ⚡ **快捷操作菜单** - 通过右键菜单自由编辑、复制，或者直接进入对应项目
 
 ## 📸 界面预览
 
