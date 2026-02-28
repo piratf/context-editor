@@ -78,6 +78,16 @@ export interface ILoggerService {
    * Log exit from a method
    */
   logExit(methodName: string, result?: Record<string, unknown>): void;
+
+  /**
+   * Set the minimum log level
+   */
+  setLevel(level: LogLevel): void;
+
+  /**
+   * Get the current minimum log level
+   */
+  getLevel(): LogLevel;
 }
 
 /**

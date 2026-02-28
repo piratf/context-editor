@@ -103,6 +103,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     unifiedProvider?.refresh();
   });
 
+  // Listen to configuration changes for dynamic log level updates
+  const configChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration("contextEditor.logLevel")) {
+      const config = vscode.workspace.getConfiguration("contextEditor");
+      const logLevelStr = config.get<string>("logLevel", "INFO");
+      const newLogLevel = parseLogLevel(logLevelStr);
+
+      // Update the global logger
+      logger.setLevel(newLogLevel);
+
+      // Update the container's LoggerService
+      const loggerService = container.get(ServiceTokens.LoggerService);
+      loggerService.setLevel(newLogLevel);
+
+      logger.info(`Log level changed to: ${logLevelStr}`);
+    }
+  });
+  context.subscriptions.push(configChangeListener);
+
   logger.logExit("activate");
 }
 

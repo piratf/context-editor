@@ -81,6 +81,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   private readonly PROJECT_AI_TOOL_FILES = [
     // Claude Code
     "CLAUDE.md",
+    ".claude.md",
     ".mcp.json",
     ".claude.json",
     ".claudeignore",

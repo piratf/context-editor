@@ -49,7 +49,9 @@ export class GeminiConfig {
       return { projects: {} };
     }
     try {
-      return JSON.parse(content) as GeminiProjectsConfig;
+      const parsed = JSON.parse(content) as Partial<GeminiProjectsConfig>;
+      // Ensure projects key exists, default to empty object if missing
+      return { projects: parsed.projects ?? {} };
     } catch {
       return { projects: {} };
     }

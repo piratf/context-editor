@@ -14,9 +14,34 @@
 import * as path from "node:path";
 import type { NodeData, DirectoryData, ProjectData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
-import type { SyncFileFilter } from "../types/fileFilter.js";
-import { ClaudeCodeFileFilter } from "../types/fileFilter.js";
+import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
+import { ClaudeCodeFileFilter, AllowAllFilter, isInsideDirectory } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
+
+/**
+ * AI tool directories that should allow all files when expanded
+ * Non-Claude directories need AllowAllFilter since their contents
+ * are not Claude-specific
+ */
+const AI_TOOL_DIRS = [
+  // Mainstream AI tool directories (non-Claude)
+  ".gemini",
+  ".cursor",
+  ".aider",
+  ".roo",
+  ".cline",
+  ".trae",
+  ".codeium",
+  ".github",
+  ".openai",
+  ".codex",
+  ".windsurf",
+  // Universal standard and protocol directories
+  ".agents",
+  ".mcp",
+  ".skills",
+  ".well-known",
+] as const;
 
 /**
  * File system entry information
@@ -106,10 +131,16 @@ export const EMPTY_CHILDREN_RESULT: GetChildrenResult = { success: true, childre
  * - Filtering entries based on configured filters
  * - Creating child node data objects
  * - Error handling for file system operations
+ *
+ * Filtering behavior:
+ * - Inside .claude directory: Allow all (Claude-specific files)
+ * - Inside other AI tool directories (.gemini, .cursor, etc.): Allow all
+ * - In project root: Use configured filter (ProjectClaudeFileFilter by default)
  */
 export class NodeService {
   private readonly filter: SyncFileFilter;
   private readonly rootNodeService: RootNodeService;
+  private readonly allowAllFilter: AllowAllFilter;
 
   constructor(
     private readonly fileSystem: FileSystem,
@@ -127,6 +158,29 @@ export class NodeService {
     }
 
     this.rootNodeService = nodeService;
+    this.allowAllFilter = new AllowAllFilter();
+  }
+
+  /**
+   * Determine the appropriate filter for a given directory path
+   * @param dirPath - Directory path to get filter for
+   * @returns Appropriate filter for the directory context
+   */
+  private getFilterForDirectory(dirPath: string): SyncFileFilter {
+    // Check if we're inside an AI tool directory
+    for (const aiToolDir of AI_TOOL_DIRS) {
+      if (isInsideDirectory(dirPath, aiToolDir, this.fileSystem.pathSep)) {
+        return this.allowAllFilter;
+      }
+    }
+
+    // Check if we're inside .claude directory
+    if (isInsideDirectory(dirPath, ".claude", this.fileSystem.pathSep)) {
+      return this.allowAllFilter;
+    }
+
+    // Use the default filter for project root
+    return this.filter;
   }
 
   /**
@@ -148,17 +202,35 @@ export class NodeService {
     }
 
     try {
+      // Get the appropriate filter for this directory
+      const filter = this.getFilterForDirectory(node.path);
+
       // Read directory entries
       const entries = await this.fileSystem.readDirectory(node.path);
 
       // Sort: directories first, then files, both alphabetically
       const sortedEntries = this.sortEntries(entries);
 
-      // Create child nodes
+      // Create child nodes with filtering
       const children: NodeData[] = [];
       for (const entry of sortedEntries) {
-        const childNode = this.createChildNode(entry, node.path);
-        children.push(childNode);
+        // Create filter context and evaluate
+        const fullPath = path.join(node.path, entry.name);
+        const filterContext: FilterContext = {
+          path: fullPath,
+          parentPath: node.path,
+          name: entry.name,
+          isDirectory: entry.isDirectory,
+          pathSep: this.fileSystem.pathSep,
+        };
+
+        const result = filter.evaluate(filterContext);
+
+        // Only include entries that pass the filter
+        if (result.include) {
+          const childNode = this.createChildNode(entry, node.path);
+          children.push(childNode);
+        }
       }
 
       // Show empty message if no children
