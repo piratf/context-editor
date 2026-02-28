@@ -19,17 +19,18 @@
 <h2 id="english">English</h2>
 
 <p align="center">
-  <strong>A visual configuration manager designed for Claude Code</strong>
+  <strong>A visual configuration manager for *many* AI coding assistants</strong>
 </p>
 
 <p align="center">
-  Manage your CLAUDE.md instruction trees, MCP server configurations, and global project settings in a unified VS Code sidebar
+  Manage your AI tool configurations (Claude, Gemini, Cursor, Aider) in a unified VS Code sidebar
 </p>
 
 ## ✨ Key Features
 
-- 🌳 **Unified Configuration Management** - Manage your user scope (`~/.claude`) and all project Claude configurations in one single interface
-- 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json`
+- 🌳 **Unified Configuration Management** - Manage configurations for multiple AI tools (Claude, Gemini, Cursor, Aider) in one interface
+- 🔍 **Auto Discovery** - Automatically parses project configurations from `~/.claude.json` and `~/.gemini/projects.json`
+- 🔀 **Cross-Tool Projects** - Projects registered in multiple AI tools are automatically merged and deduplicated
 - 🖥️ **Multi-Platform Support** - Works on Windows, WSL, macOS, and Linux. Windows users can seamlessly access both native and WSL environment configurations
 - ⚡ **Quick Actions** - Right-click menu for copy, delete, create file/folder, and open in new window
 - 🎨 **Native Experience** - Seamlessly integrates with VS Code's native interface
@@ -38,13 +39,13 @@
 
 ### Unified Configuration Management
 
-The extension provides a unified sidebar to manage all your Claude configurations:
+The extension provides a unified sidebar to manage all your AI tool configurations:
 
 > **Global Configuration**
-> Displays `~/.claude.json` file and `~/.claude/` directory tree structure
+> Displays global configuration directories (`~/.claude/`, `~/.gemini/`) and their file structures
 
 > **Projects**
-> Shows all registered Claude Code projects and their Claude configuration files
+> Shows all registered projects from Claude (`~/.claude.json`) and Gemini (`~/.gemini/projects.json`), merged and deduplicated by path. Displays AI tool configuration files (`.claude/`, `.gemini/`, `CLAUDE.md`, `GEMINI.md`, etc.) for each project.
 
 The view title dynamically shows the current environment (e.g., "⚡ Windows", "⚡ WSL (Ubuntu)") and provides a toolbar button for quick environment switching.
 
@@ -69,16 +70,20 @@ Context Editor: ⚡ Windows
 ├── > Global Configuration
 │   ├── ~/.claude.json
 │   └── > ~/.claude
-│       ├── settings.json
-│       └── skills/
+│   │   ├── settings.json
+│   │   └── skills/
+│   └── > ~/.gemini
+│       └── config.json
 └── > Projects
     ├── project-alpha
     │   └── > .claude
     │       └── settings.json
     ├── project-beta
     │   ├── CLAUDE.md
-    │   └── > .claude
-    │       └── context.json
+    │   ├── > .claude
+    │   │   └── context.json
+    │   └── > .gemini
+    │       └── config.json
     └── project-gamma
         └── CLAUDE.md
 ```
@@ -221,17 +226,18 @@ This project is licensed under [MPL-2.0](LICENSE).
 <h2 id="简体中文">简体中文</h2>
 
 <p align="center">
-  <strong>专为 Claude Code 打造的可视化配置管理器</strong>
+  <strong>面向多种 AI 编码助手的可视化配置管理器</strong>
 </p>
 
 <p align="center">
-  在统一的 VS Code 侧边栏中管理你的 CLAUDE.md 指令树、MCP 服务器配置和全局项目设置
+  在统一的 VS Code 侧边栏中管理你的 AI 工具配置（Claude、Gemini、Cursor、Aider）
 </p>
 
 ## ✨ 核心特性
 
-- 🌳 **统一配置管理** - 在一个界面中直接管理 user scope（`~/.claude`）和所有项目的 Claude 配置
-- 🔍 **自动发现** - 自动解析 `~/.claude.json` 中的项目配置
+- 🌳 **统一配置管理** - 在一个界面中管理多种 AI 工具的配置（Claude、Gemini、Cursor、Aider）
+- 🔍 **自动发现** - 自动解析 `~/.claude.json` 和 `~/.gemini/projects.json` 中的项目配置
+- 🔀 **跨工具项目** - 在多个 AI 工具中注册的项目会自动合并和去重
 - 🖥️ **多平台支持** - 支持 Windows、WSL、macOS、Linux。Windows 用户可无缝访问本机和 WSL 环境配置
 - ⚡ **快捷操作** - 右键菜单支持复制、删除、创建文件/文件夹、在新窗口中打开
 - 🎨 **原生体验** - 完美集成 VS Code 原生界面风格
@@ -240,13 +246,13 @@ This project is licensed under [MPL-2.0](LICENSE).
 
 ### 统一配置管理
 
-扩展提供统一的侧边栏，管理所有 Claude 配置：
+扩展提供统一的侧边栏，管理所有 AI 工具配置：
 
 > **Global Configuration（全局配置）**
-> 显示 `~/.claude.json` 文件和 `~/.claude/` 目录树结构
+> 显示全局配置目录（`~/.claude/`、`~/.gemini/`）及其文件结构
 
 > **Projects（项目列表）**
-> 展示所有已注册的 Claude Code 项目及其 Claude 配置文件
+> 展示从 Claude（`~/.claude.json`）和 Gemini（`~/.gemini/projects.json`）注册的所有项目，按路径合并去重。显示每个项目的 AI 工具配置文件（`.claude/`、`.gemini/`、`CLAUDE.md`、`GEMINI.md` 等）。
 
 视图标题动态显示当前环境（如 "⚡ Windows"、"⚡ WSL (Ubuntu)"），并提供工具栏按钮用于快速切换环境。
 
@@ -271,16 +277,20 @@ Context Editor: ⚡ Windows
 ├── > Global Configuration
 │   ├── ~/.claude.json
 │   └── > ~/.claude
-│       ├── settings.json
-│       └── skills/
+│   │   ├── settings.json
+│   │   └── skills/
+│   └── > ~/.gemini
+│       └── config.json
 └── > Projects
     ├── project-alpha
     │   └── > .claude
     │       └── settings.json
     ├── project-beta
     │   ├── CLAUDE.md
-    │   └── > .claude
-    │       └── context.json
+    │   ├── > .claude
+    │   │   └── context.json
+    │   └── > .gemini
+    │       └── config.json
     └── project-gamma
         └── CLAUDE.md
 ```
