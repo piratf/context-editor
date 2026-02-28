@@ -282,7 +282,12 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   private async getGeminiProjects(facade: IDataFacade): Promise<readonly IProjectEntry[]> {
     const homePath = facade.getHomePath();
     const geminiConfig = new GeminiConfig(homePath);
-    return await geminiConfig.getProjects();
+    const rawProjects = await geminiConfig.getProjects();
+    // Convert paths to current environment format
+    return rawProjects.map((project) => ({
+      ...project,
+      path: facade.convertPath(project.path),
+    }));
   }
 
   /**
@@ -374,35 +379,35 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   async getProjectChildren(projectPath: string): Promise<GetChildrenResult> {
     this.logger.debug(`getProjectChildren called, projectPath: ${projectPath}`);
 
-    const children: NodeData[] = [];
-
-    // Process directories
-    for (const dir of this.PROJECT_AI_TOOL_DIRS) {
+    // Process directories concurrently
+    const dirPromises = this.PROJECT_AI_TOOL_DIRS.map(async (dir) => {
       const fullPath = path.join(projectPath, dir);
       if (await this.directoryExists(fullPath)) {
-        children.push(
-          NodeDataFactory.createDirectory(dir, fullPath, {
-            collapsibleState: 1,
-            tooltip: fullPath,
-          })
-        );
+        return NodeDataFactory.createDirectory(dir, fullPath, {
+          collapsibleState: 1,
+          tooltip: fullPath,
+        });
       }
-    }
+      return null;
+    });
 
-    // Process files
-    for (const file of this.PROJECT_AI_TOOL_FILES) {
+    // Process files concurrently
+    const filePromises = this.PROJECT_AI_TOOL_FILES.map(async (file) => {
       const fullPath = path.join(projectPath, file);
       if (await this.fileExists(fullPath)) {
-        // Determine icon based on file type
-        const iconId = this.getFileIcon(file);
-        children.push(
-          NodeDataFactory.createFile(file, fullPath, {
-            tooltip: fullPath,
-            iconId,
-          })
-        );
+        return NodeDataFactory.createFile(file, fullPath, {
+          tooltip: fullPath,
+          iconId: this.getFileIcon(file),
+        });
       }
-    }
+      return null;
+    });
+
+    // Collect all results
+    const results = await Promise.all([...dirPromises, ...filePromises]);
+    const children: NodeData[] = results.filter(
+      (node): node is NonNullable<typeof node> => node !== null
+    );
 
     // If nothing found, show info message
     if (children.length === 0) {

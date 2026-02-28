@@ -166,6 +166,14 @@ export interface ClaudeDataFacade extends IDataFacade {
    * @returns Home directory path for this environment
    */
   getHomePath(): string;
+
+  /**
+   * Convert a path from the facade's environment to the current environment
+   * Used for cross-environment path translation (e.g., WSL paths to Windows)
+   * @param path - Path in the facade's environment format
+   * @returns Converted path for the current environment, or original if no conversion needed
+   */
+  convertPath(path: string): string;
 }
 
 /**
@@ -215,6 +223,14 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    * Must be implemented by subclasses to handle environment-specific access.
    */
   protected abstract readConfigFile(): Promise<ConfigReadResult>;
+
+  /**
+   * Convert a path from the facade's environment to the current environment
+   * Must be implemented by subclasses to handle environment-specific path conversion.
+   * @param path - Path in the facade's environment format
+   * @returns Converted path for the current environment, or original if no conversion needed
+   */
+  abstract convertPath(path: string): string;
 
   /**
    * Get list of projects from .claude.json
@@ -427,8 +443,8 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
         return configObj.label;
       }
     }
-    // Extract from path (last directory name)
-    const parts = path.split(/[/\\]/);
+    // Extract from path (last directory name), filtering empty parts
+    const parts = path.split(/[/\\]/).filter((p) => p.length > 0);
     return parts[parts.length - 1] ?? path;
   }
 

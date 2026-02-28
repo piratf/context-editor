@@ -285,14 +285,14 @@ export class NodeService {
    * @returns Array of child node data, or error node if failed
    */
   async getChildrenByNodeType(node: NodeData): Promise<GetChildrenResult> {
+    // PROJECT - has children (must check before DIRECTORY since isDirectoryData returns true for PROJECT)
+    if (NodeTypeGuard.isProject(node)) {
+      return await this.getChildrenForProjectNode(node);
+    }
+
     // DIRECTORY - has children
     if (NodeTypeGuard.isDirectoryData(node)) {
       return await this.getChildrenForDirectoryNode(node);
-    }
-
-    // PROJECT - has children
-    if (NodeTypeGuard.isProject(node)) {
-      return await this.getChildrenForProjectNode(node);
     }
 
     // USER_ROOT and PROJECTS_ROOT - have children

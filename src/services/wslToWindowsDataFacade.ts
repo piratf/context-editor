@@ -118,6 +118,17 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
   }
 
   /**
+   * Convert a path from the facade's environment to the current environment
+   * Reuses the existing Windows to WSL conversion logic.
+   * @param path - Path in the facade's environment format
+   * @returns Converted path for the current environment
+   */
+  convertPath(path: string): string {
+    // Reuse existing Windows → WSL conversion logic
+    return this.convertWindowsPathToWsl(path);
+  }
+
+  /**
    * Parse the configuration file content
    */
   protected parseConfig(content: string): ClaudeGlobalConfig {

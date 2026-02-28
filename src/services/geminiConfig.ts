@@ -6,6 +6,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import path from "node:path";
 import type { IProjectEntry } from "../types/environment.js";
 
 /**
@@ -80,11 +81,11 @@ export class GeminiConfig {
   }
 
   /**
-   * Join path parts using forward slashes
+   * Join path parts using platform-appropriate separator
    * @param parts - Path parts to join
    * @returns Joined path
    */
   private joinPath(...parts: string[]): string {
-    return parts.join("/");
+    return path.join(...parts);
   }
 }

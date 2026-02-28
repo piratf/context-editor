@@ -68,4 +68,12 @@ export interface IDataFacade {
    * @returns Home directory path for this environment
    */
   getHomePath(): string;
+
+  /**
+   * Convert a path from the facade's environment to the current environment
+   * Used for cross-environment path translation (e.g., WSL paths to Windows)
+   * @param path - Path in the facade's environment format
+   * @returns Converted path for the current environment, or original if no conversion needed
+   */
+  convertPath(path: string): string;
 }

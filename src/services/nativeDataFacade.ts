@@ -133,6 +133,17 @@ export class NativeDataFacade extends BaseDataFacade {
   getHomePath(): string {
     return this.environment.homeDir;
   }
+
+  /**
+   * Convert a path from the facade's environment to the current environment
+   * Native environment - no conversion needed.
+   * @param path - Path in the facade's environment format
+   * @returns Original path (no conversion needed for native environment)
+   */
+  convertPath(path: string): string {
+    // Native environment - no conversion needed
+    return path;
+  }
 }
 
 /**
