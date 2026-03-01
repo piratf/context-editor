@@ -1,33 +1,26 @@
 /**
- * NativeDataFacade - Access current environment's configuration
+ * NativeDataFacade - Access current environment's paths
  *
- * This facade accesses the .claude.json file in the current running environment.
+ * This facade provides access to the current environment's paths.
  * No path conversion is needed since we're accessing the local filesystem directly.
  *
  * Platform support:
- * - Windows: C:\Users\<name>\.claude.json
- * - macOS: /Users/<name>/.claude.json
- * - Linux: /home/<name>/.claude.json
- * - WSL: /home/<name>/.claude.json
+ * - Windows: C:\Users\<name>\
+ * - macOS: /Users/<name>/
+ * - Linux: /home/<name>/
+ * - WSL: /home/<name>/
  *
- * Key features:
- * - Uses Environment layer for platform-agnostic path operations
- * - Supports all platforms through unified interface
- * - Implements caching for performance
- * - Handles file system errors gracefully
+ * Note: Configuration reading is now handled by separate AI config services:
+ * - Use ClaudeConfig to read ~/.claude.json
+ * - Use GeminiConfig to read ~/.gemini/projects.json
+ * - Future: CursorConfig, AiderConfig, etc.
  */
 
-import * as fs from "node:fs/promises";
+import { BaseDataFacade, type EnvironmentInfo } from "./dataFacade.js";
 import { Environment, getEnvironment } from "./environment.js";
-import {
-  BaseDataFacade,
-  type ClaudeGlobalConfig,
-  type ConfigReadResult,
-  type EnvironmentInfo,
-} from "./dataFacade.js";
 
 /**
- * Data facade for accessing the current (native) environment's configuration
+ * Data facade for accessing the current (native) environment's paths
  */
 export class NativeDataFacade extends BaseDataFacade {
   private readonly environment: Environment;
@@ -36,7 +29,6 @@ export class NativeDataFacade extends BaseDataFacade {
     const env = getEnvironment();
     const info: EnvironmentInfo = {
       type: env.type,
-      configPath: env.getConfigPath(),
       homePath: env.homeDir,
     };
     super(info);
@@ -44,53 +36,11 @@ export class NativeDataFacade extends BaseDataFacade {
   }
 
   /**
-   * Check if the configuration file is accessible
+   * Check if the environment is accessible
    */
   isAccessible(): boolean {
-    // We check accessibility by trying to access the config path
-    // Since we can't do async operations here, we return true and
-    // handle actual errors during file reading
+    // We check accessibility by verifying the home directory exists
     return this.environment.homeDir.length > 0;
-  }
-
-  /**
-   * Read the configuration file from the local filesystem
-   */
-  protected async readConfigFile(): Promise<ConfigReadResult> {
-    try {
-      const configPath = this.getConfigPath();
-      const content = await fs.readFile(configPath, "utf-8");
-      const config = this.parseConfig(content);
-      const projects = this.normalizeProjects(config.projects);
-
-      return { config, projects };
-    } catch (error) {
-      // Handle file not found or parse errors
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        // Config file doesn't exist, return empty config
-        return { config: {}, projects: [] };
-      }
-      // For other errors, also return empty config
-      return { config: {}, projects: [] };
-    }
-  }
-
-  /**
-   * Parse the configuration file content
-   * @param content - JSON content from .claude.json
-   * @returns Parsed configuration object
-   */
-  private parseConfig(content: string): ClaudeGlobalConfig {
-    if (!content || content.trim().length === 0) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(content) as ClaudeGlobalConfig;
-    } catch {
-      // Invalid JSON, return empty config
-      return {};
-    }
   }
 
   /**

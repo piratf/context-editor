@@ -23,14 +23,14 @@ import { getEnvironment } from "./environment.js";
 import { NativeDataFacade } from "./nativeDataFacade.js";
 import { WindowsToWslDataFacadeFactory } from "./windowsToWslDataFacade.js";
 import { WslToWindowsDataFacadeFactory } from "./wslToWindowsDataFacade.js";
-import type { ClaudeDataFacade } from "./dataFacade.js";
+import type { IDataFacade } from "./dataFacade.js";
 
 /**
  * Data facade with metadata
  */
 export interface FacadeWithInfo {
   /** The data facade instance */
-  facade: ClaudeDataFacade;
+  facade: IDataFacade;
   /** Whether the facade is accessible */
   accessible: boolean;
   /** Timestamp when the facade was created */
@@ -44,7 +44,7 @@ export interface FacadeWithInfo {
 export class ConfigSearch extends EventEmitter {
   private facades: Map<string, FacadeWithInfo> = new Map();
   private environment: ReturnType<typeof getEnvironment>;
-  private discoverPromise: Promise<ClaudeDataFacade[]> | null = null;
+  private discoverPromise: Promise<IDataFacade[]> | null = null;
 
   constructor() {
     super();
@@ -56,7 +56,7 @@ export class ConfigSearch extends EventEmitter {
    * This method caches the result and returns the cached list on subsequent calls.
    * @returns Promise resolving to array of accessible data facades
    */
-  async discoverAll(): Promise<ClaudeDataFacade[]> {
+  async discoverAll(): Promise<IDataFacade[]> {
     // Return cached result if available
     if (this.discoverPromise) {
       return this.discoverPromise;
@@ -76,7 +76,7 @@ export class ConfigSearch extends EventEmitter {
    * Clears cache and re-discovers all environments
    * @returns Promise resolving to array of accessible data facades
    */
-  async refresh(): Promise<ClaudeDataFacade[]> {
+  async refresh(): Promise<IDataFacade[]> {
     // Clear cache
     this.discoverPromise = null;
 
@@ -90,7 +90,7 @@ export class ConfigSearch extends EventEmitter {
    * Get all currently discovered facades
    * @returns Array of facade instances
    */
-  getAllFacades(): ClaudeDataFacade[] {
+  getAllFacades(): IDataFacade[] {
     return Array.from(this.facades.values()).map((f) => f.facade);
   }
 
@@ -98,7 +98,7 @@ export class ConfigSearch extends EventEmitter {
    * Get accessible facades only
    * @returns Array of accessible facade instances
    */
-  getAccessibleFacades(): ClaudeDataFacade[] {
+  getAccessibleFacades(): IDataFacade[] {
     return Array.from(this.facades.values())
       .filter((f) => f.accessible)
       .map((f) => f.facade);
@@ -109,7 +109,7 @@ export class ConfigSearch extends EventEmitter {
    * @param id - Facade identifier (format: "native", "wsl:<distro>", "windows")
    * @returns Facade instance or undefined
    */
-  getFacadeById(id: string): ClaudeDataFacade | undefined {
+  getFacadeById(id: string): IDataFacade | undefined {
     const info = this.facades.get(id);
     return info?.facade;
   }
@@ -117,8 +117,8 @@ export class ConfigSearch extends EventEmitter {
   /**
    * Perform the actual environment discovery
    */
-  private async performDiscovery(): Promise<ClaudeDataFacade[]> {
-    const facades: ClaudeDataFacade[] = [];
+  private async performDiscovery(): Promise<IDataFacade[]> {
+    const facades: IDataFacade[] = [];
 
     // Always create native facade for current environment
     const nativeFacade = this.createNativeFacade();
@@ -149,7 +149,7 @@ export class ConfigSearch extends EventEmitter {
   /**
    * Create native facade for current environment
    */
-  private createNativeFacade(): ClaudeDataFacade {
+  private createNativeFacade(): IDataFacade {
     return new NativeDataFacade();
   }
 
@@ -157,8 +157,8 @@ export class ConfigSearch extends EventEmitter {
    * Discover WSL instances from Windows
    * Tries \\wsl.localhost first, falls back to \\wsl$
    */
-  private async discoverWslFromWindows(): Promise<ClaudeDataFacade[]> {
-    const facades: ClaudeDataFacade[] = [];
+  private async discoverWslFromWindows(): Promise<IDataFacade[]> {
+    const facades: IDataFacade[] = [];
 
     // Use WindowsToWslDataFacadeFactory to discover accessible WSL instances
     const discoveredFacades = await WindowsToWslDataFacadeFactory.createAll();
@@ -184,7 +184,7 @@ export class ConfigSearch extends EventEmitter {
   /**
    * Discover Windows configuration from WSL
    */
-  private discoverWindowsFromWsl(): ClaudeDataFacade | null {
+  private discoverWindowsFromWsl(): IDataFacade | null {
     // Use WslToWindowsDataFacadeFactory to auto-detect Windows
     const facade = WslToWindowsDataFacadeFactory.createAuto();
 
@@ -215,10 +215,7 @@ export class ConfigSearch extends EventEmitter {
    * Event: dataFacadesChanged
    * Emitted when the list of discovered facades changes
    */
-  override on(
-    eventName: "dataFacadesChanged",
-    listener: (facades: ClaudeDataFacade[]) => void
-  ): this {
+  override on(eventName: "dataFacadesChanged", listener: (facades: IDataFacade[]) => void): this {
     return super.on(eventName, listener);
   }
 
@@ -226,10 +223,7 @@ export class ConfigSearch extends EventEmitter {
    * Event: dataFacadesChanged
    * Emitted when the list of discovered facades changes
    */
-  override once(
-    eventName: "dataFacadesChanged",
-    listener: (facades: ClaudeDataFacade[]) => void
-  ): this {
+  override once(eventName: "dataFacadesChanged", listener: (facades: IDataFacade[]) => void): this {
     return super.once(eventName, listener);
   }
 
@@ -267,4 +261,4 @@ export const ConfigSearchFactory = {
 /**
  * Type definition for data facades changed event
  */
-export type DataFacadesChangedListener = (facades: ClaudeDataFacade[]) => void;
+export type DataFacadesChangedListener = (facades: IDataFacade[]) => void;

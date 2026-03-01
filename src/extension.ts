@@ -63,7 +63,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   for (const facade of facades) {
     const info = facade.getEnvironmentInfo();
-    logger.debug(`Environment: ${info.type}`, { configPath: info.configPath });
+    logger.debug(`Environment: ${info.type}`, { homePath: info.homePath });
   }
 
   // Initialize user interaction adapter

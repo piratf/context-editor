@@ -1,31 +1,26 @@
 /**
- * WslToWindowsDataFacade - Access Windows configuration from WSL
+ * WslToWindowsDataFacade - Access Windows paths from WSL
  *
- * This facade allows WSL environment to access Windows's configuration.
+ * This facade allows WSL environment to access Windows's paths.
  *
  * Key features:
  * - Uses /mnt/c/ paths to access Windows filesystem from WSL
- * - Reads Windows's .claude.json file
- * - Converts Windows project paths to WSL-accessible /mnt/ paths
+ * - Converts Windows paths to WSL-accessible /mnt/ paths
  * - Handles path conversion automatically
  *
  * Path conversion:
- * - Windows config path: C:\Users\user\.claude.json → /mnt/c/Users/user/.claude.json
- * - Windows project path: C:\Users\user\project → /mnt/c/Users/user/project
+ * - Windows path: C:\Users\user\project → /mnt/c/Users/user/project
+ *
+ * Note: Configuration reading is now handled by separate AI config services:
+ * - Use ClaudeConfig to read ~/.claude.json
+ * - Use GeminiConfig to read ~/.gemini/projects.json
  */
 
-import * as fs from "node:fs/promises";
-import {
-  BaseDataFacade,
-  type ClaudeGlobalConfig,
-  type ConfigReadResult,
-  type EnvironmentInfo,
-  EnvironmentType,
-} from "./dataFacade.js";
+import { BaseDataFacade, type EnvironmentInfo, EnvironmentType } from "./dataFacade.js";
 import { PathConverterFactory } from "./pathConverter.js";
 
 /**
- * Data facade for accessing Windows configuration from WSL
+ * Data facade for accessing Windows paths from WSL
  */
 export class WslToWindowsDataFacade extends BaseDataFacade {
   private readonly pathConverter: ReturnType<
@@ -35,16 +30,15 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
   constructor(windowsUsername?: string) {
     const pathConverter = PathConverterFactory.createWindowsToWslConverter();
 
-    // Build WSL path to Windows config
-    // Windows config is typically at C:\Users\<username>\.claude.json
-    // From WSL, this is accessible at /mnt/c/Users/<username>/.claude.json
+    // Build WSL path to Windows user directory
+    // Windows user directory is typically at C:\Users\<username>\
+    // From WSL, this is accessible at /mnt/c/Users/<username>/
     const username = windowsUsername ?? "windows-user"; // Default fallback
-    const wslConfigPath = `/mnt/c/Users/${username}/.claude.json`;
+    const wslHomePath = `/mnt/c/Users/${username}`;
 
     const info: EnvironmentInfo = {
       type: EnvironmentType.Windows,
-      configPath: wslConfigPath,
-      homePath: `/mnt/c/Users/${username}`,
+      homePath: wslHomePath,
     };
 
     super(info);
@@ -58,43 +52,6 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
     // We can't do async checks here, so return true
     // Actual accessibility will be checked during file operations
     return true;
-  }
-
-  /**
-   * Read the configuration file from Windows via /mnt/ path
-   */
-  protected async readConfigFile(): Promise<ConfigReadResult> {
-    try {
-      const configPath = this.getConfigPath();
-      const content = await fs.readFile(configPath, "utf-8");
-      const config = this.parseConfig(content);
-
-      // Convert Windows project paths to WSL /mnt/ paths
-      const projects = this.normalizeProjects(config.projects);
-
-      return { config, projects };
-    } catch (error) {
-      // Handle Windows not accessible, config not found, etc.
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        // Config file doesn't exist or Windows not accessible
-        return { config: {}, projects: [] };
-      }
-      // For other errors, return empty config
-      return { config: {}, projects: [] };
-    }
-  }
-
-  /**
-   * Normalize project entries and convert Windows paths to WSL /mnt/ paths
-   */
-  protected normalizeProjects(projects: unknown): import("./dataFacade.js").ProjectEntry[] {
-    const baseProjects = super.normalizeProjects(projects);
-
-    // Convert each Windows path to WSL /mnt/ path
-    return baseProjects.map((entry) => ({
-      ...entry,
-      path: this.convertWindowsPathToWsl(entry.path),
-    }));
   }
 
   /**
@@ -129,27 +86,12 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
   }
 
   /**
-   * Parse the configuration file content
-   */
-  protected parseConfig(content: string): ClaudeGlobalConfig {
-    if (!content || content.trim().length === 0) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(content) as ClaudeGlobalConfig;
-    } catch {
-      return {};
-    }
-  }
-
-  /**
    * Get the Windows username this facade is configured for
    * @returns Windows username or "unknown" if not detectable
    */
   getWindowsUsername(): string {
-    // Extract from config path
-    const match = this.getConfigPath().match(/^\/mnt\/c\/Users\/([^/]+)\//);
+    // Extract from home path
+    const match = this.getHomePath().match(/^\/mnt\/c\/Users\/([^/]+)$/);
     return match?.[1] ?? "unknown";
   }
 
@@ -167,7 +109,7 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
  */
 export const WslToWindowsDataFacadeFactory = {
   /**
-   * Create a WslToWindowsDataFacade for accessing Windows config
+   * Create a WslToWindowsDataFacade for accessing Windows paths
    * @param windowsUsername - Windows username (e.g., "john"). If not provided, will try to detect.
    * @returns Configured WslToWindowsDataFacade
    */
@@ -178,7 +120,7 @@ export const WslToWindowsDataFacadeFactory = {
   /**
    * Create WslToWindowsDataFacade by auto-detecting Windows username
    * Tries common usernames and checks which one has a config file
-   * @returns Promise resolving to accessible facade or null
+   * @returns Configured facade or null
    */
   createAuto(): WslToWindowsDataFacade | null {
     // Try to detect Windows username by checking common locations

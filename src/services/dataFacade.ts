@@ -1,26 +1,31 @@
 /**
- * Data Facade layer - Abstract interface for accessing Claude configuration data.
+ * Data Facade layer - Abstract interface for accessing environment data.
  *
- * The data facade provides a unified interface for accessing .claude.json data
+ * The data facade provides a unified interface for accessing data
  * across different environments (Windows, WSL, macOS, Linux).
  *
  * Key responsibilities:
- * - Abstract data access for a single environment
+ * - Abstract environment access for a single environment
  * - Return paths converted to the current environment's usable format
  * - Provide environment information
  * - Handle path conversion internally (transparent to upper layers)
  *
  * Three implementations:
- * - NativeDataFacade: Access current environment's config (no path conversion)
- * - WindowsToWslDataFacade: Windows accessing WSL config (converts WSL paths to Windows UNC)
- * - WslToWindowsDataFacade: WSL accessing Windows config (converts Windows paths to WSL /mnt/)
+ * - NativeDataFacade: Access current environment's paths (no path conversion)
+ * - WindowsToWslDataFacade: Windows accessing WSL paths (converts WSL paths to Windows UNC)
+ * - WslToWindowsDataFacade: WSL accessing Windows paths (converts Windows paths to WSL /mnt/)
+ *
+ * Note: Configuration reading is now handled by separate AI config services:
+ * - ClaudeConfig: Reads ~/.claude.json
+ * - GeminiConfig: Reads ~/.gemini/projects.json
+ * - Future: CursorConfig, AiderConfig, etc.
  */
 
 import { EnvironmentType } from "./environment.js";
-import { IDataFacade, IEnvironmentInfo, IProjectEntry } from "../types/environment";
+import { IDataFacade, IEnvironmentInfo } from "../types/environment.js";
 
-// Re-export EnvironmentType for convenience
-export { EnvironmentType };
+// Re-export EnvironmentType and IDataFacade for convenience
+export { EnvironmentType, IDataFacade };
 
 /**
  * Environment information for a data facade
@@ -28,8 +33,6 @@ export { EnvironmentType };
 export interface EnvironmentInfo extends IEnvironmentInfo {
   /** Environment type */
   type: EnvironmentType;
-  /** Full path to the .claude.json configuration file */
-  configPath: string;
   /** Home directory path for the environment */
   homePath: string;
   /** WSL instance name (only for WSL environments) */
@@ -37,132 +40,11 @@ export interface EnvironmentInfo extends IEnvironmentInfo {
 }
 
 /**
- * Project entry from .claude.json
- */
-export interface ProjectEntry extends IProjectEntry {
-  /** Absolute path to the project (converted to current environment format) */
-  path: string;
-  /** Display name for the project */
-  label: string;
-  /** Project-specific state (allowed tools, trust settings) */
-  state?: ProjectState;
-  /** Per-project MCP servers configuration */
-  mcpServers?: McpServers;
-}
-
-/**
- * Project state configuration
- */
-export interface ProjectState {
-  /** Allowed tools for this project */
-  allowedTools?: readonly string[];
-  /** Trust settings for this project */
-  trust?: unknown;
-}
-
-/**
- * MCP server configuration
- */
-export interface McpServer {
-  /** Environment variables for the MCP server */
-  env?: Record<string, string>;
-  /** Command to run the MCP server */
-  command?: string;
-  /** Arguments to pass to the MCP server command */
-  args?: readonly string[];
-  /** URL for stdio-based MCP server connection */
-  url?: string;
-}
-
-/**
- * MCP servers configuration
- */
-export type McpServers = Readonly<Record<string, McpServer>>;
-
-/**
- * Global configuration from .claude.json
- *
- * Note: The actual .claude.json contains many fields beyond those explicitly
- * defined here. The index signature allows access to all fields while providing
- * type safety for known important fields.
- */
-export interface ClaudeGlobalConfig {
-  /** User settings preferences */
-  settings?: Record<string, unknown>;
-  /** User-scoped MCP server configurations */
-  mcpServers?: McpServers;
-  /** Registered projects and their configurations */
-  projects?: Readonly<Record<string, unknown>> | readonly unknown[];
-  /** Index signature for all other fields */
-  [key: string]: unknown;
-}
-
-/**
- * Result of reading the configuration file
- */
-export interface ConfigReadResult {
-  /** Parsed configuration object */
-  config: ClaudeGlobalConfig;
-  /** Project entries with converted paths */
-  projects: readonly ProjectEntry[];
-}
-
-/**
- * Data facade interface for accessing Claude configuration
- *
- * This interface provides unified access to .claude.json data across
- * different environments. Implementations handle path conversion internally.
- */
-export interface ClaudeDataFacade extends IDataFacade {
-  /**
-   * Get environment information
-   * @returns Information about this facade's environment
-   */
-  getEnvironmentInfo(): EnvironmentInfo;
-
-  /**
-   * Get list of projects from .claude.json
-   * Paths are converted to the current environment's usable format.
-   * @returns Promise resolving to array of project entries
-   */
-  getProjects(): Promise<readonly ProjectEntry[]>;
-
-  /**
-   * Refresh the configuration cache
-   * Clears any cached data and forces a re-read of the configuration file.
-   */
-  refresh(): Promise<void>;
-
-  /**
-   * Get the configuration path
-   * @returns Full path to the .claude.json file
-   */
-  getConfigPath(): string;
-
-  /**
-   * Get the home directory path
-   * @returns Home directory path for this environment
-   */
-  getHomePath(): string;
-
-  /**
-   * Convert a path from the facade's environment to the current environment
-   * Used for cross-environment path translation (e.g., WSL paths to Windows)
-   * @param path - Path in the facade's environment format
-   * @returns Converted path for the current environment, or original if no conversion needed
-   */
-  convertPath(path: string): string;
-}
-
-/**
  * Base class for data facade implementations
  * Provides common functionality and helper methods.
  */
-export abstract class BaseDataFacade implements ClaudeDataFacade {
+export abstract class BaseDataFacade implements IDataFacade {
   protected readonly environmentInfo: EnvironmentInfo;
-  protected configCache: ConfigReadResult | null = null;
-  protected cacheTimestamp: number = 0;
-  protected readonly cacheTtl: number = 5000; // 5 seconds cache
 
   constructor(environmentInfo: EnvironmentInfo) {
     this.environmentInfo = environmentInfo;
@@ -176,24 +58,11 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   }
 
   /**
-   * Get the configuration path
-   */
-  getConfigPath(): string {
-    return this.environmentInfo.configPath;
-  }
-
-  /**
    * Get the home directory path
    */
   getHomePath(): string {
     return this.environmentInfo.homePath;
   }
-
-  /**
-   * Read the configuration file
-   * Must be implemented by subclasses to handle environment-specific access.
-   */
-  protected abstract readConfigFile(): Promise<ConfigReadResult>;
 
   /**
    * Convert a path from the facade's environment to the current environment
@@ -202,189 +71,6 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
    * @returns Converted path for the current environment, or original if no conversion needed
    */
   abstract convertPath(path: string): string;
-
-  /**
-   * Get list of projects from .claude.json
-   * Uses cache if available and not expired.
-   */
-  async getProjects(): Promise<readonly ProjectEntry[]> {
-    const result = await this.getCachedConfig();
-    return result.projects;
-  }
-
-  /**
-   * Refresh the configuration cache
-   */
-  async refresh(): Promise<void> {
-    this.configCache = null;
-    this.cacheTimestamp = 0;
-    await this.getCachedConfig(); // Force re-read
-  }
-
-  /**
-   * Get cached configuration or read if cache is expired
-   */
-  protected async getCachedConfig(): Promise<ConfigReadResult> {
-    const now = Date.now();
-
-    if (this.configCache && now - this.cacheTimestamp < this.cacheTtl) {
-      return this.configCache;
-    }
-
-    const result = await this.readConfigFile();
-    this.configCache = result;
-    this.cacheTimestamp = now;
-    return result;
-  }
-
-  /**
-   * Check if a path is accessible from Windows.
-   *
-   * Windows can ONLY access Windows-native paths:
-   * - Drive letters: C:\, D:\, etc.
-   * - UNC paths: \\server\share
-   *
-   * Windows CANNOT access:
-   * - /mnt/c/ - This is WSL's view of Windows drives, not a Windows path
-   * - /home/, /root/, /etc/ - WSL/Linux native paths
-   *
-   * The non-Windows paths appear in Windows .claude.json when Claude Desktop
-   * accesses WSL projects, but they cannot be accessed from Windows directly.
-   */
-  protected isWindowsAccessiblePath(path: string): boolean {
-    // Only Windows native paths are accessible from Windows
-    // Drive letter paths: C:\, D:\, etc.
-    if (/^[a-zA-Z]:\\/.test(path)) {
-      return true;
-    }
-
-    // UNC paths: \\server\share
-    if (/^\\\\/.test(path)) {
-      return true;
-    }
-
-    // Everything else (/mnt/c/, /home/, /root/, etc.) is not accessible from Windows
-    return false;
-  }
-
-  /**
-   * Determine if a project path should be included in the project list.
-   * Filters out paths that are not accessible from the current environment.
-   */
-  protected shouldIncludeProjectPath(path: string): boolean {
-    // On Windows, only include Windows-native paths
-    if (this.environmentInfo.type === EnvironmentType.Windows) {
-      return this.isWindowsAccessiblePath(path);
-    }
-    return true;
-  }
-
-  /**
-   * Normalize project entries to a consistent format
-   * Handles both array and record formats from .claude.json.
-   *
-   * The actual .claude.json format uses an object where:
-   * - Key: project path (e.g., "/home/cloud", "/mnt/c/Users/...")
-   * - Value: project configuration (allowedTools, mcpServers, state, etc.)
-   *
-   * For Windows environments, filters out WSL paths (/home/, /root/) since these
-   * cannot be accessed from Windows without knowing the WSL instance name.
-   */
-  protected normalizeProjects(projects: unknown): ProjectEntry[] {
-    if (projects === null || projects === undefined) {
-      return [];
-    }
-
-    if (Array.isArray(projects)) {
-      return projects
-        .filter(this.isValidProjectEntry.bind(this))
-        .filter((entry) => this.shouldIncludeProjectPath(entry.path))
-        .map((entry): ProjectEntry => {
-          const result: ProjectEntry = {
-            path: entry.path,
-            label: this.extractLabelFromPath(entry.path, entry.label),
-          };
-          if (entry.state !== undefined) result.state = entry.state;
-          if (entry.mcpServers !== undefined) result.mcpServers = entry.mcpServers;
-          return result;
-        });
-    }
-
-    if (typeof projects === "object") {
-      const result: ProjectEntry[] = [];
-      // Use Object.entries to get both path (key) and config (value)
-      for (const [projectPath, config] of Object.entries(projects as Record<string, unknown>)) {
-        // Filter out WSL paths on Windows
-        if (!this.shouldIncludeProjectPath(projectPath)) {
-          continue;
-        }
-        if (typeof config === "object" && config !== null) {
-          const entry: ProjectEntry = {
-            path: projectPath,
-            label: this.extractLabelFromPath(projectPath, config),
-          };
-
-          // Extract state from config if present
-          const configObj = config as Record<string, unknown>;
-          if ("allowedTools" in config || "hasTrustDialogAccepted" in config) {
-            const state: ProjectState = {};
-            if (Array.isArray(configObj.allowedTools)) {
-              state.allowedTools = configObj.allowedTools as readonly string[];
-            }
-            if (typeof configObj.hasTrustDialogAccepted === "boolean") {
-              state.trust = configObj.hasTrustDialogAccepted;
-            }
-            entry.state = state;
-          }
-
-          // Extract mcpServers from config if present
-          if (
-            "mcpServers" in config &&
-            typeof configObj.mcpServers === "object" &&
-            configObj.mcpServers !== null
-          ) {
-            entry.mcpServers = configObj.mcpServers as McpServers;
-          }
-
-          result.push(entry);
-        }
-      }
-      return result;
-    }
-
-    return [];
-  }
-
-  /**
-   * Extract label from path or config
-   * @param path - Project path
-   * @param config - Optional config object that may contain an explicit label
-   * @returns Label to use for display
-   */
-  protected extractLabelFromPath(path: string, config?: unknown): string {
-    // Check if config has an explicit label
-    if (config !== null && config !== undefined && typeof config === "object") {
-      const configObj = config as Record<string, unknown>;
-      if ("label" in configObj && typeof configObj.label === "string" && configObj.label) {
-        return configObj.label;
-      }
-    }
-    // Extract from path (last directory name), filtering empty parts
-    const parts = path.split(/[/\\]/).filter((p) => p.length > 0);
-    return parts[parts.length - 1] ?? path;
-  }
-
-  /**
-   * Validate if an object is a valid project entry
-   */
-  protected isValidProjectEntry(entry: unknown): entry is ProjectEntry {
-    return (
-      typeof entry === "object" &&
-      entry !== null &&
-      "path" in entry &&
-      typeof (entry as ProjectEntry).path === "string"
-    );
-  }
 }
 
 /**
@@ -396,7 +82,7 @@ export const DataFacadeFactory = {
    * @param environmentInfo - Environment information
    * @returns Configured data facade
    */
-  createNativeFacade(_environmentInfo: EnvironmentInfo): ClaudeDataFacade {
+  createNativeFacade(_environmentInfo: EnvironmentInfo): IDataFacade {
     // Import dynamically to avoid circular dependency
     // The actual implementation will be in nativeDataFacade.ts
     throw new Error("Not implemented yet - use NativeDataFacade class directly");

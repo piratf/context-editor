@@ -1,6 +1,6 @@
 /**
  * Unit tests for WslToWindowsDataFacade
- * Tests accessing Windows configuration from WSL
+ * Tests accessing Windows paths from WSL
  */
 
 /* eslint-disable @typescript-eslint/no-floating-promises */
@@ -14,24 +14,16 @@ import {
 import { EnvironmentType } from "../../services/dataFacade.js";
 
 /**
- * Test facade that exposes private methods for testing
+ * Test facade that exposes protected methods for testing
  */
 class TestableWslToWindowsDataFacade extends WslToWindowsDataFacade {
   convertWindowsPathToWslForTest(windowsPath: string): string {
     return this.convertWindowsPathToWsl(windowsPath);
   }
-
-  parseConfigForTest(content: string): Record<string, unknown> {
-    return this.parseConfig(content);
-  }
-
-  normalizeProjectsForTest(projects: unknown): ReturnType<typeof this.normalizeProjects> {
-    return this.normalizeProjects(projects);
-  }
 }
 
 describe("WslToWindowsDataFacade", () => {
-  describe("构造函数", () => {
+  describe("constructor", () => {
     it("should create facade with default username", () => {
       const facade = new WslToWindowsDataFacade();
       assert.ok(facade instanceof WslToWindowsDataFacade);
@@ -50,7 +42,7 @@ describe("WslToWindowsDataFacade", () => {
     });
   });
 
-  describe("路径转换", () => {
+  describe("path conversion", () => {
     it("should convert Windows paths to WSL /mnt/ paths", () => {
       const facade = new TestableWslToWindowsDataFacade("testuser");
       const windowsPath = "C:\\Users\\testuser\\project";
@@ -94,50 +86,12 @@ describe("WslToWindowsDataFacade", () => {
     });
   });
 
-  describe("parseConfig()私有方法", () => {
-    it("should handle empty string", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const result = facade.parseConfigForTest("");
-      assert.deepStrictEqual(result, {});
-    });
-
-    it("should handle invalid JSON", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const result = facade.parseConfigForTest("{ invalid json }");
-      assert.deepStrictEqual(result, {});
-    });
-
-    it("should parse valid JSON", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const mockConfig = { settings: { theme: "dark" } };
-      const result = facade.parseConfigForTest(JSON.stringify(mockConfig));
-      const settings = result.settings as Record<string, unknown> | undefined;
-      assert.strictEqual(settings?.theme, "dark");
-    });
-  });
-
-  describe("normalizeProjects()覆盖方法", () => {
-    it("should convert Windows project paths", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const projects = [{ path: "C:\\Users\\testuser\\project1" }, { path: "D:\\data\\project2" }];
-
-      const result = facade.normalizeProjectsForTest(projects);
-
-      assert.strictEqual(result.length, 2);
-      assert.ok(result[0]?.path.startsWith("/mnt/"));
-      assert.ok(result[1]?.path.includes("/mnt/d/"));
-    });
-
-    it("should handle empty projects", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const result = facade.normalizeProjectsForTest(null);
-      assert.deepStrictEqual(result, []);
-    });
-
-    it("should handle undefined projects", () => {
-      const facade = new TestableWslToWindowsDataFacade("testuser");
-      const result = facade.normalizeProjectsForTest(undefined);
-      assert.deepStrictEqual(result, []);
+  describe("convertPath()", () => {
+    it("should use convertWindowsPathToWsl implementation", () => {
+      const facade = new WslToWindowsDataFacade("testuser");
+      const windowsPath = "C:\\Users\\testuser\\test";
+      const converted = facade.convertPath(windowsPath);
+      assert.ok(converted.startsWith("/mnt/"));
     });
   });
 
@@ -177,7 +131,7 @@ describe("WslToWindowsDataFacade", () => {
     });
   });
 
-  describe("边界情况", () => {
+  describe("edge cases", () => {
     it("should preserve UNC paths (already in WSL format)", () => {
       const facade = new TestableWslToWindowsDataFacade("testuser");
       const uncPath = "\\\\wsl.localhost\\Ubuntu\\home\\user\\project";

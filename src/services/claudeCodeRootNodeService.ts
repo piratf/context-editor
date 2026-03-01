@@ -16,11 +16,11 @@ import * as path from "node:path";
 
 import type { ILoggerService } from "./loggerService.js";
 import type { IEnvironmentManagerService } from "./environmentManagerService.js";
-import type { IDataFacade, IProjectEntry } from "../types/environment.js";
+import type { IDataFacade } from "../types/environment.js";
 import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
 import { RootNodeService } from "./rootNodeService.js";
 import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
-import { GeminiConfig } from "./geminiConfig.js";
+import { AIConfigAggregator } from "./aiConfigAggregator.js";
 
 /**
  * Service for managing Claude Code root nodes
@@ -130,7 +130,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     }
 
     const info = facade.getEnvironmentInfo();
-    this.logger.debug("Current environment", { type: info.type, configPath: info.configPath });
+    this.logger.debug("Current environment", { type: info.type, homePath: info.homePath });
 
     return [this.createGlobalConfigNode(), this.createProjectsNode()];
   }
@@ -225,33 +225,14 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     const info = facade.getEnvironmentInfo();
     this.logger.debug("Current facade for projects", {
       type: info.type,
-      configPath: info.configPath,
+      homePath: info.homePath,
     });
 
-    // Get projects from both Claude and Gemini
-    const [claudeProjects, geminiProjects] = await Promise.all([
-      facade.getProjects(),
-      this.getGeminiProjects(facade),
-    ]);
+    // Use AIConfigAggregator to get projects from all AI tools
+    const aggregator = new AIConfigAggregator(facade);
+    const allProjects = await aggregator.getAllProjects();
 
-    // Log Claude projects
-    this.logger.debug("Claude projects:", {
-      count: claudeProjects.length,
-      projects: claudeProjects.map((p) => ({ path: p.path, label: p.label })),
-    });
-
-    // Log Gemini projects
-    this.logger.debug("Gemini projects:", {
-      count: geminiProjects.length,
-      projects: geminiProjects.map((p) => ({ path: p.path, label: p.label })),
-    });
-
-    // Merge and deduplicate projects by path
-    const allProjects = this.mergeAndDeduplicateProjects([...claudeProjects, ...geminiProjects]);
-
-    this.logger.debug(
-      `Found ${String(allProjects.length)} projects (Claude: ${String(claudeProjects.length)}, Gemini: ${String(geminiProjects.length)})`
-    );
+    this.logger.debug(`Found ${String(allProjects.length)} projects from all AI tools`);
 
     if (allProjects.length === 0) {
       children.push(
@@ -273,48 +254,6 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
 
     this.logger.debug(`getProjectsChildren: returning ${String(children.length)} children`);
     return { success: true, children };
-  }
-
-  /**
-   * Get Gemini projects from ~/.gemini/projects.json
-   * @param facade - Current data facade for home path access
-   * @returns Promise resolving to array of Gemini project entries
-   */
-  private async getGeminiProjects(facade: IDataFacade): Promise<readonly IProjectEntry[]> {
-    const homePath = facade.getHomePath();
-    const geminiConfig = new GeminiConfig(homePath);
-    const rawProjects = await geminiConfig.getProjects();
-    // Convert paths to current environment format
-    return rawProjects.map((project) => ({
-      ...project,
-      path: facade.convertPath(project.path),
-    }));
-  }
-
-  /**
-   * Merge and deduplicate projects by path
-   * Later projects with the same path will override earlier ones (Gemini overrides Claude)
-   * Uses platform-aware path comparison for Windows case-insensitivity
-   * @param projects - Array of project entries to merge
-   * @returns Deduplicated and sorted project entries
-   */
-  private mergeAndDeduplicateProjects(
-    projects: readonly IProjectEntry[]
-  ): readonly IProjectEntry[] {
-    const pathMap = new Map<string, IProjectEntry>();
-
-    // Get current environment type for case-insensitive comparison on Windows
-    const facade = this.environmentManager.getCurrentFacade();
-    const isWindows = facade?.getEnvironmentInfo().type === "windows";
-
-    for (const project of projects) {
-      // Normalize path key based on platform
-      const normalizedKey = isWindows ? project.path.toLowerCase() : project.path;
-      pathMap.set(normalizedKey, project);
-    }
-
-    // Sort by label (now guaranteed to exist)
-    return Array.from(pathMap.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
   /**

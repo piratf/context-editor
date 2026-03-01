@@ -1,11 +1,13 @@
 /**
  * Environment information interface
+ *
+ * Represents a purely abstract environment without coupling to any
+ * specific AI tool's configuration. This enables support for multiple
+ * AI tools (Claude, Gemini, Cursor, etc.) through separate config services.
  */
 export interface IEnvironmentInfo {
   /** Environment type (e.g., "windows", "wsl", "macos", "linux") */
   readonly type: string;
-  /** Full path to the .claude.json configuration file */
-  readonly configPath: string;
   /** Home directory path for the environment */
   readonly homePath: string;
   /** WSL instance name (only for WSL environments) */
@@ -25,6 +27,10 @@ export interface IProjectEntry {
 
 /**
  * Data facade interface (simplified for service layer)
+ *
+ * Provides a pure environment abstraction without coupling to any
+ * specific AI tool's configuration. Use AI config services (ClaudeConfig,
+ * GeminiConfig, etc.) to read tool-specific configurations.
  */
 export interface IDataFacade {
   /**
@@ -32,24 +38,6 @@ export interface IDataFacade {
    * @returns Environment information
    */
   getEnvironmentInfo(): IEnvironmentInfo;
-
-  /**
-   * Get list of projects from .claude.json
-   * @returns Promise resolving to array of project entries
-   */
-  getProjects(): Promise<readonly IProjectEntry[]>;
-
-  /**
-   * Refresh the configuration cache
-   * @returns Promise that resolves when cache is cleared
-   */
-  refresh(): Promise<void>;
-
-  /**
-   * Get the configuration path
-   * @returns Full path to the .claude.json file
-   */
-  getConfigPath(): string;
 
   /**
    * Get the home directory path

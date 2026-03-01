@@ -15,7 +15,7 @@ describe("NativeDataFacade", () => {
     process.env.HOME = "/home/testuser";
   });
 
-  describe("构造函数和初始化", () => {
+  describe("constructor and initialization", () => {
     it("should create facade instance", () => {
       const facade = new NativeDataFacade();
       assert.ok(facade instanceof NativeDataFacade);
@@ -24,9 +24,11 @@ describe("NativeDataFacade", () => {
     it("should have valid environment info", () => {
       const facade = new NativeDataFacade();
       const info = facade.getEnvironmentInfo();
-      // EnvironmentType is always defined and non-null
-      assert.ok(info.configPath);
-      assert.ok(info.configPath.endsWith(".claude.json"));
+      // EnvironmentType and homePath are always defined
+      assert.strictEqual(typeof info.type, "string");
+      assert.strictEqual(typeof info.homePath, "string");
+      assert.ok(info.type.length > 0);
+      assert.ok(info.homePath.length > 0);
     });
   });
 
