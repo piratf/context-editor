@@ -79,7 +79,7 @@ export class ClaudeConfig {
       return projects.filter(this.isValidProjectEntry.bind(this)).map(
         (entry): IProjectEntry => ({
           path: entry.path,
-          label: this.extractLabelFromPath(entry.path, entry.label),
+          label: this.extractLabelFromPath(entry.path),
         })
       );
     }
@@ -91,7 +91,7 @@ export class ClaudeConfig {
         if (typeof config === "object" && config !== null) {
           result.push({
             path: projectPath,
-            label: this.extractLabelFromPath(projectPath, config),
+            label: this.extractLabelFromPath(projectPath),
           });
         }
       }
@@ -102,22 +102,13 @@ export class ClaudeConfig {
   }
 
   /**
-   * Extract label from path or config
+   * Extract label from path
    * @param path - Project path
-   * @param config - Optional config object that may contain an explicit label
-   * @returns Label to use for display
+   * @returns Label extracted from the last path component
    */
-  private extractLabelFromPath(projectPath: string, config?: unknown): string {
-    // Check if config has an explicit label
-    if (config !== null && config !== undefined && typeof config === "object") {
-      const configObj = config as Record<string, unknown>;
-      if ("label" in configObj && typeof configObj.label === "string" && configObj.label) {
-        return configObj.label;
-      }
-    }
-    // Extract from path (last directory name), filtering empty parts
-    const parts = projectPath.split(/[/\\]/).filter((p) => p.length > 0);
-    return parts[parts.length - 1] ?? projectPath;
+  private extractLabelFromPath(path: string): string {
+    const parts = path.split(/[/\\]/).filter((p) => p.length > 0);
+    return parts[parts.length - 1] ?? path;
   }
 
   /**
