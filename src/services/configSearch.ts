@@ -122,14 +122,12 @@ export class ConfigSearch extends EventEmitter {
 
     // Always create native facade for current environment
     const nativeFacade = this.createNativeFacade();
-    if (await this.isFacadeAccessible(nativeFacade)) {
-      facades.push(nativeFacade);
-      this.facades.set("native", {
-        facade: nativeFacade,
-        accessible: true,
-        discoveredAt: Date.now(),
-      });
-    }
+    facades.push(nativeFacade);
+    this.facades.set("native", {
+      facade: nativeFacade,
+      accessible: true,
+      discoveredAt: Date.now(),
+    });
 
     // Discover additional environments based on current platform
     if (this.environment.isWindows()) {
@@ -138,7 +136,7 @@ export class ConfigSearch extends EventEmitter {
       facades.push(...wslFacades);
     } else if (this.environment.isWSL()) {
       // WSL: Discover Windows
-      const windowsFacade = await this.discoverWindowsFromWsl();
+      const windowsFacade = this.discoverWindowsFromWsl();
       if (windowsFacade) {
         facades.push(windowsFacade);
       }
@@ -186,9 +184,9 @@ export class ConfigSearch extends EventEmitter {
   /**
    * Discover Windows configuration from WSL
    */
-  private async discoverWindowsFromWsl(): Promise<ClaudeDataFacade | null> {
+  private discoverWindowsFromWsl(): ClaudeDataFacade | null {
     // Use WslToWindowsDataFacadeFactory to auto-detect Windows
-    const facade = await WslToWindowsDataFacadeFactory.createAuto();
+    const facade = WslToWindowsDataFacadeFactory.createAuto();
 
     if (facade) {
       this.facades.set("windows", {
@@ -201,18 +199,6 @@ export class ConfigSearch extends EventEmitter {
     }
 
     return null;
-  }
-
-  /**
-   * Check if a facade is accessible
-   */
-  private async isFacadeAccessible(facade: ClaudeDataFacade): Promise<boolean> {
-    try {
-      await facade.getProjects();
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   /**

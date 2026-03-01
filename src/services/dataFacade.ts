@@ -128,32 +128,10 @@ export interface ClaudeDataFacade extends IDataFacade {
   getProjects(): Promise<readonly ProjectEntry[]>;
 
   /**
-   * Get global configuration value
-   * @param key - Configuration key (e.g., 'settings', 'mcpServers')
-   * @returns Promise resolving to the configuration value
-   */
-  getGlobalConfig(key: string): Promise<unknown>;
-
-  /**
-   * Get context files for a specific project
-   * @param projectName - Name or path of the project
-   * @returns Promise resolving to array of context file paths
-   */
-  getProjectContextFiles(projectName: string): Promise<readonly string[]>;
-
-  /**
    * Refresh the configuration cache
    * Clears any cached data and forces a re-read of the configuration file.
    */
   refresh(): Promise<void>;
-
-  /**
-   * Check if this facade is accessible
-   * Some facades may represent environments that are currently unavailable
-   * (e.g., WSL instance not running, no permissions).
-   * @returns True if the facade can access its configuration
-   */
-  isAccessible(): boolean;
 
   /**
    * Get the configuration path
@@ -212,13 +190,6 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   }
 
   /**
-   * Check if this facade is accessible
-   * Default implementation checks if config path exists.
-   * Subclasses can override for more specific checks.
-   */
-  abstract isAccessible(): boolean;
-
-  /**
    * Read the configuration file
    * Must be implemented by subclasses to handle environment-specific access.
    */
@@ -239,51 +210,6 @@ export abstract class BaseDataFacade implements ClaudeDataFacade {
   async getProjects(): Promise<readonly ProjectEntry[]> {
     const result = await this.getCachedConfig();
     return result.projects;
-  }
-
-  /**
-   * Get global configuration value
-   * Supports dot notation for nested keys (e.g., 'settings.theme').
-   */
-  async getGlobalConfig(key: string): Promise<unknown> {
-    const result = await this.getCachedConfig();
-    const keys = key.split(".");
-    let value: unknown = result.config;
-
-    for (const k of keys) {
-      if (value !== null && typeof value === "object" && k in value) {
-        value = (value as Record<string, unknown>)[k];
-      } else {
-        return undefined;
-      }
-    }
-
-    return value;
-  }
-
-  /**
-   * Get context files for a specific project
-   * Default implementation looks for .claude.md and CLAUDE.md files.
-   */
-  async getProjectContextFiles(projectName: string): Promise<readonly string[]> {
-    const projects = await this.getProjects();
-    const project = projects.find((p) => p.path.includes(projectName) || p.path === projectName);
-
-    if (!project) {
-      return [];
-    }
-
-    // Look for context files in the project directory
-    const contextFiles: string[] = [];
-    const possibleFiles = [".claude.md", "CLAUDE.md"];
-
-    // Note: This is a simplified implementation.
-    // Subclasses should override to actually check file existence.
-    for (const file of possibleFiles) {
-      contextFiles.push(file);
-    }
-
-    return contextFiles;
   }
 
   /**

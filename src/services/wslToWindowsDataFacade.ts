@@ -180,17 +180,14 @@ export const WslToWindowsDataFacadeFactory = {
    * Tries common usernames and checks which one has a config file
    * @returns Promise resolving to accessible facade or null
    */
-  async createAuto(): Promise<WslToWindowsDataFacade | null> {
+  createAuto(): WslToWindowsDataFacade | null {
     // Try to detect Windows username by checking common locations
     const usernames = [this.detectUsernameFromEnv(), "windows-user", "user", "admin"];
 
     for (const username of usernames) {
       if (username === null || username === "") continue;
 
-      const facade = this.create(username);
-      if (await this.isFacadeAccessible(facade)) {
-        return facade;
-      }
+      return this.create(username);
     }
 
     return null;
@@ -211,17 +208,5 @@ export const WslToWindowsDataFacadeFactory = {
     }
 
     return null;
-  },
-
-  /**
-   * Check if a facade can access its configuration
-   */
-  async isFacadeAccessible(facade: WslToWindowsDataFacade): Promise<boolean> {
-    try {
-      await fs.access(facade.getConfigPath());
-      return true;
-    } catch {
-      return false;
-    }
   },
 } as const;

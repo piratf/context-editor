@@ -14,12 +14,13 @@ export interface IEnvironmentInfo {
 
 /**
  * Project entry interface
+ *
+ * Minimal interface defining the common fields shared across all project types.
+ * Additional fields (state, mcpServers) are defined in concrete implementations.
  */
 export interface IProjectEntry {
   readonly path: string;
   readonly label: string;
-  readonly state?: unknown;
-  readonly mcpServers?: unknown;
 }
 
 /**
@@ -39,23 +40,10 @@ export interface IDataFacade {
   getProjects(): Promise<readonly IProjectEntry[]>;
 
   /**
-   * Get global configuration value
-   * @param key - Configuration key
-   * @returns Promise resolving to the configuration value
-   */
-  getGlobalConfig(key: string): Promise<unknown>;
-
-  /**
    * Refresh the configuration cache
    * @returns Promise that resolves when cache is cleared
    */
   refresh(): Promise<void>;
-
-  /**
-   * Check if this facade is accessible
-   * @returns True if the facade can access its configuration
-   */
-  isAccessible(): boolean;
 
   /**
    * Get the configuration path

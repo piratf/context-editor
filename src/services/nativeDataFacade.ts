@@ -94,39 +94,6 @@ export class NativeDataFacade extends BaseDataFacade {
   }
 
   /**
-   * Get project context files for a specific project
-   * Checks actual file existence in the project directory.
-   */
-  async getProjectContextFiles(projectName: string): Promise<readonly string[]> {
-    const projects = await this.getProjects();
-    const project = projects.find((p) => {
-      const projectNameLower = projectName.toLowerCase();
-      const pathLower = p.path.toLowerCase();
-      return pathLower.includes(projectNameLower) || pathLower === projectNameLower;
-    });
-
-    if (!project) {
-      return [];
-    }
-
-    const contextFiles: string[] = [];
-    const possibleFiles = [".claude.md", "CLAUDE.md", ".clauderc"];
-
-    // Check which files actually exist
-    for (const file of possibleFiles) {
-      const fullPath = this.environment.joinPath(project.path, file);
-      try {
-        await fs.access(fullPath);
-        contextFiles.push(fullPath);
-      } catch {
-        // File doesn't exist, skip
-      }
-    }
-
-    return contextFiles;
-  }
-
-  /**
    * Get the home directory path
    * @returns Home directory path for the native environment
    */

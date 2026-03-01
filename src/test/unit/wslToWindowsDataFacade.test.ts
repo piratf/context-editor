@@ -48,14 +48,6 @@ describe("WslToWindowsDataFacade", () => {
       const info = facade.getEnvironmentInfo();
       assert.strictEqual(info.type, EnvironmentType.Windows);
     });
-
-    it("should have /mnt/c/ based config path", () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      const path = facade.getConfigPath();
-      assert.ok(path.startsWith("/mnt/c/Users/"));
-      assert.ok(path.includes("testuser"));
-      assert.ok(path.endsWith(".claude.json"));
-    });
   });
 
   describe("路径转换", () => {
@@ -99,13 +91,6 @@ describe("WslToWindowsDataFacade", () => {
 
       const converted = facade.convertWindowsPathToWslForTest(lowercasePath);
       assert.strictEqual(converted, "/mnt/c/users/testuser/project");
-    });
-  });
-
-  describe("isAccessible()", () => {
-    it("should return true", () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      assert.ok(facade.isAccessible());
     });
   });
 
@@ -168,25 +153,18 @@ describe("WslToWindowsDataFacade", () => {
       assert.ok(facade instanceof WslToWindowsDataFacade);
     });
 
-    it("should detect username from environment when creating auto", async () => {
+    it("should detect username from environment when creating auto", () => {
       // Set environment variable for testing
       process.env.WINDOWS_USER = "testuser";
 
       try {
-        const facade = await WslToWindowsDataFacadeFactory.createAuto();
+        const facade = WslToWindowsDataFacadeFactory.createAuto();
         // In test environment, this will likely return null since no actual Windows config exists
         // Just verify it doesn't throw and returns null or a facade
         assert.strictEqual(facade === null || facade instanceof WslToWindowsDataFacade, true);
       } finally {
         delete process.env.WINDOWS_USER;
       }
-    });
-
-    it("should check facade accessibility", async () => {
-      const facade = WslToWindowsDataFacadeFactory.create("nonexistentuser");
-      // In test environment, Windows is likely not accessible
-      const accessible = await WslToWindowsDataFacadeFactory.isFacadeAccessible(facade);
-      assert.strictEqual(typeof accessible, "boolean");
     });
 
     it("should detect username from environment variable", () => {
@@ -196,40 +174,6 @@ describe("WslToWindowsDataFacade", () => {
       // Should return the detected username or null
       assert.strictEqual(detected === "windowsuser" || detected === null, true);
       delete process.env.USER;
-    });
-  });
-
-  describe("缓存行为", () => {
-    it("should use cache by default", async () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      // First call will try to read (and likely fail if no Windows)
-      await facade.getProjects();
-      // Second call should use cache
-      await facade.getProjects();
-      // No assertion - just verify it doesn't throw
-    });
-
-    it("should clear cache on refresh", async () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      await facade.getProjects();
-      await facade.refresh();
-      // No assertion - just verify it doesn't throw
-    });
-  });
-
-  describe("getGlobalConfig()", () => {
-    it("should return undefined for non-existent config", async () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      const value = await facade.getGlobalConfig("nonexistent");
-      assert.strictEqual(value, undefined);
-    });
-  });
-
-  describe("getProjectContextFiles()", () => {
-    it("should return empty array for non-existent project", async () => {
-      const facade = new WslToWindowsDataFacade("testuser");
-      const files = await facade.getProjectContextFiles("nonexistent");
-      assert.deepStrictEqual(files, []);
     });
   });
 

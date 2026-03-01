@@ -334,23 +334,9 @@ export const WindowsToWslDataFacadeFactory = {
       const facade = this.create(instance);
 
       // Verify facade is accessible
-      if (await this.isFacadeAccessible(facade)) {
-        facades.push(facade);
-      }
+      facades.push(facade);
     }
 
     return facades;
-  },
-
-  /**
-   * Check if a facade can access its configuration
-   */
-  async isFacadeAccessible(facade: WindowsToWslDataFacade): Promise<boolean> {
-    try {
-      await fs.access(facade.getConfigPath());
-      return true;
-    } catch {
-      return false;
-    }
   },
 } as const;

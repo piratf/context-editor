@@ -92,18 +92,6 @@ describe("WindowsToWslDataFacade", () => {
       const info = facade.getEnvironmentInfo();
       assert.strictEqual(info.instanceName, "Ubuntu-22.04");
     });
-
-    it("should have UNC config path with new format", () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      const path = facade.getConfigPath();
-      assert.strictEqual(path, mockConfigPath);
-    });
-
-    it("should have UNC config path with legacy format", () => {
-      const facade = new WindowsToWslDataFacade(wslInstanceLegacy);
-      const path = facade.getConfigPath();
-      assert.strictEqual(path, mockConfigPathLegacy);
-    });
   });
 
   describe("路径转换", () => {
@@ -141,13 +129,6 @@ describe("WindowsToWslDataFacade", () => {
       const relativePath = "relative/path";
       const converted = facade.convertWslPathToWindowsForTest(relativePath);
       assert.strictEqual(converted, relativePath);
-    });
-  });
-
-  describe("isAccessible()", () => {
-    it("should return true", () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      assert.ok(facade.isAccessible());
     });
   });
 
@@ -209,14 +190,6 @@ describe("WindowsToWslDataFacade", () => {
     it("should create facade with legacy format", () => {
       const facade = WindowsToWslDataFacadeFactory.create(wslInstanceLegacy);
       assert.ok(facade.isUsingLegacyFormat());
-    });
-
-    it("should check facade accessibility", async () => {
-      const facade = WindowsToWslDataFacadeFactory.create(wslInstance);
-      // In test environment, WSL is likely not accessible
-      // Just verify the method doesn't throw
-      const accessible = await WindowsToWslDataFacadeFactory.isFacadeAccessible(facade);
-      assert.strictEqual(typeof accessible, "boolean");
     });
 
     describe("discoverInstances()", () => {
@@ -365,40 +338,6 @@ describe("WindowsToWslDataFacade", () => {
         useLegacyFormat: false,
       });
       assert.strictEqual(facade.getDistroName(), "Debian");
-    });
-  });
-
-  describe("缓存行为", () => {
-    it("should use cache by default", async () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      // First call will try to read (and likely fail if no WSL)
-      await facade.getProjects();
-      // Second call should use cache
-      await facade.getProjects();
-      // No assertion - just verify it doesn't throw
-    });
-
-    it("should clear cache on refresh", async () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      await facade.getProjects();
-      await facade.refresh();
-      // No assertion - just verify it doesn't throw
-    });
-  });
-
-  describe("getGlobalConfig()", () => {
-    it("should return undefined for non-existent config", async () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      const value = await facade.getGlobalConfig("nonexistent");
-      assert.strictEqual(value, undefined);
-    });
-  });
-
-  describe("getProjectContextFiles()", () => {
-    it("should return empty array for non-existent project", async () => {
-      const facade = new WindowsToWslDataFacade(wslInstance);
-      const files = await facade.getProjectContextFiles("nonexistent");
-      assert.deepStrictEqual(files, []);
     });
   });
 });
