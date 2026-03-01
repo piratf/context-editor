@@ -173,33 +173,33 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     const homePath = facade.getHomePath();
     this.logger.debug(`getGlobalConfigChildren called, homePath ${homePath}`);
 
-    const children: NodeData[] = [];
-
-    // Process directories
-    for (const dir of this.AI_TOOL_DIRS) {
+    // Process directories and files concurrently for better performance
+    const dirPromises = this.AI_TOOL_DIRS.map(async (dir) => {
       const fullPath = path.join(homePath, dir);
       if (await this.directoryExists(fullPath)) {
-        children.push(
-          NodeDataFactory.createDirectory(`~/${dir}`, fullPath, {
-            collapsibleState: 1,
-            tooltip: fullPath,
-          })
-        );
+        return NodeDataFactory.createDirectory(`~/${dir}`, fullPath, {
+          collapsibleState: 1,
+          tooltip: fullPath,
+        });
       }
-    }
+      return null;
+    });
 
-    // Process files
-    for (const file of this.AI_TOOL_FILES) {
+    const filePromises = this.AI_TOOL_FILES.map(async (file) => {
       const fullPath = path.join(homePath, file);
       if (await this.fileExists(fullPath)) {
-        children.push(
-          NodeDataFactory.createFile(`~/${file}`, fullPath, {
-            tooltip: fullPath,
-            iconId: "settings-gear",
-          })
-        );
+        return NodeDataFactory.createFile(`~/${file}`, fullPath, {
+          tooltip: fullPath,
+          iconId: "settings-gear",
+        });
       }
-    }
+      return null;
+    });
+
+    const results = await Promise.all([...dirPromises, ...filePromises]);
+    const children: NodeData[] = results.filter(
+      (node): node is NonNullable<typeof node> => node !== null
+    );
 
     // If nothing found, show info message
     if (children.length === 0) {

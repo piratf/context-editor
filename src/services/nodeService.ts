@@ -15,33 +15,8 @@ import * as path from "node:path";
 import type { NodeData, DirectoryData, ProjectData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
-import { AllowAllFilter, isInsideDirectory } from "../types/fileFilter.js";
+import { AllowAllFilter } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
-
-/**
- * AI tool directories that should allow all files when expanded
- * Non-Claude directories need AllowAllFilter since their contents
- * are not Claude-specific
- */
-const AI_TOOL_DIRS = [
-  // Mainstream AI tool directories (non-Claude)
-  ".gemini",
-  ".cursor",
-  ".aider",
-  ".roo",
-  ".cline",
-  ".trae",
-  ".codeium",
-  ".github",
-  ".openai",
-  ".codex",
-  ".windsurf",
-  // Universal standard and protocol directories
-  ".agents",
-  ".mcp",
-  ".skills",
-  ".well-known",
-] as const;
 
 /**
  * File system entry information
@@ -154,21 +129,9 @@ export class NodeService {
    * @param dirPath - Directory path to get filter for
    * @returns Appropriate filter for the directory context
    */
-  private getFilterForDirectory(dirPath: string): SyncFileFilter {
-    // Check if we're inside an AI tool directory
-    for (const aiToolDir of AI_TOOL_DIRS) {
-      if (isInsideDirectory(dirPath, aiToolDir, this.fileSystem.pathSep)) {
-        return this.allowAllFilter;
-      }
-    }
-
-    // Check if we're inside .claude directory
-    if (isInsideDirectory(dirPath, ".claude", this.fileSystem.pathSep)) {
-      return this.allowAllFilter;
-    }
-
-    // All directories that reach this point are AI tool directories
-    // which always use allowAllFilter
+  private getFilterForDirectory(_dirPath: string): SyncFileFilter {
+    // All directories use allowAllFilter since this service is only used
+    // for AI tool directories (.claude, .gemini, etc.)
     return this.allowAllFilter;
   }
 

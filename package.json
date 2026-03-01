@@ -154,12 +154,12 @@
             "ERROR"
           ],
           "default": "INFO",
-          "description": "控制输出日志的级别",
+          "description": "Control the output log level",
           "enumDescriptions": [
-            "显示所有日志（开发调试用）",
-            "显示 INFO 及以上级别",
-            "显示 WARN 及以上级别",
-            "仅显示 ERROR 日志"
+            "Show all logs (for development/debugging)",
+            "Show INFO and above",
+            "Show WARN and above",
+            "Show ERROR logs only"
           ]
         }
       }

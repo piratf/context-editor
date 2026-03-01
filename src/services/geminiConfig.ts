@@ -63,6 +63,11 @@ export class GeminiConfig {
    * @returns Array of project entries
    */
   private normalizeProjects(projects: Readonly<Record<string, string>>): IProjectEntry[] {
+    // Defensive check: ensure projects is a valid object (not array)
+
+    if (Array.isArray(projects)) {
+      return [];
+    }
     return Object.entries(projects).map(
       ([path, configuredLabel]): IProjectEntry => ({
         path,
