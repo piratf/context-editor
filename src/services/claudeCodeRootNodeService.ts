@@ -436,14 +436,18 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
    */
   private getFileIcon(filename: string): string {
     const ext = path.extname(filename);
-    const iconMap: Record<string, string> = {
+    const iconMap: Partial<Record<string, string>> = {
+      // Complete filename matches (for dotfiles like .env)
+      ".env": "lock",
+      ".gitignore": "lock",
+      // Extension matches
       ".json": "settings-gear",
       ".md": "file-text",
       ".yaml": "settings-gear",
       ".yml": "settings-gear",
-      ".env": "lock",
       ".conf": "settings-gear",
     };
-    return iconMap[ext] ?? "file";
+    // Check complete filename first, then extension
+    return iconMap[filename] ?? iconMap[ext] ?? "file";
   }
 }

@@ -63,9 +63,9 @@ export class GeminiConfig {
    * @returns Array of project entries
    */
   private normalizeProjects(projects: Readonly<Record<string, string>>): IProjectEntry[] {
-    // Defensive check: ensure projects is a valid object (not array)
-
-    if (Array.isArray(projects)) {
+    // Defensive check: ensure projects is a valid object (not null, array, or primitive)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (typeof projects !== "object" || projects === null || Array.isArray(projects)) {
       return [];
     }
     return Object.entries(projects).map(
