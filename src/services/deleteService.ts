@@ -62,10 +62,7 @@ export class DeleteService {
    * @param itemName - Display name for user messages
    * @returns Result indicating success/failure and method used
    */
-  private async deleteWithTrashFallback(
-    uri: SimpleUri,
-    itemName: string
-  ): Promise<DeleteResult> {
+  private async deleteWithTrashFallback(uri: SimpleUri, itemName: string): Promise<DeleteResult> {
     try {
       // Try to delete with trash first (safer)
       await this.fileDeleter.delete(uri, {
@@ -83,8 +80,8 @@ export class DeleteService {
       const isTrashError =
         (errorMessage.includes("trash") || errorMessage.includes("recycle")) &&
         (errorMessage.includes("does not support") ||
-         errorMessage.includes("Failed to move") ||
-         errorMessage.includes("Failed to perform delete"));
+          errorMessage.includes("Failed to move") ||
+          errorMessage.includes("Failed to perform delete"));
 
       if (isTrashError) {
         // Trash/recycle bin not supported, ask user if they want to permanently delete
@@ -140,10 +137,7 @@ export const DeleteServiceFactory = {
   /**
    * Create a DeleteService with provided dependencies
    */
-  create(
-    fileDeleter: FileDeleter,
-    dialogService: DialogService
-  ): DeleteService {
+  create(fileDeleter: FileDeleter, dialogService: DialogService): DeleteService {
     return new DeleteService(fileDeleter, dialogService);
   },
 } as const;

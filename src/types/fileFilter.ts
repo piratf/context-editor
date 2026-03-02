@@ -189,7 +189,7 @@ export class OrFilter extends BaseFilter implements SyncFileFilter {
 
   constructor(private readonly filters: FileFilter[]) {
     super();
-    this.description = `OR(${this.filters.map((f) => f.description !== undefined ? f.description : "unknown").join(", ")})`;
+    this.description = `OR(${this.filters.map((f) => (f.description !== undefined ? f.description : "unknown")).join(", ")})`;
   }
 
   evaluate(context: FilterContext): FilterResult {
@@ -267,7 +267,12 @@ export class NamePatternFilter extends BaseFilter implements SyncFileFilter {
 
   evaluate(context: FilterContext): FilterResult {
     const { name, isDirectory } = context;
-    const { applyToDirectories = true, applyToFiles = true, includePatterns, excludePatterns } = this.config;
+    const {
+      applyToDirectories = true,
+      applyToFiles = true,
+      includePatterns,
+      excludePatterns,
+    } = this.config;
 
     // Check if filter applies to this entry type
     if (isDirectory && !applyToDirectories) {

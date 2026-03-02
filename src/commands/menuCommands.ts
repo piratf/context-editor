@@ -160,7 +160,10 @@ export const createFileCommand: ContextMenuCommand = {
       } else if (result.reason === "noPath") {
         userInteraction.showError("Cannot create file", "Directory path is missing.");
       } else {
-        userInteraction.showError("Failed to create file", result.error?.message ?? "Unknown error");
+        userInteraction.showError(
+          "Failed to create file",
+          result.error?.message ?? "Unknown error"
+        );
       }
     }
   },
@@ -193,7 +196,10 @@ export const createFolderCommand: ContextMenuCommand = {
       } else if (result.reason === "noPath") {
         userInteraction.showError("Cannot create folder", "Directory path is missing.");
       } else {
-        userInteraction.showError("Failed to create folder", result.error?.message ?? "Unknown error");
+        userInteraction.showError(
+          "Failed to create folder",
+          result.error?.message ?? "Unknown error"
+        );
       }
     }
   },

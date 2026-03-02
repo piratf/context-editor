@@ -14,7 +14,6 @@ import { ServiceTokens } from "../di/tokens";
  * Unified provider that shows both Global and Projects in a single view
  */
 export class UnifiedProvider extends BaseProvider {
-
   /**
    * Get children of a given node, or root nodes if no node provided
    *
@@ -35,7 +34,7 @@ export class UnifiedProvider extends BaseProvider {
     const result = await nodeService.getChildrenByNodeType(element);
 
     if (result.success) {
-      this.logger.info("Successfully got children", {
+      this.logger.debug("Successfully got children", {
         element: element.label,
         children: result.children.length,
       });

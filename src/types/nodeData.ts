@@ -35,6 +35,7 @@ export enum NodeType {
   ERROR = "error",
   USER_ROOT = "userRoot",
   PROJECTS_ROOT = "projectsRoot",
+  PROJECT = "project",
 }
 
 /**
@@ -125,9 +126,10 @@ export function toErrorDataSafe(error: Error | string | object | undefined): Err
 
 /**
  * Directory node data
+ * Includes both DIRECTORY and PROJECT types since projects are directories
  */
 export interface DirectoryData extends NodeData {
-  readonly type: NodeType.DIRECTORY;
+  readonly type: NodeType.DIRECTORY | NodeType.PROJECT;
   readonly path: string;
 }
 
@@ -136,6 +138,14 @@ export interface DirectoryData extends NodeData {
  */
 export interface FileData extends NodeData {
   readonly type: NodeType.FILE;
+  readonly path: string;
+}
+
+/**
+ * Project node data
+ */
+export interface ProjectData extends DirectoryData {
+  readonly type: NodeType.PROJECT;
   readonly path: string;
 }
 
@@ -184,7 +194,10 @@ export function isNodeData(node: unknown): node is NodeData {
  */
 export const NodeTypeGuard = {
   isDirectoryData: (data: NodeData): data is DirectoryData =>
-    data.type === NodeType.DIRECTORY && data.path !== undefined,
+    (data.type === NodeType.DIRECTORY || data.type === NodeType.PROJECT) && data.path !== undefined,
+
+  isProject: (data: NodeData): data is ProjectData =>
+    data.type === NodeType.PROJECT && data.path !== undefined,
 
   isUserRoot: (type: NodeType): boolean => type === NodeType.USER_ROOT,
 
@@ -255,6 +268,32 @@ export const NodeDataFactory = {
       iconId,
       tooltip: tooltip ?? filePath,
       contextValue: contextValue ?? "",
+    };
+  },
+
+  /**
+   * Create project data
+   */
+  createProject(
+    label: string,
+    path: string,
+    options: {
+      collapsibleState?: CollapsibleState;
+      tooltip?: string;
+      contextValue?: string;
+    } = {}
+  ): ProjectData {
+    const { collapsibleState = 1, tooltip, contextValue } = options;
+
+    return {
+      [NodeDataMarker]: true,
+      id: this.generateId(NodeType.PROJECT, path),
+      type: NodeType.PROJECT,
+      label,
+      path,
+      collapsibleState,
+      tooltip: tooltip ?? path,
+      contextValue: contextValue ?? "project",
     };
   },
 

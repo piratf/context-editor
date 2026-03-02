@@ -29,18 +29,18 @@ describe("FileFilter Tests", () => {
     isDirectory: boolean,
     parentPath: string = "/home/test/project"
   ): FilterContext {
-    return createFilterContext(
-      `${parentPath}/${name}`,
-      name,
-      isDirectory,
-      parentPath,
-      "/"
-    );
+    return createFilterContext(`${parentPath}/${name}`, name, isDirectory, parentPath, "/");
   }
 
   describe("createFilterContext", () => {
     it("should create filter context with correct properties", () => {
-      const context = createFilterContext("/home/test/.claude/settings.json", "settings.json", false, "/home/test/.claude", "/");
+      const context = createFilterContext(
+        "/home/test/.claude/settings.json",
+        "settings.json",
+        false,
+        "/home/test/.claude",
+        "/"
+      );
 
       assert.strictEqual(context.path, "/home/test/.claude/settings.json");
       assert.strictEqual(context.name, "settings.json");
@@ -52,7 +52,10 @@ describe("FileFilter Tests", () => {
 
   describe("isInsideDirectory", () => {
     it("should detect .claude directory in middle of path", () => {
-      assert.strictEqual(isInsideDirectory("/home/test/.claude/settings.json", ".claude", "/"), true);
+      assert.strictEqual(
+        isInsideDirectory("/home/test/.claude/settings.json", ".claude", "/"),
+        true
+      );
     });
 
     it("should detect path ending with .claude", () => {
@@ -64,7 +67,10 @@ describe("FileFilter Tests", () => {
     });
 
     it("should work with Windows path separators", () => {
-      assert.strictEqual(isInsideDirectory("C:\\Users\\test\\.claude\\settings.json", ".claude", "\\"), true);
+      assert.strictEqual(
+        isInsideDirectory("C:\\Users\\test\\.claude\\settings.json", ".claude", "\\"),
+        true
+      );
     });
   });
 
@@ -280,14 +286,26 @@ describe("FileFilter Tests", () => {
 
     it("should include all files inside .claude directory", () => {
       const filter = new ClaudeCodeFileFilter();
-      const context = createFilterContext("/home/test/.claude/settings.json", "settings.json", false, "/home/test/.claude", "/");
+      const context = createFilterContext(
+        "/home/test/.claude/settings.json",
+        "settings.json",
+        false,
+        "/home/test/.claude",
+        "/"
+      );
       const result = filter.evaluate(context);
       assert.strictEqual(result.include, true);
     });
 
     it("should include all directories inside .claude directory", () => {
       const filter = new ClaudeCodeFileFilter();
-      const context = createFilterContext("/home/test/.claude/skills", "skills", true, "/home/test/.claude", "/");
+      const context = createFilterContext(
+        "/home/test/.claude/skills",
+        "skills",
+        true,
+        "/home/test/.claude",
+        "/"
+      );
       const result = filter.evaluate(context);
       assert.strictEqual(result.include, true);
     });
@@ -405,7 +423,13 @@ describe("FileFilter Tests", () => {
 
     it("should handle nested .claude directories", () => {
       const filter = new ClaudeCodeFileFilter();
-      const context = createFilterContext("/home/test/project/.claude/skills/subskill", "subskill", true, "/home/test/project/.claude/skills", "/");
+      const context = createFilterContext(
+        "/home/test/project/.claude/skills/subskill",
+        "subskill",
+        true,
+        "/home/test/project/.claude/skills",
+        "/"
+      );
       const result = filter.evaluate(context);
       assert.strictEqual(result.include, true);
     });

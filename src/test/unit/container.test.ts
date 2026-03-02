@@ -154,10 +154,12 @@ void describe("SimpleDIContainer", () => {
         },
         (error: Error) => {
           const message = error.message;
-          return message.includes("Circular dependency") &&
-                 message.includes("A") &&
-                 message.includes("B") &&
-                 message.includes("C");
+          return (
+            message.includes("Circular dependency") &&
+            message.includes("A") &&
+            message.includes("B") &&
+            message.includes("C")
+          );
         }
       );
     });

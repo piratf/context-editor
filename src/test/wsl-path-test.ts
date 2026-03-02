@@ -30,7 +30,7 @@ async function testWslAccess(): Promise<void> {
     try {
       const buffer = execSync("wsl -l -q", { timeout: 5000 }) as Buffer;
       // Check for UTF-16LE BOM or pattern
-      if (buffer.length > 1 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+      if (buffer.length > 1 && buffer[0] === 0xff && buffer[1] === 0xfe) {
         distros = buffer.toString("utf16le");
       } else if (buffer.indexOf(0) >= 0 && buffer.indexOf(0) < buffer.length / 2) {
         // Likely UTF-16LE without BOM (null bytes present)
@@ -65,27 +65,27 @@ async function testWslAccess(): Promise<void> {
     results.push({
       name: "WSL Detection",
       success: true,
-      details: `Found distro: ${distro}, username: ${username}`
+      details: `Found distro: ${distro}, username: ${username}`,
     });
 
     // Test different path formats - use string concatenation to avoid template literal issues
     const testPaths = [
       {
         name: "Legacy UNC Path (\\\\wsl$\\...)",
-        path: "\\\\wsl$\\" + distro + "\\home\\" + username
+        path: "\\\\wsl$\\" + distro + "\\home\\" + username,
       },
       {
         name: "Windows 11 UNC Path (\\\\wsl.localhost\\...)",
-        path: "\\\\wsl.localhost\\" + distro + "\\home\\" + username
+        path: "\\\\wsl.localhost\\" + distro + "\\home\\" + username,
       },
       {
         name: "Legacy UNC Path with .claude.json",
-        path: "\\\\wsl$\\" + distro + "\\home\\" + username + "\\.claude.json"
+        path: "\\\\wsl$\\" + distro + "\\home\\" + username + "\\.claude.json",
       },
       {
         name: "Windows 11 UNC Path with .claude.json",
-        path: "\\\\wsl.localhost\\" + distro + "\\home\\" + username + "\\.claude.json"
-      }
+        path: "\\\\wsl.localhost\\" + distro + "\\home\\" + username + "\\.claude.json",
+      },
     ];
 
     for (const test of testPaths) {
@@ -105,7 +105,7 @@ async function testWslAccess(): Promise<void> {
         results.push({
           name: test.name,
           success: true,
-          details: `Accessible, ${String(entries.length)} entries found`
+          details: `Accessible, ${String(entries.length)} entries found`,
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -113,7 +113,7 @@ async function testWslAccess(): Promise<void> {
         results.push({
           name: test.name,
           success: false,
-          error: errorMsg
+          error: errorMsg,
         });
       }
     }
@@ -131,14 +131,14 @@ async function testWslAccess(): Promise<void> {
         results.push({
           name: "WSL Command Access",
           success: true,
-          details: `File exists and readable (${String(stdout.length)} bytes)`
+          details: `File exists and readable (${String(stdout.length)} bytes)`,
         });
       } else {
         console.log(`   ✗ File is empty or doesn't exist`);
         results.push({
           name: "WSL Command Access",
           success: false,
-          error: "File is empty or doesn't exist"
+          error: "File is empty or doesn't exist",
         });
       }
     } catch (error) {
@@ -147,17 +147,16 @@ async function testWslAccess(): Promise<void> {
       results.push({
         name: "WSL Command Access",
         success: false,
-        error: errorMsg
+        error: errorMsg,
       });
     }
-
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.log(`   ✗ Failed to detect WSL: ${errorMsg}`);
     results.push({
       name: "WSL Detection",
       success: false,
-      error: errorMsg
+      error: errorMsg,
     });
   }
 
@@ -170,7 +169,8 @@ function printResults(): void {
 
   results.forEach((result) => {
     const status = result.success ? "✓" : "✗";
-    const details = result.details !== undefined && result.details.length > 0 ? ` (${result.details})` : "";
+    const details =
+      result.details !== undefined && result.details.length > 0 ? ` (${result.details})` : "";
     const error = result.error !== undefined && result.error.length > 0 ? ` - ${result.error}` : "";
     console.log(`${status} ${result.name}${details}${error}`);
     if (result.success) {

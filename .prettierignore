@@ -1,0 +1,41 @@
+# Build outputs
+out/
+dist/
+*.vsix
+
+# Dependencies
+node_modules/
+
+# VS Code
+.vscode-test/
+.vscode-user-data-dir/
+
+# Test coverage
+coverage/
+
+# Generated files
+*.d.ts
+*.d.ts.map
+*.js.map
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Claude specific
+.claude/
+.beads/

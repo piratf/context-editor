@@ -1,33 +1,26 @@
 /**
- * NativeDataFacade - Access current environment's configuration
+ * NativeDataFacade - Access current environment's paths
  *
- * This facade accesses the .claude.json file in the current running environment.
+ * This facade provides access to the current environment's paths.
  * No path conversion is needed since we're accessing the local filesystem directly.
  *
  * Platform support:
- * - Windows: C:\Users\<name>\.claude.json
- * - macOS: /Users/<name>/.claude.json
- * - Linux: /home/<name>/.claude.json
- * - WSL: /home/<name>/.claude.json
+ * - Windows: C:\Users\<name>\
+ * - macOS: /Users/<name>/
+ * - Linux: /home/<name>/
+ * - WSL: /home/<name>/
  *
- * Key features:
- * - Uses Environment layer for platform-agnostic path operations
- * - Supports all platforms through unified interface
- * - Implements caching for performance
- * - Handles file system errors gracefully
+ * Note: Configuration reading is now handled by separate AI config services:
+ * - Use ClaudeConfig to read ~/.claude.json
+ * - Use GeminiConfig to read ~/.gemini/projects.json
+ * - Future: CursorConfig, AiderConfig, etc.
  */
 
-import * as fs from 'node:fs/promises';
-import { Environment, getEnvironment } from './environment.js';
-import {
-  BaseDataFacade,
-  type ClaudeGlobalConfig,
-  type ConfigReadResult,
-  type EnvironmentInfo,
-} from './dataFacade.js';
+import { BaseDataFacade, type EnvironmentInfo } from "./dataFacade.js";
+import { Environment, getEnvironment } from "./environment.js";
 
 /**
- * Data facade for accessing the current (native) environment's configuration
+ * Data facade for accessing the current (native) environment's paths
  */
 export class NativeDataFacade extends BaseDataFacade {
   private readonly environment: Environment;
@@ -36,93 +29,37 @@ export class NativeDataFacade extends BaseDataFacade {
     const env = getEnvironment();
     const info: EnvironmentInfo = {
       type: env.type,
-      configPath: env.getConfigPath(),
+      homePath: env.homeDir,
     };
     super(info);
     this.environment = env;
   }
 
   /**
-   * Check if the configuration file is accessible
+   * Check if the environment is accessible
    */
   isAccessible(): boolean {
-    // We check accessibility by trying to access the config path
-    // Since we can't do async operations here, we return true and
-    // handle actual errors during file reading
+    // We check accessibility by verifying the home directory exists
     return this.environment.homeDir.length > 0;
   }
 
   /**
-   * Read the configuration file from the local filesystem
+   * Get the home directory path
+   * @returns Home directory path for the native environment
    */
-  protected async readConfigFile(): Promise<ConfigReadResult> {
-    try {
-      const configPath = this.getConfigPath();
-      const content = await fs.readFile(configPath, 'utf-8');
-      const config = this.parseConfig(content);
-      const projects = this.normalizeProjects(config.projects);
-
-      return { config, projects };
-    } catch (error) {
-      // Handle file not found or parse errors
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // Config file doesn't exist, return empty config
-        return { config: {}, projects: [] };
-      }
-      // For other errors, also return empty config
-      return { config: {}, projects: [] };
-    }
+  getHomePath(): string {
+    return this.environment.homeDir;
   }
 
   /**
-   * Parse the configuration file content
-   * @param content - JSON content from .claude.json
-   * @returns Parsed configuration object
+   * Convert a path from the facade's environment to the current environment
+   * Native environment - no conversion needed.
+   * @param path - Path in the facade's environment format
+   * @returns Original path (no conversion needed for native environment)
    */
-  private parseConfig(content: string): ClaudeGlobalConfig {
-    if (!content || content.trim().length === 0) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(content) as ClaudeGlobalConfig;
-    } catch {
-      // Invalid JSON, return empty config
-      return {};
-    }
-  }
-
-  /**
-   * Get project context files for a specific project
-   * Checks actual file existence in the project directory.
-   */
-  async getProjectContextFiles(projectName: string): Promise<readonly string[]> {
-    const projects = await this.getProjects();
-    const project = projects.find(p => {
-      const projectNameLower = projectName.toLowerCase();
-      const pathLower = p.path.toLowerCase();
-      return pathLower.includes(projectNameLower) || pathLower === projectNameLower;
-    });
-
-    if (!project) {
-      return [];
-    }
-
-    const contextFiles: string[] = [];
-    const possibleFiles = ['.claude.md', 'CLAUDE.md', '.clauderc'];
-
-    // Check which files actually exist
-    for (const file of possibleFiles) {
-      const fullPath = this.environment.joinPath(project.path, file);
-      try {
-        await fs.access(fullPath);
-        contextFiles.push(fullPath);
-      } catch {
-        // File doesn't exist, skip
-      }
-    }
-
-    return contextFiles;
+  convertPath(path: string): string {
+    // Native environment - no conversion needed
+    return path;
   }
 }
 

@@ -13,7 +13,7 @@
  * - Priority: Try \\wsl.localhost first, fallback to \\wsl$ if needed
  */
 
-import * as path from 'node:path';
+import * as path from "node:path";
 
 /**
  * WSL distro configuration
@@ -23,6 +23,8 @@ export interface WslDistroConfig {
   distroName: string;
   /** Whether to use legacy \\wsl$ format instead of \\wsl.localhost */
   useLegacyFormat: boolean;
+  /** Home directory path for the distro (e.g., "\\\\wsl.localhost\\Ubuntu\\home\\user") */
+  homePath: string;
 }
 
 /**
@@ -69,13 +71,13 @@ export class WslToWindowsPathConverter implements PathConverter {
    * @returns Windows UNC path (e.g., \\wsl.localhost\Ubuntu\home\user\project)
    */
   convert(wslPath: string): string {
-    if (!wslPath.startsWith('/')) {
+    if (!wslPath.startsWith("/")) {
       // Not an absolute WSL path, return as-is
       return wslPath;
     }
 
     // Normalize path separators to forward slashes for processing
-    const normalizedPath = wslPath.replace(/\\/g, '/');
+    const normalizedPath = wslPath.replace(/\\/g, "/");
 
     // Build UNC path
     const uncPrefix = this.distroConfig.useLegacyFormat
@@ -83,7 +85,7 @@ export class WslToWindowsPathConverter implements PathConverter {
       : `\\\\wsl.localhost\\${this.distroConfig.distroName}`;
 
     // Convert forward slashes to backslashes for UNC path
-    const wslPart = normalizedPath.replace(/\//g, '\\');
+    const wslPart = normalizedPath.replace(/\//g, "\\");
 
     return `${uncPrefix}${wslPart}`;
   }
@@ -119,7 +121,7 @@ export class WindowsToWslPathConverter implements PathConverter {
       // This is a UNC path to WSL, extract the WSL path part
       const wslPart = uncMatch[2];
       // Convert backslashes to forward slashes
-      return wslPart.replace(/\\/g, '/') || '/';
+      return wslPart.replace(/\\/g, "/") || "/";
     }
 
     // Handle regular Windows paths (C:\, D:\, etc.)
@@ -128,9 +130,9 @@ export class WindowsToWslPathConverter implements PathConverter {
       const [, drive, rest] = driveMatch;
       const lowerDrive = drive.toLowerCase();
       // Convert backslashes to forward slashes
-      const wslPart = rest.replace(/\\/g, '/');
+      const wslPart = rest.replace(/\\/g, "/");
       // Handle empty rest (e.g., "C:\")
-      if (wslPart === '') {
+      if (wslPart === "") {
         return `/mnt/${lowerDrive}/`;
       }
       return `/mnt/${lowerDrive}/${wslPart}`;
@@ -166,15 +168,11 @@ export class WindowsToWslPathConverter implements PathConverter {
 export const PathConverterFactory = {
   /**
    * Create a WSL to Windows converter for a specific distro
-   * @param distroName - WSL distro name (e.g., "Ubuntu")
-   * @param useLegacyFormat - Whether to use legacy \\wsl$ format
+   * @param distroConfig - WSL distro configuration
    * @returns Configured path converter
    */
-  createWslToWindowsConverter(
-    distroName: string,
-    useLegacyFormat = false
-  ): WslToWindowsPathConverter {
-    return new WslToWindowsPathConverter({ distroName, useLegacyFormat });
+  createWslToWindowsConverter(distroConfig: WslDistroConfig): WslToWindowsPathConverter {
+    return new WslToWindowsPathConverter(distroConfig);
   },
 
   /**
@@ -197,12 +195,12 @@ export const PathConverterUtils = {
    * @returns Normalized path
    */
   normalizeForPlatform(inputPath: string, platform: NodeJS.Platform): string {
-    if (platform === 'win32') {
+    if (platform === "win32") {
       // Convert to backslashes
-      return inputPath.replace(/\//g, '\\');
+      return inputPath.replace(/\//g, "\\");
     }
     // Convert to forward slashes
-    return inputPath.replace(/\\/g, '/');
+    return inputPath.replace(/\\/g, "/");
   },
 
   /**
@@ -213,9 +211,7 @@ export const PathConverterUtils = {
   isAbsolutePath(inputPath: string): boolean {
     // Windows absolute: C:\, \\server\share
     // Unix absolute: /home/user
-    return /^[A-Z]:\\/i.test(inputPath) ||
-           /^\\\\/.test(inputPath) ||
-           inputPath.startsWith('/');
+    return /^[A-Z]:\\/i.test(inputPath) || /^\\\\/.test(inputPath) || inputPath.startsWith("/");
   },
 
   /**

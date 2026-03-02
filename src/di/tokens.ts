@@ -26,7 +26,7 @@ import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { ILoggerService } from "../services/loggerService.js";
 import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
-import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
+import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService";
 
 /**
  * All service tokens for the DI container

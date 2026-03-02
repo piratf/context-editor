@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { exec, execSync } from "node:child_process";
 import { promisify } from "node:util";
+import type { ILoggerService } from "./loggerService.js";
 
 const execAsync = promisify(exec);
 
@@ -32,6 +33,12 @@ export interface Environment {
  * Service for detecting available Claude Code environments.
  */
 export class EnvironmentDetector {
+  private readonly logger: ILoggerService | undefined;
+
+  constructor(logger?: ILoggerService) {
+    this.logger = logger;
+  }
+
   /**
    * Detect all available environments on the current system.
    * Returns primary environment plus any cross-platform environments (Windows ↔ WSL).
@@ -129,7 +136,7 @@ export class EnvironmentDetector {
       try {
         const buffer = execSync("wsl -l -q", { timeout: 5000 }) as Buffer;
         // Check for UTF-16LE BOM or pattern
-        if (buffer.length > 1 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+        if (buffer.length > 1 && buffer[0] === 0xff && buffer[1] === 0xfe) {
           distrosOutput = buffer.toString("utf16le");
         } else if (buffer.indexOf(0) >= 0 && buffer.indexOf(0) < buffer.length / 2) {
           // Likely UTF-16LE without BOM (null bytes present)
@@ -144,10 +151,7 @@ export class EnvironmentDetector {
       }
 
       // Sanitize: remove null bytes, carriage returns, and extra whitespace
-      const cleanStdout = distrosOutput
-        .replace(/\0/g, "")
-        .replace(/\r/g, "")
-        .trim();
+      const cleanStdout = distrosOutput.replace(/\0/g, "").replace(/\r/g, "").trim();
       const lines = cleanStdout.split("\n");
       const distros = lines.filter((line) => line.trim().length > 0);
 
@@ -204,8 +208,9 @@ export class EnvironmentDetector {
         accessible: true,
       };
     } catch (error) {
-      // Log error for debugging but don't throw
-      console.error("Failed to detect WSL from Windows:", error);
+      if (this.logger) {
+        this.logger.error("Failed to detect WSL from Windows", error as Error);
+      }
       return null;
     }
   }

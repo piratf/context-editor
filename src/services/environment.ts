@@ -14,18 +14,18 @@
  * - Exposes platform-agnostic utility methods
  */
 
-import * as fs from 'node:fs';
+import * as fs from "node:fs";
 
-import * as path from 'path';
+import * as path from "path";
 
 /**
  * Environment type enumeration
  */
 export enum EnvironmentType {
-  Windows = 'windows',
-  WSL = 'wsl',
-  MacOS = 'macos',
-  Linux = 'linux'
+  Windows = "windows",
+  WSL = "wsl",
+  MacOS = "macos",
+  Linux = "linux",
 }
 
 /**
@@ -83,7 +83,7 @@ export class Environment {
    * Returns a platform-agnostic path.
    */
   getConfigPath(): string {
-    return path.join(this._homeDir, '.claude.json');
+    return path.join(this._homeDir, ".claude.json");
   }
 
   /**
@@ -129,7 +129,7 @@ export class Environment {
     return {
       type: this._type,
       homeDir: this._homeDir,
-      configPath: this.getConfigPath()
+      configPath: this.getConfigPath(),
     };
   }
 
@@ -140,13 +140,13 @@ export class Environment {
     const platform = process.platform;
 
     switch (platform) {
-      case 'win32':
+      case "win32":
         return EnvironmentType.Windows;
 
-      case 'darwin':
+      case "darwin":
         return EnvironmentType.MacOS;
 
-      case 'linux':
+      case "linux":
         // Check if running in WSL
         if (this.isWslInternal()) {
           return EnvironmentType.WSL;
@@ -165,15 +165,15 @@ export class Environment {
   private detectHomeDir(): string {
     const platform = process.platform;
 
-    if (platform === 'win32') {
+    if (platform === "win32") {
       // Windows: use USERPROFILE environment variable
       const userProfile = process.env.USERPROFILE;
-      return userProfile ?? '';
+      return userProfile ?? "";
     }
 
     // macOS, Linux, WSL: use HOME environment variable
     const home = process.env.HOME;
-    return home ?? '';
+    return home ?? "";
   }
 
   /**
@@ -182,9 +182,9 @@ export class Environment {
    */
   private isWslInternal(): boolean {
     try {
-      const version = fs.readFileSync('/proc/version', 'utf-8');
+      const version = fs.readFileSync("/proc/version", "utf-8");
       const lower = version.toLowerCase();
-      return lower.includes('microsoft') || lower.includes('wsl');
+      return lower.includes("microsoft") || lower.includes("wsl");
     } catch {
       // /proc/version not accessible, assume not WSL
       return false;

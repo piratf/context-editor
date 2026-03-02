@@ -15,10 +15,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { ILoggerService } from "./loggerService.js";
-import type { IDataFacade, IEnvironmentManagerService } from "./environmentManagerService.js";
+import type { IEnvironmentManagerService } from "./environmentManagerService.js";
+import type { IDataFacade } from "../types/environment.js";
 import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
 import { RootNodeService } from "./rootNodeService.js";
 import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
+import { AIConfigAggregator } from "./aiConfigAggregator.js";
+import { AI_TOOL_DIRS } from "../constants/aiTools.js";
 
 /**
  * Service for managing Claude Code root nodes
@@ -29,6 +32,62 @@ import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
  * - Helper methods for file system operations
  */
 export class ClaudeCodeRootNodeService implements RootNodeService {
+  /** AI tool config files to scan in home folder */
+  private readonly AI_TOOL_FILES = [".claude.json"] as const;
+
+  /** AI tool directories to scan in project folder */
+  private readonly PROJECT_AI_TOOL_DIRS = [
+    // Mainstream AI tool directories
+    ".claude",
+    ".gemini",
+    ".cursor",
+    ".aider",
+    ".roo",
+    ".cline",
+    ".trae",
+    ".codeium",
+    ".github",
+    ".openai",
+    ".codex",
+    ".windsurf",
+    // Universal standard and protocol directories
+    ".agents",
+    ".mcp",
+    ".skills",
+    ".well-known",
+  ] as const;
+
+  /** AI tool config files to scan in project folder */
+  private readonly PROJECT_AI_TOOL_FILES = [
+    // Claude Code
+    "CLAUDE.md",
+    ".claude.md",
+    ".mcp.json",
+    ".claude.json",
+    ".claudeignore",
+    // Gemini CLI
+    "GEMINI.md",
+    "AGENT.md",
+    ".gemini.yaml",
+    ".env",
+    // Cursor
+    ".cursorrules",
+    ".cursorignore",
+    "AGENTS.md",
+    // Roo Code
+    ".roorules",
+    ".rooignore",
+    ".roomodes",
+    // Windsurf
+    ".windsurf.json",
+    ".windsurfrules",
+    // Aider
+    ".aider.conf.yml",
+    ".aider.chat.history.md",
+    // Trae
+    ".trae.config",
+  ] as const;
+
   constructor(
     private readonly environmentManager: IEnvironmentManagerService,
     private readonly logger: ILoggerService
@@ -51,7 +110,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     }
 
     const info = facade.getEnvironmentInfo();
-    this.logger.debug("Current environment", { type: info.type, configPath: info.configPath });
+    this.logger.debug("Current environment", { type: info.type, homePath: info.homePath });
 
     return [this.createGlobalConfigNode(), this.createProjectsNode()];
   }
@@ -91,39 +150,43 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
    * Get children for Global Configuration node
    */
   private async getGlobalConfigChildren(facade: IDataFacade): Promise<GetChildrenResult> {
-    this.logger.debug("getGlobalConfigChildren called");
+    const homePath = facade.getHomePath();
+    this.logger.debug(`getGlobalConfigChildren called, homePath ${homePath}`);
 
-    const children: NodeData[] = [];
-    const hasConfig = await this.doesConfigExist(facade);
-
-    // Add ~/.claude.json file
-    if (hasConfig) {
-      const info = facade.getEnvironmentInfo();
-      children.push(
-        NodeDataFactory.createClaudeJson("~/.claude.json", info.configPath, {
-          tooltip: info.configPath,
-        })
-      );
-    }
-
-    // Add ~/.claude/ directory
-    const claudeDir = this.deriveClaudeDir(facade);
-    const hasClaudeDir = await this.directoryExists(claudeDir);
-    if (hasClaudeDir) {
-      children.push(
-        NodeDataFactory.createDirectory("~/.claude", claudeDir, {
+    // Process directories and files concurrently for better performance
+    const dirPromises = AI_TOOL_DIRS.map(async (dir) => {
+      const fullPath = path.join(homePath, dir);
+      if (await this.directoryExists(fullPath)) {
+        return NodeDataFactory.createDirectory(`~/${dir}`, fullPath, {
           collapsibleState: 1,
-          tooltip: claudeDir,
-        })
-      );
-    }
+          tooltip: fullPath,
+        });
+      }
+      return null;
+    });
 
-    // If nothing found, show empty message
+    const filePromises = this.AI_TOOL_FILES.map(async (file) => {
+      const fullPath = path.join(homePath, file);
+      if (await this.fileExists(fullPath)) {
+        return NodeDataFactory.createFile(`~/${file}`, fullPath, {
+          tooltip: fullPath,
+          iconId: "settings-gear",
+        });
+      }
+      return null;
+    });
+
+    const results = await Promise.all([...dirPromises, ...filePromises]);
+    const children: NodeData[] = results.filter(
+      (node): node is NonNullable<typeof node> => node !== null
+    );
+
+    // If nothing found, show info message
     if (children.length === 0) {
       children.push(
         this.createInfoNode(
-          "(no configuration found)",
-          "No ~/.claude.json or ~/.claude/ directory found"
+          "(no AI tool directories found)",
+          "No known AI tool directories exist in home folder"
         )
       );
     }
@@ -142,26 +205,26 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     const info = facade.getEnvironmentInfo();
     this.logger.debug("Current facade for projects", {
       type: info.type,
-      configPath: info.configPath,
+      homePath: info.homePath,
     });
 
-    // Get projects for current environment
-    const projects = await facade.getProjects();
+    // Use AIConfigAggregator to get projects from all AI tools
+    const aggregator = new AIConfigAggregator(facade);
+    const allProjects = await aggregator.getAllProjects();
 
-    this.logger.debug(`Found ${String(projects.length)} projects`);
+    this.logger.debug(`Found ${String(allProjects.length)} projects from all AI tools`);
 
-    if (projects.length === 0) {
+    if (allProjects.length === 0) {
       children.push(
         this.createInfoNode("(no projects found)", "No projects found in this environment")
       );
     } else {
       // Create directory nodes for each project
       // Project directories are REAL file system nodes - they have paths and can be opened
-      for (const project of projects) {
-        const projectName = this.getProjectName(project.path);
-        this.logger.debug(`Adding project: ${projectName}`, { path: project.path });
+      for (const project of allProjects) {
+        this.logger.debug(`Adding project: ${project.label}`, { path: project.path });
         children.push(
-          NodeDataFactory.createDirectory(projectName, project.path, {
+          NodeDataFactory.createProject(project.label, project.path, {
             collapsibleState: 1,
             tooltip: project.path,
           })
@@ -198,26 +261,17 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   private createProjectsNode(): NodeData {
     return NodeDataFactory.createVirtualNode("Projects", NodeType.PROJECTS_ROOT, {
       collapsibleState: 1,
-      tooltip: "Registered Claude projects",
+      tooltip: "Registered Claude and Gemini projects",
     });
   }
 
   /**
-   * Derive the .claude directory path from the config file path
+   * Check if a file exists
    */
-  private deriveClaudeDir(facade: IDataFacade): string {
-    const info = facade.getEnvironmentInfo();
-    const dir = path.dirname(info.configPath);
-    return path.join(dir, ".claude");
-  }
-
-  /**
-   * Check if the config file exists for a given facade
-   */
-  private async doesConfigExist(facade: IDataFacade): Promise<boolean> {
+  private async fileExists(filePath: string): Promise<boolean> {
     try {
-      await facade.getGlobalConfig("settings");
-      return true;
+      const stats = await fs.stat(filePath);
+      return stats.isFile();
     } catch {
       return false;
     }
@@ -236,14 +290,6 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
   }
 
   /**
-   * Get project name from project path
-   */
-  private getProjectName(projectPath: string): string {
-    const parts = projectPath.split(/[/\\]/);
-    return parts[parts.length - 1] ?? projectPath;
-  }
-
-  /**
    * Create an info node
    */
   private createInfoNode(label: string, tooltip: string): NodeData {
@@ -252,5 +298,75 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
       tooltip,
       iconId: "info",
     });
+  }
+
+  /**
+   * Get children for Project node
+   */
+  async getProjectChildren(projectPath: string): Promise<GetChildrenResult> {
+    this.logger.debug(`getProjectChildren called, projectPath: ${projectPath}`);
+
+    // Process directories concurrently
+    const dirPromises = this.PROJECT_AI_TOOL_DIRS.map(async (dir) => {
+      const fullPath = path.join(projectPath, dir);
+      if (await this.directoryExists(fullPath)) {
+        return NodeDataFactory.createDirectory(dir, fullPath, {
+          collapsibleState: 1,
+          tooltip: fullPath,
+        });
+      }
+      return null;
+    });
+
+    // Process files concurrently
+    const filePromises = this.PROJECT_AI_TOOL_FILES.map(async (file) => {
+      const fullPath = path.join(projectPath, file);
+      if (await this.fileExists(fullPath)) {
+        return NodeDataFactory.createFile(file, fullPath, {
+          tooltip: fullPath,
+          iconId: this.getFileIcon(file),
+        });
+      }
+      return null;
+    });
+
+    // Collect all results
+    const results = await Promise.all([...dirPromises, ...filePromises]);
+    const children: NodeData[] = results.filter(
+      (node): node is NonNullable<typeof node> => node !== null
+    );
+
+    // If nothing found, show info message
+    if (children.length === 0) {
+      children.push(
+        this.createInfoNode(
+          "(no AI tool files found)",
+          "No known AI tool directories or files exist in this project"
+        )
+      );
+    }
+
+    this.logger.debug(`getProjectChildren: returning ${String(children.length)} children`);
+    return { success: true, children };
+  }
+
+  /**
+   * Get appropriate icon ID for a file
+   */
+  private getFileIcon(filename: string): string {
+    const ext = path.extname(filename);
+    const iconMap: Partial<Record<string, string>> = {
+      // Complete filename matches (for dotfiles like .env)
+      ".env": "lock",
+      ".gitignore": "lock",
+      // Extension matches
+      ".json": "settings-gear",
+      ".md": "file-text",
+      ".yaml": "settings-gear",
+      ".yml": "settings-gear",
+      ".conf": "settings-gear",
+    };
+    // Check complete filename first, then extension
+    return iconMap[filename] ?? iconMap[ext] ?? "file";
   }
 }

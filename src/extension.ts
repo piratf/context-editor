@@ -14,12 +14,13 @@ import * as vscode from "vscode";
 import { UnifiedProvider } from "./views/unifiedProvider.js";
 import { ConfigSearch, ConfigSearchFactory } from "./services/configSearch.js";
 import { type EnvironmentChangeEvent } from "./services/environmentManagerService";
-import { Logger } from "./utils/logger.js";
+import { Logger, LogLevel } from "./utils/logger.js";
 import { VsCodeUserInteraction } from "./adapters/ui.js";
 import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
 import { ServiceTokens } from "./di/tokens.js";
 import { IEnvironmentManagerService } from "./services/environmentManagerService";
+import { VsCodeLoggerService, ILoggerService } from "./services/loggerService.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -27,6 +28,7 @@ let unifiedProvider: UnifiedProvider;
 let treeView: vscode.TreeView<unknown> | undefined;
 let logger: Logger;
 let container: SimpleDIContainer;
+let loggerService: ILoggerService;
 
 // Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
@@ -40,32 +42,39 @@ function updateCurrentEnvironmentContext(envName: string): void {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log("Context Editor extension is now active!");
-
   // Create debug output channel
   const debugOutput = vscode.window.createOutputChannel("Context Editor");
   context.subscriptions.push(debugOutput);
 
-  // Initialize logger
-  logger = new Logger(debugOutput, "ContextEditor");
+  // Get log level from VS Code configuration
+  const config = vscode.workspace.getConfiguration("contextEditor");
+  const logLevelStr = config.get<string>("logLevel", "INFO");
+  const logLevel: LogLevel = parseLogLevel(logLevelStr);
+
+  // Create LoggerService FIRST (before ConfigSearch)
+  loggerService = new VsCodeLoggerService("ContextEditor", debugOutput, logLevel);
+
+  // Initialize logger (for backward compatibility)
+  logger = new Logger(debugOutput, "ContextEditor", logLevel);
+  logger.info("Context Editor extension is now active!");
   logger.logEntry("activate");
 
-  // Initialize config search and discover all environments
-  configSearch = await ConfigSearchFactory.createAndDiscover();
+  // Initialize config search with LoggerService
+  configSearch = await ConfigSearchFactory.createAndDiscover(loggerService);
 
   const facades = configSearch.getAllFacades();
   logger.info(`Discovered ${String(facades.length)} environment(s)`);
 
   for (const facade of facades) {
     const info = facade.getEnvironmentInfo();
-    logger.debug(`Environment: ${info.type}`, { configPath: info.configPath });
+    logger.debug(`Environment: ${info.type}`, { homePath: info.homePath });
   }
 
   // Initialize user interaction adapter
   const userInteraction = new VsCodeUserInteraction();
 
   // Create DI container for service management
-  container = createContainer(debugOutput, configSearch, userInteraction);
+  container = createContainer(debugOutput, configSearch, userInteraction, logLevel);
   context.subscriptions.push(container);
 
   const environmentManager = container.get(ServiceTokens.EnvironmentManagerService);
@@ -97,6 +106,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     unifiedProvider?.refresh();
   });
+
+  // Listen to configuration changes for dynamic log level updates
+  const configChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration("contextEditor.logLevel")) {
+      const config = vscode.workspace.getConfiguration("contextEditor");
+      const logLevelStr = config.get<string>("logLevel", "INFO");
+      const newLogLevel = parseLogLevel(logLevelStr);
+
+      // Update the global logger
+      logger.setLevel(newLogLevel);
+
+      // Update the container's LoggerService
+      const loggerService = container.get(ServiceTokens.LoggerService);
+      loggerService.setLevel(newLogLevel);
+
+      logger.info(`Log level changed to: ${logLevelStr}`);
+    }
+  });
+  context.subscriptions.push(configChangeListener);
 
   logger.logExit("activate");
 }
@@ -168,5 +196,23 @@ function registerCommands(
 }
 
 export function deactivate(): void {
-  console.log("Context Editor extension is now deactivated!");
+  logger.info("Context Editor extension is now deactivated!");
+}
+
+/**
+ * Parse log level string from configuration to LogLevel enum
+ */
+function parseLogLevel(level: string): LogLevel {
+  switch (level) {
+    case "DEBUG":
+      return LogLevel.DEBUG;
+    case "INFO":
+      return LogLevel.INFO;
+    case "WARN":
+      return LogLevel.WARN;
+    case "ERROR":
+      return LogLevel.ERROR;
+    default:
+      return LogLevel.INFO;
+  }
 }

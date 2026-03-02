@@ -22,6 +22,16 @@ export enum LogLevel {
 }
 
 /**
+ * Priority of each log level for filtering (lower = more verbose)
+ */
+const LOG_LEVEL_PRIORITY: Readonly<Record<LogLevel, number>> = {
+  [LogLevel.DEBUG]: 0,
+  [LogLevel.INFO]: 1,
+  [LogLevel.WARN]: 2,
+  [LogLevel.ERROR]: 3,
+} as const;
+
+/**
  * Structured log entry
  */
 interface LogEntry {
@@ -68,6 +78,16 @@ export interface ILoggerService {
    * Log exit from a method
    */
   logExit(methodName: string, result?: Record<string, unknown>): void;
+
+  /**
+   * Set the minimum log level
+   */
+  setLevel(level: LogLevel): void;
+
+  /**
+   * Get the current minimum log level
+   */
+  getLevel(): LogLevel;
 }
 
 /**
@@ -77,10 +97,29 @@ export interface ILoggerService {
  * The output channel is provided as a dependency for testability.
  */
 export class VsCodeLoggerService implements ILoggerService {
+  private minLevel: LogLevel;
+
   constructor(
     private readonly componentName: string,
-    private readonly outputChannel: { appendLine(value: string): void }
-  ) {}
+    private readonly outputChannel: { appendLine(value: string): void },
+    minLevel: LogLevel = LogLevel.INFO
+  ) {
+    this.minLevel = minLevel;
+  }
+
+  /**
+   * Set the minimum log level
+   */
+  setLevel(level: LogLevel): void {
+    this.minLevel = level;
+  }
+
+  /**
+   * Get the current minimum log level
+   */
+  getLevel(): LogLevel {
+    return this.minLevel;
+  }
 
   /**
    * Log a debug message
@@ -134,6 +173,11 @@ export class VsCodeLoggerService implements ILoggerService {
    * Internal log method that formats and writes to output channel
    */
   private log(level: LogLevel, message: string, details?: Record<string, unknown>): void {
+    // Filter logs based on minimum level
+    if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[this.minLevel]) {
+      return;
+    }
+
     const entry: LogEntry = {
       level,
       component: this.componentName,

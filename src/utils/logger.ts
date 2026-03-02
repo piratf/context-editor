@@ -16,6 +16,16 @@ export enum LogLevel {
 }
 
 /**
+ * Priority of each log level for filtering (lower = more verbose)
+ */
+const LOG_LEVEL_PRIORITY: Readonly<Record<LogLevel, number>> = {
+  [LogLevel.DEBUG]: 0,
+  [LogLevel.INFO]: 1,
+  [LogLevel.WARN]: 2,
+  [LogLevel.ERROR]: 3,
+} as const;
+
+/**
  * Structured log entry
  */
 interface LogEntry {
@@ -32,10 +42,30 @@ interface LogEntry {
 export class Logger {
   private readonly outputChannel: vscode.OutputChannel;
   private readonly componentName: string;
+  private minLevel: LogLevel;
 
-  constructor(outputChannel: vscode.OutputChannel, componentName: string) {
+  constructor(
+    outputChannel: vscode.OutputChannel,
+    componentName: string,
+    minLevel: LogLevel = LogLevel.INFO
+  ) {
     this.outputChannel = outputChannel;
     this.componentName = componentName;
+    this.minLevel = minLevel;
+  }
+
+  /**
+   * Set the minimum log level
+   */
+  setLevel(level: LogLevel): void {
+    this.minLevel = level;
+  }
+
+  /**
+   * Get the current minimum log level
+   */
+  getLevel(): LogLevel {
+    return this.minLevel;
   }
 
   /**
@@ -74,6 +104,11 @@ export class Logger {
    * Internal log method that formats and writes to output channel
    */
   private log(level: LogLevel, message: string, details?: Record<string, unknown>): void {
+    // Filter logs based on minimum level
+    if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[this.minLevel]) {
+      return;
+    }
+
     const entry: LogEntry = {
       level,
       component: this.componentName,

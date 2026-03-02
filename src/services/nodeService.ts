@@ -12,10 +12,10 @@
  */
 
 import * as path from "node:path";
-import type { NodeData, DirectoryData, ErrorDataNode } from "../types/nodeData.js";
+import type { NodeData, DirectoryData, ProjectData, ErrorDataNode } from "../types/nodeData.js";
 import { NodeDataFactory, NodeTypeGuard } from "../types/nodeData.js";
 import type { SyncFileFilter, FilterContext } from "../types/fileFilter.js";
-import { createFilterContext, ClaudeCodeFileFilter } from "../types/fileFilter.js";
+import { AllowAllFilter } from "../types/fileFilter.js";
 import { RootNodeService } from "./rootNodeService";
 
 /**
@@ -106,30 +106,33 @@ export const EMPTY_CHILDREN_RESULT: GetChildrenResult = { success: true, childre
  * - Filtering entries based on configured filters
  * - Creating child node data objects
  * - Error handling for file system operations
+ *
+ * Filtering behavior:
+ * - Inside .claude directory: Allow all (Claude-specific files)
+ * - Inside other AI tool directories (.gemini, .cursor, etc.): Allow all
+ * - In project root: Use configured filter (ProjectClaudeFileFilter by default)
  */
 export class NodeService {
-  private readonly filter: SyncFileFilter;
-  private readonly pathSep: string;
   private readonly rootNodeService: RootNodeService;
+  private readonly allowAllFilter: AllowAllFilter;
 
   constructor(
     private readonly fileSystem: FileSystem,
-    nodeService: RootNodeService,
-    options: {
-      filter?: SyncFileFilter;
-    } = {}
+    nodeService: RootNodeService
   ) {
-    this.pathSep = fileSystem.pathSep;
-
-    // Use provided filter or default to ClaudeCodeFileFilter
-    if (options.filter !== undefined) {
-      this.filter = options.filter;
-    } else {
-      // Default filter for Claude files
-      this.filter = new ClaudeCodeFileFilter();
-    }
-
     this.rootNodeService = nodeService;
+    this.allowAllFilter = new AllowAllFilter();
+  }
+
+  /**
+   * Determine the appropriate filter for a given directory path
+   * @param dirPath - Directory path to get filter for
+   * @returns Appropriate filter for the directory context
+   */
+  private getFilterForDirectory(_dirPath: string): SyncFileFilter {
+    // All directories use allowAllFilter since this service is only used
+    // for AI tool directories (.claude, .gemini, etc.)
+    return this.allowAllFilter;
   }
 
   /**
@@ -151,16 +154,32 @@ export class NodeService {
     }
 
     try {
+      // Get the appropriate filter for this directory
+      const filter = this.getFilterForDirectory(node.path);
+
       // Read directory entries
       const entries = await this.fileSystem.readDirectory(node.path);
 
       // Sort: directories first, then files, both alphabetically
       const sortedEntries = this.sortEntries(entries);
 
-      // Create child nodes
+      // Create child nodes with filtering
       const children: NodeData[] = [];
       for (const entry of sortedEntries) {
-        if (this.shouldInclude(entry, node.path)) {
+        // Create filter context and evaluate
+        const fullPath = path.join(node.path, entry.name);
+        const filterContext: FilterContext = {
+          path: fullPath,
+          parentPath: node.path,
+          name: entry.name,
+          isDirectory: entry.isDirectory,
+          pathSep: this.fileSystem.pathSep,
+        };
+
+        const result = filter.evaluate(filterContext);
+
+        // Only include entries that pass the filter
+        if (result.include) {
           const childNode = this.createChildNode(entry, node.path);
           children.push(childNode);
         }
@@ -193,20 +212,25 @@ export class NodeService {
   }
 
   /**
-   * Check if an entry should be included based on filter
+   * Get children for a project node
+   *
+   * @param node - Project node data
+   * @returns Array of child node data, or error node if failed
    */
-  private shouldInclude(entry: FsEntry, parentPath: string): boolean {
-    const fullPath = path.join(parentPath, entry.name);
-    const context: FilterContext = createFilterContext(
-      fullPath,
-      entry.name,
-      entry.isDirectory,
-      parentPath,
-      this.pathSep
-    );
+  async getChildrenForProjectNode(node: ProjectData): Promise<GetChildrenResult> {
+    // Validate node has path
+    if (!node.path) {
+      return {
+        success: false,
+        error: NodeDataFactory.createError("Error: No path", {
+          tooltip: "Project node has no path",
+          contextValue: "error",
+        }),
+      };
+    }
 
-    const result = this.filter.evaluate(context);
-    return result.include;
+    // Delegate to rootNodeService for project children
+    return await this.rootNodeService.getProjectChildren(node.path);
   }
 
   /**
@@ -269,13 +293,6 @@ export class NodeService {
   }
 
   /**
-   * Get the filter being used
-   */
-  getFilter(): SyncFileFilter {
-    return this.filter;
-  }
-
-  /**
    * Get children by node type (unified entry point)
    *
    * Uses type guard functions to dispatch to appropriate handler based on node type.
@@ -285,6 +302,11 @@ export class NodeService {
    * @returns Array of child node data, or error node if failed
    */
   async getChildrenByNodeType(node: NodeData): Promise<GetChildrenResult> {
+    // PROJECT - has children (must check before DIRECTORY since isDirectoryData returns true for PROJECT)
+    if (NodeTypeGuard.isProject(node)) {
+      return await this.getChildrenForProjectNode(node);
+    }
+
     // DIRECTORY - has children
     if (NodeTypeGuard.isDirectoryData(node)) {
       return await this.getChildrenForDirectoryNode(node);
