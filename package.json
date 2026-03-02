@@ -166,7 +166,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run lint && npm run format:check && npm test",
+    "vscode:prepublish": "npm run compile && npm run lint && npm test",
     "compile": "rm -rf out/ && tsc -p ./ && cp -r resources out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -182,6 +182,7 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/exec": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.6",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.5",

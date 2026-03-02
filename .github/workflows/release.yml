@@ -4,6 +4,24 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (skip actual publish)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      draft_release:
+        description: "Create as draft release"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 permissions:
   contents: write
@@ -44,14 +62,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx semantic-release
-
-      - name: Build .vsix
-        run: npx vsce package
-
-      - name: Upload .vsix to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: "*.vsix"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            npx semantic-release --dry-run
+          else
+            # For testing: allow release from this branch and optionally as draft
+            # For test branch, only package vsix without publishing to marketplace
+            node -e "
+              const config = require('./.releaserc.json');
+              config.branches = [config.branches[0], '${{ github.ref_name }}'];
+              const githubPlugin = config.plugins.find(p => Array.isArray(p) && p[0] === '@semantic-release/github');
+              if (githubPlugin && '${{ github.event.inputs.draft_release }}' === 'true') {
+                githubPlugin[1] = githubPlugin[1] || {};
+                githubPlugin[1].draftRelease = true;
+              }
+              // For test branch, set packageVsix to true and publishVsix to false
+              const vscePlugin = config.plugins.find(p => p === 'semantic-release-vsce');
+              if (vscePlugin) {
+                config.plugins[config.plugins.indexOf(vscePlugin)] = ['semantic-release-vsce', { packageVsix: true, publishVsix: false, publishOvsx: false }];
+              }
+              fs.writeFileSync('.releaserc.json', JSON.stringify(config, null, 2));
+            "
+            # Format modified files to pass pre-push hook
+            npx prettier --write .releaserc.json CHANGELOG.md
+            npx semantic-release
+          fi
