@@ -21,6 +21,7 @@ import { type NodeData, NodeDataFactory, NodeType } from "../types/nodeData.js";
 import { RootNodeService } from "./rootNodeService.js";
 import { EMPTY_CHILDREN_RESULT, GetChildrenResult } from "./nodeService";
 import { AIConfigAggregator } from "./aiConfigAggregator.js";
+import { AI_TOOL_DIRS } from "../constants/aiTools.js";
 
 /**
  * Service for managing Claude Code root nodes
@@ -31,27 +32,6 @@ import { AIConfigAggregator } from "./aiConfigAggregator.js";
  * - Helper methods for file system operations
  */
 export class ClaudeCodeRootNodeService implements RootNodeService {
-  /** AI tool directories to scan in home folder */
-  private readonly AI_TOOL_DIRS = [
-    // Mainstream AI tool directories
-    ".claude",
-    ".gemini",
-    ".cursor",
-    ".aider",
-    ".roo",
-    ".cline",
-    ".trae",
-    ".codeium",
-    ".github",
-    ".openai",
-    ".codex",
-    // Universal standard and protocol directories
-    ".agents",
-    ".mcp",
-    ".skills",
-    ".well-known",
-  ] as const;
-
   /** AI tool config files to scan in home folder */
   private readonly AI_TOOL_FILES = [".claude.json"] as const;
 
@@ -174,7 +154,7 @@ export class ClaudeCodeRootNodeService implements RootNodeService {
     this.logger.debug(`getGlobalConfigChildren called, homePath ${homePath}`);
 
     // Process directories and files concurrently for better performance
-    const dirPromises = this.AI_TOOL_DIRS.map(async (dir) => {
+    const dirPromises = AI_TOOL_DIRS.map(async (dir) => {
       const fullPath = path.join(homePath, dir);
       if (await this.directoryExists(fullPath)) {
         return NodeDataFactory.createDirectory(`~/${dir}`, fullPath, {

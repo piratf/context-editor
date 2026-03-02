@@ -11,8 +11,10 @@
  */
 
 import * as path from "node:path";
+import * as fs from "node:fs/promises";
 import type { IProjectEntry } from "../types/environment.js";
 import type { IDataFacade } from "./dataFacade.js";
+import { EnvironmentType } from "./dataFacade.js";
 import { ClaudeConfig } from "./claudeConfig.js";
 import { GeminiConfig } from "./geminiConfig.js";
 
@@ -55,7 +57,10 @@ export class AIConfigAggregator {
 
     // Merge and deduplicate
     const allProjects = [...convertedClaudeProjects, ...convertedGeminiProjects];
-    return this.deduplicateAndSort(allProjects);
+    const deduplicated = this.deduplicateAndSort(allProjects);
+
+    // Filter out inaccessible paths (async)
+    return this.filterAccessiblePaths(deduplicated);
   }
 
   /**
@@ -89,6 +94,38 @@ export class AIConfigAggregator {
   }
 
   /**
+   * Filter paths to only include those accessible in the current environment
+   * Uses fs.access() to verify paths actually exist and are accessible
+   */
+  private async filterAccessiblePaths(
+    projects: readonly IProjectEntry[]
+  ): Promise<IProjectEntry[]> {
+    const envType = this.facade.getEnvironmentInfo().type as EnvironmentType;
+
+    // Non-Windows platforms don't need filtering
+    if (envType !== EnvironmentType.Windows) {
+      return projects as IProjectEntry[];
+    }
+
+    // Check accessibility in parallel for better performance
+    const accessibilityResults = await Promise.all(
+      projects.map(async (project) => {
+        try {
+          await fs.access(project.path);
+          return { accessible: true, project };
+        } catch {
+          return { accessible: false, project };
+        }
+      })
+    );
+
+    // Return only accessible projects
+    return accessibilityResults
+      .filter((result) => result.accessible)
+      .map((result) => result.project);
+  }
+
+  /**
    * Normalize a path for comparison
    *
    * Handles Windows-specific path inconsistencies:
@@ -104,7 +141,8 @@ export class AIConfigAggregator {
     normalized = path.normalize(normalized);
 
     // For Windows, also handle case-insensitivity
-    const isWindows = this.facade.getEnvironmentInfo().type === "windows";
+    const isWindows =
+      (this.facade.getEnvironmentInfo().type as EnvironmentType) === EnvironmentType.Windows;
     if (isWindows) {
       normalized = normalized.toLowerCase();
     }
