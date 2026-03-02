@@ -4,6 +4,12 @@
 
 - add Gemini support and multi-AI tool configuration ([#10](https://github.com/piratf/context-editor/issues/10)) ([4e26d30](https://github.com/piratf/context-editor/commit/4e26d30f1c6d96260acd762cc5fd7849d66f943a))
 
+# [0.3.0](https://github.com/piratf/context-editor/compare/v0.2.0...v0.3.0) (2026-03-02)
+
+### Features
+
+- add Gemini support and multi-AI tool configuration ([#10](https://github.com/piratf/context-editor/issues/10)) ([4e26d30](https://github.com/piratf/context-editor/commit/4e26d30f1c6d96260acd762cc5fd7849d66f943a))
+
 # [0.2.0](https://github.com/piratf/context-editor/compare/v0.1.1...v0.2.0) (2026-02-13)
 
 ### Features
