@@ -100,13 +100,6 @@ export class AIConfigAggregator {
   private async filterAccessiblePaths(
     projects: readonly IProjectEntry[]
   ): Promise<IProjectEntry[]> {
-    const envType = this.facade.getEnvironmentInfo().type as EnvironmentType;
-
-    // Non-Windows platforms don't need filtering
-    if (envType !== EnvironmentType.Windows) {
-      return projects as IProjectEntry[];
-    }
-
     // Check accessibility in parallel for better performance
     const accessibilityResults = await Promise.all(
       projects.map(async (project) => {
