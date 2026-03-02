@@ -18,6 +18,8 @@
 
 import { BaseDataFacade, type EnvironmentInfo, EnvironmentType } from "./dataFacade.js";
 import { PathConverterFactory } from "./pathConverter.js";
+import { hasAnyAITool } from "../constants/aiTools.js";
+import * as fs from "node:fs/promises";
 
 /**
  * Data facade for accessing Windows paths from WSL
@@ -105,12 +107,56 @@ export class WslToWindowsDataFacade extends BaseDataFacade {
 }
 
 /**
+ * Result of Windows user discovery
+ */
+export interface DiscoveredWindowsUser {
+  /** Windows username (e.g., "john") */
+  username: string;
+  /** Home directory path in WSL format (e.g., "/mnt/c/Users/john") */
+  homePath: string;
+}
+
+/**
+ * Helper function for Windows user discovery
+ * Separated from factory for testability
+ */
+export async function discoverWindowsUsers(): Promise<DiscoveredWindowsUser[]> {
+  const discovered: DiscoveredWindowsUser[] = [];
+  const usersPath = "/mnt/c/Users";
+
+  try {
+    await fs.access(usersPath);
+    const entries = await fs.readdir(usersPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const username = entry.name;
+
+      // Skip system directories
+      if (username.startsWith(".")) continue;
+
+      const homePath = `${usersPath}/${username}`;
+
+      // Check if ANY AI tool exists
+      if (await hasAnyAITool(homePath)) {
+        discovered.push({ username, homePath });
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  return discovered;
+}
+
+/**
  * Factory for creating WslToWindowsDataFacade instances
  */
 export const WslToWindowsDataFacadeFactory = {
   /**
    * Create a WslToWindowsDataFacade for accessing Windows paths
-   * @param windowsUsername - Windows username (e.g., "john"). If not provided, will try to detect.
+   * @param windowsUsername - Windows username (e.g., "john").
    * @returns Configured WslToWindowsDataFacade
    */
   create(windowsUsername?: string): WslToWindowsDataFacade {
@@ -118,37 +164,19 @@ export const WslToWindowsDataFacadeFactory = {
   },
 
   /**
-   * Create WslToWindowsDataFacade by auto-detecting Windows username
-   * Tries common usernames and checks which one has a config file
-   * @returns Configured facade or null
+   * Create WslToWindowsDataFacade instances for all discovered Windows users
+   * Uses hasAnyAITool to discover users with AI tools installed
+   * @returns Promise resolving to array of accessible facades
    */
-  createAuto(): WslToWindowsDataFacade | null {
-    // Try to detect Windows username by checking common locations
-    const usernames = [this.detectUsernameFromEnv(), "windows-user", "user", "admin"];
+  async createAll(): Promise<WslToWindowsDataFacade[]> {
+    const facades: WslToWindowsDataFacade[] = [];
+    const discovered = await discoverWindowsUsers();
 
-    for (const username of usernames) {
-      if (username === null || username === "") continue;
-
-      return this.create(username);
+    for (const user of discovered) {
+      const facade = this.create(user.username);
+      facades.push(facade);
     }
 
-    return null;
-  },
-
-  /**
-   * Detect Windows username from environment variables
-   */
-  detectUsernameFromEnv(): string | null {
-    // Try common environment variables that might contain Windows username
-    const envVars = ["WINDOWS_USER", "WINDOWS_USERNAME", "USER"];
-
-    for (const envVar of envVars) {
-      const value = process.env[envVar];
-      if (value !== undefined && value !== "" && value !== "root" && !value.startsWith("/")) {
-        return value;
-      }
-    }
-
-    return null;
+    return facades;
   },
 } as const;

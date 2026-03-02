@@ -135,11 +135,9 @@ export class ConfigSearch extends EventEmitter {
       const wslFacades = await this.discoverWslFromWindows();
       facades.push(...wslFacades);
     } else if (this.environment.isWSL()) {
-      // WSL: Discover Windows
-      const windowsFacade = this.discoverWindowsFromWsl();
-      if (windowsFacade) {
-        facades.push(windowsFacade);
-      }
+      // WSL: Discover Windows users
+      const windowsFacades = await this.discoverWindowsFromWsl();
+      facades.push(...windowsFacades);
     }
     // macOS/Linux: Only native facade
 
@@ -182,23 +180,29 @@ export class ConfigSearch extends EventEmitter {
   }
 
   /**
-   * Discover Windows configuration from WSL
+   * Discover Windows users from WSL
+   * Changed from returning single facade to array of facades
    */
-  private discoverWindowsFromWsl(): IDataFacade | null {
-    // Use WslToWindowsDataFacadeFactory to auto-detect Windows
-    const facade = WslToWindowsDataFacadeFactory.createAuto();
+  private async discoverWindowsFromWsl(): Promise<IDataFacade[]> {
+    const facades: IDataFacade[] = [];
 
-    if (facade) {
-      this.facades.set("windows", {
+    const discoveredFacades = await WslToWindowsDataFacadeFactory.createAll();
+
+    for (const facade of discoveredFacades) {
+      const username = facade.getWindowsUsername();
+      const id = `windows:${username}`;
+
+      facades.push(facade);
+      this.facades.set(id, {
         facade,
         accessible: true,
         discoveredAt: Date.now(),
       });
-      this.debugLog("Discovered Windows environment from WSL");
-      return facade;
+
+      this.debugLog(`Discovered Windows user: ${username}`);
     }
 
-    return null;
+    return facades;
   }
 
   /**

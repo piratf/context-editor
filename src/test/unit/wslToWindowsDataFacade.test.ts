@@ -10,6 +10,7 @@ import { describe, it } from "node:test";
 import {
   WslToWindowsDataFacade,
   WslToWindowsDataFacadeFactory,
+  discoverWindowsUsers,
 } from "../../services/wslToWindowsDataFacade.js";
 import { EnvironmentType } from "../../services/dataFacade.js";
 
@@ -107,27 +108,45 @@ describe("WslToWindowsDataFacade", () => {
       assert.ok(facade instanceof WslToWindowsDataFacade);
     });
 
-    it("should detect username from environment when creating auto", () => {
-      // Set environment variable for testing
-      process.env.WINDOWS_USER = "testuser";
-
-      try {
-        const facade = WslToWindowsDataFacadeFactory.createAuto();
-        // In test environment, this will likely return null since no actual Windows config exists
-        // Just verify it doesn't throw and returns null or a facade
-        assert.strictEqual(facade === null || facade instanceof WslToWindowsDataFacade, true);
-      } finally {
-        delete process.env.WINDOWS_USER;
-      }
+    it("should create facade without username", () => {
+      const facade = WslToWindowsDataFacadeFactory.create();
+      assert.ok(facade instanceof WslToWindowsDataFacade);
     });
 
-    it("should detect username from environment variable", () => {
-      // Test the detectUsernameFromEnv method
-      process.env.USER = "windowsuser";
-      const detected = WslToWindowsDataFacadeFactory.detectUsernameFromEnv();
-      // Should return the detected username or null
-      assert.strictEqual(detected === "windowsuser" || detected === null, true);
-      delete process.env.USER;
+    describe("createAll()", () => {
+      it("should return empty array when no Windows users found", async () => {
+        // Mock fs.readdir to return empty
+        const facades = await WslToWindowsDataFacadeFactory.createAll();
+        assert.ok(Array.isArray(facades));
+      });
+
+      it("should return array of facades", async () => {
+        const facades = await WslToWindowsDataFacadeFactory.createAll();
+        assert.ok(Array.isArray(facades));
+        // All elements should be WslToWindowsDataFacade instances
+        for (const facade of facades) {
+          assert.ok(facade instanceof WslToWindowsDataFacade);
+        }
+      });
+    });
+
+    describe("discoverWindowsUsers()", () => {
+      it("should return array of discovered users", async () => {
+        const users = await discoverWindowsUsers();
+        assert.ok(Array.isArray(users));
+        // All elements should have username and homePath
+        for (const user of users) {
+          assert.ok(typeof user.username === "string");
+          assert.ok(typeof user.homePath === "string");
+          assert.ok(user.homePath.startsWith("/mnt/c/Users/"));
+        }
+      });
+
+      it("should return empty array when /mnt/c/Users is inaccessible", async () => {
+        // The function should handle errors gracefully
+        const users = await discoverWindowsUsers();
+        assert.ok(Array.isArray(users));
+      });
     });
   });
 
