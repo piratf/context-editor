@@ -58,11 +58,6 @@ export class TreeItemFactory {
     // Build context value by checking all commands (duck typing)
     const contextValue = this.menuRegistry.buildContextValue(data);
 
-    // Debug: log context value construction
-    console.log(
-      `[TreeItemFactory] Node: "${data.label}" (${data.type}), ` + `contextValue: "${contextValue}"`
-    );
-
     // Create TreeItem
     const item = new vscode.TreeItem(data.label, toVscodeCollapsibleState(data.collapsibleState));
 

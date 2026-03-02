@@ -20,6 +20,7 @@ import { createContainer } from "./di/setup.js";
 import { SimpleDIContainer } from "./di/container.js";
 import { ServiceTokens } from "./di/tokens.js";
 import { IEnvironmentManagerService } from "./services/environmentManagerService";
+import { VsCodeLoggerService, ILoggerService } from "./services/loggerService.js";
 
 // Global state
 let configSearch: ConfigSearch;
@@ -27,6 +28,7 @@ let unifiedProvider: UnifiedProvider;
 let treeView: vscode.TreeView<unknown> | undefined;
 let logger: Logger;
 let container: SimpleDIContainer;
+let loggerService: ILoggerService;
 
 // Set context variable for UI conditionals and update view title
 function updateCurrentEnvironmentContext(envName: string): void {
@@ -40,8 +42,6 @@ function updateCurrentEnvironmentContext(envName: string): void {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log("Context Editor extension is now active!");
-
   // Create debug output channel
   const debugOutput = vscode.window.createOutputChannel("Context Editor");
   context.subscriptions.push(debugOutput);
@@ -51,12 +51,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const logLevelStr = config.get<string>("logLevel", "INFO");
   const logLevel: LogLevel = parseLogLevel(logLevelStr);
 
-  // Initialize logger
+  // Create LoggerService FIRST (before ConfigSearch)
+  loggerService = new VsCodeLoggerService("ContextEditor", debugOutput, logLevel);
+
+  // Initialize logger (for backward compatibility)
   logger = new Logger(debugOutput, "ContextEditor", logLevel);
+  logger.info("Context Editor extension is now active!");
   logger.logEntry("activate");
 
-  // Initialize config search and discover all environments
-  configSearch = await ConfigSearchFactory.createAndDiscover();
+  // Initialize config search with LoggerService
+  configSearch = await ConfigSearchFactory.createAndDiscover(loggerService);
 
   const facades = configSearch.getAllFacades();
   logger.info(`Discovered ${String(facades.length)} environment(s)`);
@@ -192,7 +196,7 @@ function registerCommands(
 }
 
 export function deactivate(): void {
-  console.log("Context Editor extension is now deactivated!");
+  logger.info("Context Editor extension is now deactivated!");
 }
 
 /**

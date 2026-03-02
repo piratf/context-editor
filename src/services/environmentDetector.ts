@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { exec, execSync } from "node:child_process";
 import { promisify } from "node:util";
+import type { ILoggerService } from "./loggerService.js";
 
 const execAsync = promisify(exec);
 
@@ -32,6 +33,12 @@ export interface Environment {
  * Service for detecting available Claude Code environments.
  */
 export class EnvironmentDetector {
+  private readonly logger: ILoggerService | undefined;
+
+  constructor(logger?: ILoggerService) {
+    this.logger = logger;
+  }
+
   /**
    * Detect all available environments on the current system.
    * Returns primary environment plus any cross-platform environments (Windows ↔ WSL).
@@ -201,8 +208,9 @@ export class EnvironmentDetector {
         accessible: true,
       };
     } catch (error) {
-      // Log error for debugging but don't throw
-      console.error("Failed to detect WSL from Windows:", error);
+      if (this.logger) {
+        this.logger.error("Failed to detect WSL from Windows", error as Error);
+      }
       return null;
     }
   }

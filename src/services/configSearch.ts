@@ -24,6 +24,7 @@ import { NativeDataFacade } from "./nativeDataFacade.js";
 import { WindowsToWslDataFacadeFactory } from "./windowsToWslDataFacade.js";
 import { WslToWindowsDataFacadeFactory } from "./wslToWindowsDataFacade.js";
 import type { IDataFacade } from "./dataFacade.js";
+import type { ILoggerService } from "./loggerService.js";
 
 /**
  * Data facade with metadata
@@ -42,12 +43,14 @@ export interface FacadeWithInfo {
  * Discovers and manages data facades for all accessible environments
  */
 export class ConfigSearch extends EventEmitter {
+  private readonly logger: ILoggerService | undefined;
   private facades: Map<string, FacadeWithInfo> = new Map();
   private environment: ReturnType<typeof getEnvironment>;
   private discoverPromise: Promise<IDataFacade[]> | null = null;
 
-  constructor() {
+  constructor(logger?: ILoggerService) {
     super();
+    this.logger = logger;
     this.environment = getEnvironment();
   }
 
@@ -209,9 +212,8 @@ export class ConfigSearch extends EventEmitter {
    * Debug logging helper
    */
   private debugLog(message: string): void {
-    // Only log in debug mode
-    if (process.env.DEBUG !== undefined && process.env.DEBUG !== "") {
-      console.debug(`[ConfigSearch] ${message}`);
+    if (this.logger) {
+      this.logger.debug(message);
     }
   }
 
@@ -247,16 +249,16 @@ export const ConfigSearchFactory = {
    * Create a ConfigSearch instance
    * @returns Configured ConfigSearch
    */
-  create(): ConfigSearch {
-    return new ConfigSearch();
+  create(logger?: ILoggerService): ConfigSearch {
+    return new ConfigSearch(logger);
   },
 
   /**
    * Create and perform initial discovery
    * @returns Promise resolving to ConfigSearch with discovered facades
    */
-  async createAndDiscover(): Promise<ConfigSearch> {
-    const search = this.create();
+  async createAndDiscover(logger?: ILoggerService): Promise<ConfigSearch> {
+    const search = this.create(logger);
     await search.discoverAll();
     return search;
   },
