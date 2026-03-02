@@ -10,6 +10,16 @@
 
 # [0.3.0](https://github.com/piratf/context-editor/compare/v0.2.0...v0.3.0) (2026-03-02)
 
+### Bug Fixes
+
+- configure semantic-release to upload .vsix to GitHub Release ([f063a44](https://github.com/piratf/context-editor/commit/f063a44f029cd4225ca180c2441290babb540501)), closes [softprops/action-#release](https://github.com/softprops/action-/issues/release)
+
+### Features
+
+- add Gemini support and multi-AI tool configuration ([#10](https://github.com/piratf/context-editor/issues/10)) ([4e26d30](https://github.com/piratf/context-editor/commit/4e26d30f1c6d96260acd762cc5fd7849d66f943a))
+
+# [0.3.0](https://github.com/piratf/context-editor/compare/v0.2.0...v0.3.0) (2026-03-02)
+
 ### Features
 
 - add Gemini support and multi-AI tool configuration ([#10](https://github.com/piratf/context-editor/issues/10)) ([4e26d30](https://github.com/piratf/context-editor/commit/4e26d30f1c6d96260acd762cc5fd7849d66f943a))
