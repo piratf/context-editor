@@ -27,11 +27,10 @@ import { NodeService } from "../services/nodeService.js";
 import { FileCreationService } from "../services/fileCreationService.js";
 import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
-import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 import { VsCodeLoggerService } from "../services/loggerService.js";
 import { Logger } from "../utils/logger.js";
 import { EnvironmentManagerService } from "../services/environmentManagerService.js";
-import type { IDataFacade } from "../services/environmentManagerService.js";
+import type { IDataFacade } from "../types/environment.js";
 import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 import { NodeFileSystemService } from "../services/fileSystemService.js";
 import { LogLevel } from "../services/loggerService.js";
@@ -133,13 +132,11 @@ export function createContainer(
   });
 
   // Register NodeService with configuration
-  // Using ProjectClaudeFileFilter for filtering Claude project files
   container.registerSingleton(ServiceTokens.NodeService, () => {
     const fileSystem = container.get(ServiceTokens.FileSystemService);
-    const filter = new ProjectClaudeFileFilter();
     const rootNodeService = container.get(ServiceTokens.ClaudeCodeRootNodeService);
 
-    return new NodeService(fileSystem, rootNodeService, { filter });
+    return new NodeService(fileSystem, rootNodeService);
   });
 
   container.registerSingleton(ServiceTokens.FileCreationService, () => {

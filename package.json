@@ -237,7 +237,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run lint && npm test",
-    "compile": "rm -rf out/ && tsc -p ./ && cp -r resources out/ && cp -r src/webviews out/",
+    "compile": "rm -rf out/ && tsc -p ./ && cp -r resources out/ && cp -r webviews out/",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
