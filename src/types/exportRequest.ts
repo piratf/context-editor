@@ -1,4 +1,4 @@
-import type { ExportPlan } from "./exportPlan";
+import type { ExportPlan, TreeExportPlan } from "./exportPlan";
 
 export interface ExportToDirectoryOptions {
   readonly targetPath: string;
@@ -12,6 +12,6 @@ export interface ExportOptions {
  * Export request with plan and options
  */
 export interface ExportRequest {
-  readonly plan: ExportPlan;
+  readonly plan: ExportPlan | TreeExportPlan;
   readonly options: ExportOptions;
 }

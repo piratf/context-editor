@@ -28,4 +28,20 @@ export class VsCodeConfigService implements ConfigService {
     await this.store.set(CONFIG_KEYS.DIRECTORY, state.directory);
     await this.store.set(CONFIG_KEYS.CATEGORIES, state.categories);
   }
+
+  getExportSelectedNodes(): string[] {
+    return this.store.get<string[]>(CONFIG_KEYS.SELECTED_NODES) ?? [];
+  }
+
+  async setExportSelectedNodes(nodeIds: string[]): Promise<void> {
+    await this.store.set(CONFIG_KEYS.SELECTED_NODES, nodeIds);
+  }
+
+  getExportExpandedNodes(): string[] {
+    return this.store.get<string[]>(CONFIG_KEYS.EXPANDED_NODES) ?? [];
+  }
+
+  async setExportExpandedNodes(nodeIds: string[]): Promise<void> {
+    await this.store.set(CONFIG_KEYS.EXPANDED_NODES, nodeIds);
+  }
 }

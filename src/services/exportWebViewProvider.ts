@@ -11,7 +11,7 @@ import * as vscode from "vscode";
 import type { UserInteraction } from "../adapters/ui";
 import type { VsCodeOpener } from "../adapters/ui.js";
 import type { WebViewMessage, WebViewPanel } from "../adapters/vscode";
-import type { ExportCategory, ExportItem, ExportPlan } from "../types/exportPlan";
+import type { TreeExportPlan } from "../types/exportPlan";
 import { ExportOptions, ExportRequest } from "../types/exportRequest";
 import type { ConfigService, ExportState } from "./configService.js";
 import { DEFAULT_EXPORT_STATE } from "./configService.js";
@@ -26,7 +26,7 @@ import type { DirectoryPicker } from "../adapters/directoryPicker";
  * Uses WebViewPanel interface to maintain testability.
  */
 export class ExportWebViewProvider {
-  private currentPlan: ExportPlan | null = null;
+  private currentPlan: TreeExportPlan | null = null;
   private exportState: ExportState = DEFAULT_EXPORT_STATE;
 
   constructor(
@@ -47,10 +47,10 @@ export class ExportWebViewProvider {
   /**
    * Show export WebView with plan data
    */
-  show(plan: ExportPlan): void {
+  show(plan: TreeExportPlan): void {
     this.logger.debug("Showing export WebView", {
-      itemCount: plan.totalCount,
-      categories: plan.categories.map((c) => c.name).join(", "),
+      totalCount: plan.totalCount,
+      selectedCount: plan.selectedCount,
     });
 
     this.currentPlan = plan;
@@ -59,7 +59,7 @@ export class ExportWebViewProvider {
     // Initialize the webview panel first to ensure it exists before generating HTML
     this.webViewPanel.init();
 
-    const html = this.generateHtml(plan);
+    const html = this.generateHtml();
     this.webViewPanel.show(
       {
         viewType: "contextEditor.export",
@@ -69,9 +69,20 @@ export class ExportWebViewProvider {
       html
     );
 
+    const isEmpty = plan.tree.children.length === 0;
+
+    // Get saved state from config
+    const savedSelectedIds = this.configService.getExportSelectedNodes();
+    const savedExpandedIds = this.configService.getExportExpandedNodes();
+
     this.webViewPanel.postMessage({
       type: "init",
-      data: { isEmpty: plan.totalCount === 0 },
+      data: {
+        tree: plan.tree,
+        isEmpty,
+        selectedNodeIds: savedSelectedIds,
+        expandedNodeIds: savedExpandedIds,
+      },
     });
   }
 
@@ -91,10 +102,15 @@ export class ExportWebViewProvider {
 
     switch (message.type) {
       case "export":
-        void this.handleExport(message.data as ExportOptions);
+        void this.handleExport(message.data as ExportOptions & { selectedNodeIds: string[] });
         break;
       case "selectDirectory":
         void this.handleSelectDirectory(message.data as { currentPath?: string });
+        break;
+      case "stateChanged":
+        void this.handleStateChanged(
+          message.data as { selectedNodeIds: string[]; expandedNodeIds: string[] }
+        );
         break;
       case "close":
         this.dispose();
@@ -106,9 +122,22 @@ export class ExportWebViewProvider {
   }
 
   /**
+   * Handle state changed from WebView
+   */
+  private async handleStateChanged(data: {
+    selectedNodeIds: string[];
+    expandedNodeIds: string[];
+  }): Promise<void> {
+    await this.configService.setExportSelectedNodes(data.selectedNodeIds);
+    await this.configService.setExportExpandedNodes(data.expandedNodeIds);
+  }
+
+  /**
    * Handle export action from WebView
    */
-  private async handleExport(options: ExportOptions): Promise<void> {
+  private async handleExport(
+    options: ExportOptions & { selectedNodeIds: string[] }
+  ): Promise<void> {
     this.logger.debug("Export requested", { options });
 
     if (!this.currentPlan) {
@@ -123,6 +152,7 @@ export class ExportWebViewProvider {
       }
     }
 
+    // Save state
     const stateToSave: ExportState = {
       directory: {
         enabled: options.toDirectory !== undefined,
@@ -138,8 +168,8 @@ export class ExportWebViewProvider {
     };
 
     this.logger.debug("Export request", {
-      itemCount: request.plan.totalCount,
-      gitRepo: request.options.toDirectory,
+      selectedCount: options.selectedNodeIds.length,
+      targetPath: request.options.toDirectory?.targetPath,
     });
 
     try {
@@ -223,34 +253,7 @@ export class ExportWebViewProvider {
   /**
    * Generate HTML content for the WebView
    */
-  private generateHtml(plan: ExportPlan): string {
-    // Generate categories HTML
-    const categoriesHtml = plan.categories
-      .map(
-        (category: ExportCategory, index: number) => `
-        <div class="category collapsed" data-category-id="${category.id}">
-          <div class="category-header">
-            <span class="category-toggle-icon">▼</span>
-            <span class="category-title">${category.name}</span>
-            <span class="category-count">${String(category.items.length)}</span>
-          </div>
-          <div class="items-grid">
-            ${category.items
-              .map(
-                (item: ExportItem) => `
-              <div class="item" data-item-id="${item.id}" title="${item.sourcePath}">
-                <span class="item-name">${item.name}</span>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-          ${index < plan.categories.length - 1 ? '<div class="category-divider"></div>' : ""}
-        </div>
-      `
-      )
-      .join("");
-
+  private generateHtml(): string {
     // Get extension URI and create webview URIs
     const extensionUri = this.webViewPanel.getExtensionUri();
     const stylesUri = this.webViewPanel.asWebviewUri(
@@ -273,8 +276,6 @@ export class ExportWebViewProvider {
     return htmlTemplate
       .replace("${stylesUri}", stylesUri)
       .replace("${scriptUri}", scriptUri)
-      .replace("${totalCount}", String(plan.totalCount))
-      .replace("${categoriesHtml}", categoriesHtml)
       .replace("${exportToDirectoryChecked}", this.exportState.directory.enabled ? "checked" : "")
       .replace("${targetPath}", this.exportState.directory.targetPath);
   }

@@ -215,6 +215,22 @@
               "default": true
             }
           }
+        },
+        "contextEditor.export.selectedNodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Persisted selected node IDs for export tree view"
+        },
+        "contextEditor.export.expandedNodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Persisted expanded node IDs for export tree view"
         }
       }
     }

@@ -25,6 +25,7 @@ import type { FileCreationService } from "../services/fileCreationService.js";
 import type { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import type { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import type { ILoggerService } from "../services/loggerService.js";
+import { Logger } from "../utils/logger.js";
 import type { IEnvironmentManagerService } from "../services/environmentManagerService.js";
 import type { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
 import type { FileSystem } from "../services/fileSystemService.js";
@@ -33,6 +34,7 @@ import { ExportWebViewProvider } from "../services/exportWebViewProvider";
 import { ConfigService } from "../services/configService";
 import type { ExportService } from "../services/exportService.js";
 import type { DirectoryPicker } from "../adapters/directoryPicker.js";
+import type { UnifiedProvider } from "../views/unifiedProvider.js";
 
 /**
  * All service tokens for the DI container
@@ -58,6 +60,7 @@ export const ServiceTokens = {
   NodeService: new ServiceToken<NodeService>("NodeService"),
   FileCreationService: new ServiceToken<FileCreationService>("FileCreationService"),
   LoggerService: new ServiceToken<ILoggerService>("LoggerService"),
+  Logger: new ServiceToken<Logger>("Logger"),
   EnvironmentManagerService: new ServiceToken<IEnvironmentManagerService>(
     "EnvironmentManagerService"
   ),
@@ -73,6 +76,9 @@ export const ServiceTokens = {
   ExportScannerService: new ServiceToken<ExportScanner>("ExportScannerService"),
   ExportWebViewProvider: new ServiceToken<ExportWebViewProvider>("ExportWebViewProvider"),
   ExportService: new ServiceToken<ExportService>("ExportService"),
+
+  // Views
+  UnifiedProvider: new ServiceToken<UnifiedProvider>("UnifiedProvider"),
 
   // Configuration
   ConfigService: new ServiceToken<ConfigService>("ConfigService"),

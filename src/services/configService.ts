@@ -43,6 +43,8 @@ export const DEFAULT_EXPORT_STATE: ExportState = {
 export const CONFIG_KEYS = {
   DIRECTORY: "contextEditor.export.directory",
   CATEGORIES: "contextEditor.export.categories",
+  SELECTED_NODES: "contextEditor.export.selectedNodes",
+  EXPANDED_NODES: "contextEditor.export.expandedNodes",
 } as const;
 
 /**
@@ -60,4 +62,28 @@ export interface ConfigService {
    * @param state - Full export state to save
    */
   setExportState(state: ExportState): Promise<void>;
+
+  /**
+   * Get selected node IDs for export tree
+   * @returns Array of selected node IDs
+   */
+  getExportSelectedNodes(): string[];
+
+  /**
+   * Set selected node IDs for export tree
+   * @param nodeIds - Array of selected node IDs
+   */
+  setExportSelectedNodes(nodeIds: string[]): Promise<void>;
+
+  /**
+   * Get expanded node IDs for export tree
+   * @returns Array of expanded node IDs
+   */
+  getExportExpandedNodes(): string[];
+
+  /**
+   * Set expanded node IDs for export tree
+   * @param nodeIds - Array of expanded node IDs
+   */
+  setExportExpandedNodes(nodeIds: string[]): Promise<void>;
 }

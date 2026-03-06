@@ -12,8 +12,7 @@
       <h1>Export Claude Settings</h1>
       <div class="empty-state" id="empty-state" style="display: none;">
         <p>No Claude resources found to export.</p>
-        <p class="empty-state-hint">Make sure you have resources in your ~/.claude/skills, ~/.claude/agents, or
-          ~/.claude/commands directories.</p>
+        <p class="empty-state-hint">Make sure you have resources in your Claude configuration directories.</p>
       </div>
     </header>
     <div class="progress-container" id="progress-container" style="display: none;">
@@ -28,11 +27,19 @@
     </div>
 
     <main class="main-content">
-      ${categoriesHtml}
+      <div class="tree-toolbar">
+        <button class="tree-toolbar-btn" id="expand-all-btn" title="Expand all">Expand All</button>
+        <button class="tree-toolbar-btn" id="collapse-all-btn" title="Collapse all">Collapse All</button>
+        <div class="tree-stats">
+          <span id="selected-count">0</span> / <span id="total-count">0</span> items selected
+        </div>
+      </div>
+      <div class="tree-container" id="tree-container">
+        <!-- Tree nodes will be dynamically generated -->
+      </div>
     </main>
 
     <footer class="footer">
-      <div class="footer-subtitle">${totalCount} items ready to export</div>
       <div class="checkbox-group">
         <div class="checkbox-item">
           <input type="checkbox" id="export-to-directory" ${exportToDirectoryChecked} />
@@ -55,7 +62,7 @@
 
       <div class="button-group">
         <button class="cancel" id="cancel-btn">Cancel</button>
-        <button class="confirm" id="export-btn">Export</button>
+        <button class="confirm" id="export-btn">Export (<span id="export-count">0</span>)</button>
       </div>
     </footer>
   </div>

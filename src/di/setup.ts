@@ -29,6 +29,7 @@ import { ContextMenuRegistry } from "../adapters/contextMenuRegistry.js";
 import { TreeItemFactory } from "../adapters/treeItemFactory.js";
 import { ProjectClaudeFileFilter } from "../types/fileFilter.js";
 import { VsCodeLoggerService } from "../services/loggerService.js";
+import { Logger } from "../utils/logger.js";
 import { EnvironmentManagerService } from "../services/environmentManagerService.js";
 import type { IDataFacade } from "../services/environmentManagerService.js";
 import { ClaudeCodeRootNodeService } from "../services/claudeCodeRootNodeService.js";
@@ -42,6 +43,7 @@ import { VsCodeConfigService } from "../services/vscodeConfigService";
 import { VsCodeConfigurationStore } from "../adapters/vscodeConfigurationStore";
 import { DirectoryExportService } from "../services/directoryExportService";
 import { VsCodeDirectoryPicker } from "../adapters/vsCodeDirectoryPicker";
+import { UnifiedProvider } from "../views/unifiedProvider.js";
 
 /**
  * Create and configure the dependency injection container
@@ -62,7 +64,7 @@ import { VsCodeDirectoryPicker } from "../adapters/vsCodeDirectoryPicker";
  */
 export function createContainer(
   context: vscode.ExtensionContext,
-  outputChannel: { appendLine(value: string): void },
+  outputChannel: vscode.OutputChannel,
   configSearch: { getAllFacades(): readonly IDataFacade[] },
   userInteraction: UserInteraction,
   logLevel: LogLevel = LogLevel.INFO,
@@ -73,6 +75,11 @@ export function createContainer(
   // Register LoggerService
   container.registerSingleton(ServiceTokens.LoggerService, () => {
     return new VsCodeLoggerService("ContextEditor", outputChannel, logLevel);
+  });
+
+  // Register Logger (for tree providers)
+  container.registerSingleton(ServiceTokens.Logger, () => {
+    return new Logger(outputChannel, "ContextEditor");
   });
 
   // Register EnvironmentManagerService
@@ -151,6 +158,13 @@ export function createContainer(
   container.registerSingleton(ServiceTokens.TreeItemFactory, () => {
     const menuRegistry = container.get(ServiceTokens.ContextMenuRegistry);
     return new TreeItemFactory(menuRegistry);
+  });
+
+  // Register UnifiedProvider (depends on TreeItemFactory)
+  container.registerSingleton(ServiceTokens.UnifiedProvider, () => {
+    const logger = container.get(ServiceTokens.Logger);
+    const treeItemFactory = container.get(ServiceTokens.TreeItemFactory);
+    return new UnifiedProvider(logger, container, treeItemFactory);
   });
 
   // Register ClaudeExportScanner
